@@ -65,9 +65,27 @@ transactions for the current month.
    VITE_USE_MOCK=false
    ```
 
-6. Restart `npm run dev`. The app now uses real Auth + Firestore with offline persistence.
+6. Restart `npm run dev`. The app now uses real Firestore with offline persistence.
 
 > To force demo mode even with keys present, set `VITE_USE_MOCK=true`.
+
+### 🔑 Environment variables (for GitHub / hosting)
+
+`.env` is **gitignored** — never commit it. Set the same `VITE_*` variables in
+whichever place builds the site:
+
+- **Local machine:** the `.env` file (above).
+- **Vercel / Netlify / Cloudflare Pages:** add each `VITE_*` key in the
+  project's *Environment Variables* settings, then deploy. The build reads them
+  automatically.
+- **GitHub Actions:** store them as *Repository → Settings → Secrets and
+  variables → Actions*, and expose them to the `npm run build` step, e.g.
+  `env: { VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}, ... }`.
+
+> These are Firebase **web** config values — they are compiled into the browser
+> bundle and are **not secret**. Your data is protected by **Firestore Security
+> Rules** (`firestore.rules`), not by hiding these keys. Keeping them in env vars
+> just keeps the repo clean and lets each environment target its own project.
 
 ### Deploy security rules & indexes
 
