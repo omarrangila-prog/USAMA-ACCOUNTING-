@@ -1,0 +1,32 @@
+{
+  "name": "bond-ledger-os",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Bond Ledger OS — Premium Prize Bond / Bond Trading Accounting Software",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "seed": "node scripts/seed.mjs"
+  },
+  "dependencies": {
+    "date-fns": "^3.6.0",
+    "firebase": "^10.12.2",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.24.0",
+    "xlsx": "^0.18.5",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.3"
+  }
+}

@@ -1,0 +1,133 @@
+/* ==========================================================================
+   Responsive layer — tablet + mobile.
+   Breakpoints are aligned with the 960px sidebar switch:
+     >960px  desktop (sidebar docked)
+     ≤960px  sidebar off-canvas, layouts begin to stack
+     ≤720px  phone landscape / small tablet
+     ≤560px  phone portrait
+   Goal: no horizontal PAGE scroll at any width down to 320px.
+   ========================================================================== */
+
+/* Global hard guard against horizontal overflow. Individual scroll areas
+   (.table-wrap) still scroll internally. */
+html, body, #root { max-width: 100%; overflow-x: hidden; }
+.app-shell, .main-col, .content { min-width: 0; max-width: 100%; }
+
+/* Any wide table lives inside a scroll container, never widens the page. */
+.table-wrap { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* ---- Stack the two-column working layouts on tablet ---- */
+@media (max-width: 960px) {
+  .entry-layout,
+  .masters-layout,
+  .settings-grid,
+  .dash-lower { grid-template-columns: 1fr !important; }
+  .entry-form,
+  .master-form { position: static !important; }
+  .dash-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* ---- Top bar: never overflow; wrap into rows on small screens ---- */
+@media (max-width: 900px) {
+  .topbar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .search-btn { flex: 1 1 140px; min-width: 0; }
+  .user-menu { margin-left: auto; }
+}
+@media (max-width: 560px) {
+  .topbar { position: static; margin: 10px 0 14px; }
+  .smart-btn span { display: none; }
+  .user-name { display: none; }
+  .search-btn span { display: none; }
+  .search-btn kbd { display: none; }
+}
+
+/* ---- Prevent iOS zoom-on-focus (inputs must be ≥16px) ---- */
+@media (max-width: 640px) {
+  .input, .select, textarea.input { font-size: 16px; }
+}
+
+/* ---- Tables tighten + set a sensible min-width so columns stay legible ---- */
+@media (max-width: 640px) {
+  table.grid { font-size: 12.5px; min-width: 480px; }
+  table.grid thead th,
+  table.grid tbody td,
+  table.grid tfoot td { padding: 9px 10px; }
+  .card { padding: 14px; }
+  .card-tight { padding: 12px; }
+  .page-title { font-size: 19px; }
+  .page-sub { font-size: 12.5px; }
+}
+
+/* ---- Dashboard / summary stat cards: 2-up then 1-up ---- */
+@media (max-width: 560px) {
+  .dash-grid,
+  .summary-cards,
+  .mig-totals { grid-template-columns: 1fr 1fr !important; gap: 10px; }
+  .stat-value { font-size: 18px; }
+  .stat-card { min-height: 90px; padding: 13px 14px; }
+  .data-stats { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 400px) {
+  .dash-grid,
+  .summary-cards { grid-template-columns: 1fr !important; }
+}
+
+/* ---- Page header actions become full-width, stacked buttons ---- */
+@media (max-width: 640px) {
+  .page-head { align-items: flex-start; }
+  .page-head-actions { width: 100%; }
+  .page-head-actions .btn { flex: 1 1 auto; justify-content: center; }
+  .page-head-actions .segment { width: 100%; }
+  .page-head-actions .segment button { flex: 1; }
+}
+
+/* ---- Entry form 2-col row (Qty/Rate) stays 2-up; forms comfortable ---- */
+@media (max-width: 560px) {
+  .form-row2 { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .amount-preview .amt-value { font-size: 21px; }
+}
+
+/* ---- Modals become bottom sheets ---- */
+@media (max-width: 560px) {
+  .modal-backdrop { padding: 0; align-items: flex-end; }
+  .modal {
+    width: 100% !important;
+    max-width: 100%;
+    max-height: 92vh;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  .modal-foot { position: sticky; bottom: 0; background: rgba(255,255,255,0.97); }
+  .modal-foot .btn { flex: 1; justify-content: center; }
+  .cmd-backdrop { padding-top: 6vh; }
+  .cmd { width: 94vw; }
+}
+
+/* ---- Combo dropdown capped so it never runs off-screen ---- */
+@media (max-width: 560px) {
+  .combo-pop { max-height: 240px; }
+}
+
+/* ---- Toasts full width ---- */
+@media (max-width: 560px) {
+  .toast-stack { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+}
+
+/* ---- Reports tiles + closing panel stack ---- */
+@media (max-width: 520px) {
+  .report-grid { grid-template-columns: 1fr; }
+  .close-panel { flex-direction: column; align-items: stretch; }
+  .close-panel .btn { width: 100%; justify-content: center; }
+  .chip-row .chip { flex: 1 1 40%; text-align: center; }
+}
+
+/* ---- Ledger balance header wraps cleanly ---- */
+@media (max-width: 560px) {
+  .masters-layout .row,
+  .entry-layout .row { flex-wrap: wrap; }
+}

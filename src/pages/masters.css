@@ -1,0 +1,26 @@
+.masters-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+.master-form { position: sticky; top: 84px; }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke-strong);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chip:hover { border-color: var(--blue); color: var(--blue); }
+.chip-done { background: var(--green-soft); border-color: rgba(16,185,129,0.3); color: #047857; }
+
+@media (max-width: 1080px) {
+  .masters-layout { grid-template-columns: 1fr; }
+  .master-form { position: static; }
+}

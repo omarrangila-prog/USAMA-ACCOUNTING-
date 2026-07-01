@@ -1,0 +1,111 @@
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/store/authStore';
+import { useData } from '@/store/dataStore';
+import { Icon } from '../ui/Icon';
+import { MONTHS } from '@/lib/utils';
+import { exportReportPdf, exportReportExcel } from '@/lib/reportBuilder';
+import { toast } from '@/store/toast';
+import './topbar.css';
+
+interface Props {
+  onMenu: () => void;
+  onSearch: () => void;
+  onSmart: () => void;
+}
+
+export function Topbar({ onMenu, onSearch, onSmart }: Props) {
+  const nav = useNavigate();
+  const { mockMode } = useAuth();
+  const { period, setPeriod, online, dataset, settings } = useData();
+
+  const years = Array.from({ length: 7 }, (_, i) => new Date().getFullYear() - 4 + i);
+
+  return (
+    <header className="topbar no-print glass">
+      <button className="btn btn-ghost btn-icon menu-btn" onClick={onMenu} aria-label="Menu">
+        <Icon name="menu" size={20} />
+      </button>
+
+      <div className="period-picker">
+        <Icon name="calendar" size={16} className="faint" />
+        <select
+          className="select bare"
+          value={period.month}
+          onChange={(e) => setPeriod({ ...period, month: Number(e.target.value) })}
+          title="Month"
+        >
+          {MONTHS.map((m, i) => (
+            <option key={m} value={i + 1}>{m}</option>
+          ))}
+        </select>
+        <select
+          className="select bare"
+          value={period.year}
+          onChange={(e) => setPeriod({ ...period, year: Number(e.target.value) })}
+          title="Year"
+        >
+          {years.map((y) => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
+      </div>
+
+      <button className="search-btn" onClick={onSearch}>
+        <Icon name="search" size={16} className="faint" />
+        <span>Search parties, reports…</span>
+        <kbd>⌘K</kbd>
+      </button>
+
+      <div className="spacer" />
+
+      {!online && (
+        <span className="badge badge-orange offline-pill" title="Offline — changes sync automatically">
+          <Icon name="wifi-off" size={13} /> Offline
+        </span>
+      )}
+      {mockMode && (
+        <span className="badge badge-gray demo-pill" title="Running in local demo mode (no Firebase)">
+          Demo
+        </span>
+      )}
+
+      <button className="btn btn-green btn-sm smart-btn" onClick={onSmart} title="Smart Entry">
+        <Icon name="sparkles" size={15} /> Smart Entry
+      </button>
+
+      <div className="tool-group">
+        <button className="btn btn-ghost btn-icon" title="Print (Ctrl/Cmd+P)" onClick={() => window.print()}>
+          <Icon name="print" size={17} />
+        </button>
+        <button
+          className="btn btn-ghost btn-icon"
+          title="Export PDF"
+          onClick={() => { exportReportPdf(dataset(), settings, period, 'all'); toast.success('PDF exported'); }}
+        >
+          <Icon name="pdf" size={17} />
+        </button>
+        <button
+          className="btn btn-ghost btn-icon"
+          title="Export Excel"
+          onClick={() => { exportReportExcel(dataset(), period); toast.success('Excel exported'); }}
+        >
+          <Icon name="excel" size={17} />
+        </button>
+        <button
+          className="btn btn-ghost btn-icon"
+          title="Refresh"
+          onClick={() => { window.location.reload(); }}
+        >
+          <Icon name="refresh" size={17} />
+        </button>
+      </div>
+
+      <div className="user-menu">
+        <button className="user-btn" onClick={() => nav('/settings')} title="Business settings">
+          <span className="avatar">{(settings.businessName || 'B')[0].toUpperCase()}</span>
+          <span className="user-name">{settings.businessName || 'Owner'}</span>
+        </button>
+      </div>
+    </header>
+  );
+}

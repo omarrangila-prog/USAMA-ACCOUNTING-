@@ -1,0 +1,40 @@
+.cmd-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(4px);
+  display: flex; justify-content: center; align-items: flex-start;
+  padding-top: 12vh;
+  z-index: 950;
+  animation: fadeUp 0.15s ease;
+}
+.cmd {
+  width: 560px; max-width: 92vw;
+  background: rgba(255,255,255,0.92);
+  overflow: hidden;
+  animation: modalPop 0.2s ease both;
+}
+.cmd-search {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--stroke);
+}
+.cmd-search input {
+  flex: 1; border: none; background: transparent; outline: none;
+  font-size: 16px; color: var(--text);
+}
+.cmd-search kbd {
+  font-size: 11px; background: rgba(15,23,42,0.06);
+  padding: 3px 7px; border-radius: 6px; color: var(--text-soft);
+}
+.cmd-list { max-height: 380px; overflow-y: auto; padding: 6px; }
+.cmd-item {
+  display: flex; align-items: center; gap: 11px;
+  width: 100%; padding: 10px 12px;
+  border: none; background: transparent; border-radius: 10px;
+  cursor: pointer; text-align: left; font-size: 14px; color: var(--text);
+}
+.cmd-item.active { background: var(--blue-soft); }
+.cmd-ico { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: rgba(15,23,42,0.05); color: var(--text-soft); }
+.cmd-item.active .cmd-ico { background: #fff; color: var(--blue); }
+.cmd-label { flex: 1; font-weight: 550; }
+.cmd-sub { font-size: 12px; }

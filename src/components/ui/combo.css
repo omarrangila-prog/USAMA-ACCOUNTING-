@@ -1,0 +1,42 @@
+.combo { position: relative; width: 100%; }
+.combo-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  text-align: left;
+}
+.combo-overlay { position: fixed; inset: 0; z-index: 40; }
+.combo-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  animation: fadeUp 0.15s ease;
+  max-height: 280px;
+  display: flex;
+  flex-direction: column;
+}
+.combo-search { margin-bottom: 6px; }
+.combo-list { overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.combo-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+}
+.combo-item:hover { background: rgba(59, 130, 246, 0.08); }
+.combo-item.kbd-active { background: var(--blue-soft); box-shadow: inset 0 0 0 1.5px var(--blue); }
+.combo-item.active { background: var(--blue-soft); font-weight: 600; }
+.combo-create { color: var(--blue); font-weight: 600; }
+.combo-invalid .combo-trigger { border-color: var(--red); }
