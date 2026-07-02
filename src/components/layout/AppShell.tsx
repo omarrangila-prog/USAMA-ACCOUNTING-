@@ -5,6 +5,7 @@ import { Topbar } from './Topbar';
 import { SmartEntry } from '../SmartEntry';
 import { CommandPalette } from '../CommandPalette';
 import { useShortcuts } from '@/hooks/useShortcuts';
+import { MISCONFIGURED_PROD } from '@/firebase/config';
 import './appshell.css';
 
 export function AppShell() {
@@ -36,6 +37,13 @@ export function AppShell() {
           onSearch={() => setPaletteOpen(true)}
           onSmart={() => setSmartOpen(true)}
         />
+        {MISCONFIGURED_PROD && (
+          <div className="config-warning no-print">
+            ⚠️ Firebase is not configured on this deployment, so data cannot load or save.
+            Set the <code>VITE_FIREBASE_*</code> environment variables in your hosting settings
+            (Vercel → Settings → Environment Variables) and <strong>redeploy</strong>.
+          </div>
+        )}
         <main className="content">
           <Outlet />
         </main>

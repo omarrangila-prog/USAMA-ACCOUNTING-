@@ -11,10 +11,12 @@ import {
   computePayables,
 } from '@/lib/accounting';
 import { formatMoney, formatNumber, formatDate, monthName } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
 import './dashboard.css';
 
 export function Dashboard() {
   const nav = useNavigate();
+  const t = useT();
   const { period, dataset, settings, isMonthClosed } = useData();
   const data = dataset();
   const cur = settings.currency;
@@ -47,25 +49,25 @@ export function Dashboard() {
         actions={
           <>
             <button className="btn btn-primary" onClick={() => nav('/purchase?new=1')}>
-              <Icon name="plus" size={16} /> Purchase
+              <Icon name="plus" size={16} /> {t('nav.purchase')}
             </button>
             <button className="btn btn-green" onClick={() => nav('/sale?new=1')}>
-              <Icon name="plus" size={16} /> Sale
+              <Icon name="plus" size={16} /> {t('nav.sale')}
             </button>
           </>
         }
       />
 
       <div className="dash-grid">
-        <StatCard label="Total Purchase" value={formatMoney(stats.totalPurchase, cur)} icon="purchase" accent="blue" onClick={() => nav('/purchase')} />
-        <StatCard label="Total Sale" value={formatMoney(stats.totalSale, cur)} icon="sale" accent="green" onClick={() => nav('/sale')} />
-        <StatCard label="Closing Stock" value={formatMoney(stats.closingStockValue, cur)} icon="stock" accent="purple" hint={`${formatNumber(stats.closingStockQty)} bonds`} onClick={() => nav('/stock')} />
-        <StatCard label="Cash Receivable" value={formatMoney(stats.cashReceivable, cur)} icon="receivable" accent="green" onClick={() => nav('/receivable')} />
-        <StatCard label="Cash Payable" value={formatMoney(stats.cashPayable, cur)} icon="payable" accent="red" onClick={() => nav('/payable')} />
-        <StatCard label="Expenses" value={formatMoney(stats.totalExpense, cur)} icon="wallet" accent="orange" hint={stats.totalIncome ? `Income ${formatMoney(stats.totalIncome, cur)}` : undefined} onClick={() => nav('/expenses')} />
-        <StatCard label="Net Balance" value={formatMoney(stats.netBalance, cur)} icon="wallet" accent="blue" hint={`Cash in hand ${formatMoney(stats.cashInHand, cur)}`} onClick={() => nav('/trial-balance')} />
+        <StatCard label={t('d.totalPurchase')} value={formatMoney(stats.totalPurchase, cur)} icon="purchase" accent="blue" onClick={() => nav('/purchase')} />
+        <StatCard label={t('d.totalSale')} value={formatMoney(stats.totalSale, cur)} icon="sale" accent="green" onClick={() => nav('/sale')} />
+        <StatCard label={t('d.closingStock')} value={formatMoney(stats.closingStockValue, cur)} icon="stock" accent="purple" hint={`${formatNumber(stats.closingStockQty)} bonds`} onClick={() => nav('/stock')} />
+        <StatCard label={t('d.cashReceivable')} value={formatMoney(stats.cashReceivable, cur)} icon="receivable" accent="green" onClick={() => nav('/receivable')} />
+        <StatCard label={t('d.cashPayable')} value={formatMoney(stats.cashPayable, cur)} icon="payable" accent="red" onClick={() => nav('/payable')} />
+        <StatCard label={t('d.expenses')} value={formatMoney(stats.totalExpense, cur)} icon="wallet" accent="orange" hint={stats.totalIncome ? `${t('f.income')} ${formatMoney(stats.totalIncome, cur)}` : undefined} onClick={() => nav('/expenses')} />
+        <StatCard label={t('d.netBalance')} value={formatMoney(stats.netBalance, cur)} icon="wallet" accent="blue" hint={`Cash in hand ${formatMoney(stats.cashInHand, cur)}`} onClick={() => nav('/trial-balance')} />
         <StatCard
-          label="Profit / Loss"
+          label={t('d.profitLoss')}
           value={formatMoney(stats.profitLoss, cur)}
           icon="trial"
           accent={stats.profitLoss >= 0 ? 'green' : 'red'}
@@ -73,7 +75,7 @@ export function Dashboard() {
           onClick={() => nav('/reports')}
         />
         <StatCard
-          label="Trial Balance"
+          label={t('d.trialBalance')}
           value={stats.trialBalanced ? 'Balanced' : 'Check'}
           icon="scale"
           accent={stats.trialBalanced ? 'green' : 'orange'}

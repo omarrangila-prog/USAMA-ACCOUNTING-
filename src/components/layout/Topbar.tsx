@@ -4,6 +4,7 @@ import { useData } from '@/store/dataStore';
 import { Icon } from '../ui/Icon';
 import { MONTHS } from '@/lib/utils';
 import { exportReportPdf, exportReportExcel } from '@/lib/reportBuilder';
+import { useI18n } from '@/lib/i18n';
 import { toast } from '@/store/toast';
 import './topbar.css';
 
@@ -17,6 +18,7 @@ export function Topbar({ onMenu, onSearch, onSmart }: Props) {
   const nav = useNavigate();
   const { mockMode } = useAuth();
   const { period, setPeriod, online, dataset, settings } = useData();
+  const { lang, setLang } = useI18n();
 
   const years = Array.from({ length: 7 }, (_, i) => new Date().getFullYear() - 4 + i);
 
@@ -57,6 +59,11 @@ export function Topbar({ onMenu, onSearch, onSmart }: Props) {
       </button>
 
       <div className="spacer" />
+
+      <div className="segment lang-toggle" title="Language / زبان">
+        <button className={lang === 'en' ? 'active' : ''} onClick={() => setLang('en')}>EN</button>
+        <button className={lang === 'ur' ? 'active' : ''} onClick={() => setLang('ur')}>اردو</button>
+      </div>
 
       {!online && (
         <span className="badge badge-orange offline-pill" title="Offline — changes sync automatically">

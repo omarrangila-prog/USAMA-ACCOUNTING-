@@ -59,6 +59,8 @@
 }
 
 .offline-pill, .demo-pill { height: 28px; }
+.lang-toggle button { padding: 5px 10px; font-size: 12.5px; }
+@media (max-width: 560px) { .lang-toggle { order: 7; } }
 .tool-group { display: flex; gap: 2px; }
 .smart-btn { flex-shrink: 0; }
 

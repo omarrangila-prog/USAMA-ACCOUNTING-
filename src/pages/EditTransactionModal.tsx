@@ -43,6 +43,9 @@ export function EditTransactionModal({
   const partyOptions = store.parties.map((p) => ({ id: p.id, label: p.name, sub: p.phone }));
   const bondOptions = store.bondTypes.map((b) => ({ id: b.id, label: `Rs. ${b.name}`, sub: `face ${b.faceValue}` }));
 
+  // Warn if this record belongs to a closed (past-summary) month.
+  const closedMonth = record ? store.isMonthClosed({ month: record.month, year: record.year }) : false;
+
   const save = async () => {
     if (!record) return;
     setBusy(true);
@@ -71,6 +74,13 @@ export function EditTransactionModal({
       }
     >
       <div className="form-grid">
+        {closedMonth && (
+          <div className="warn-box" style={{ margin: 0 }}>
+            <Icon name="warning" size={14} />
+            <span>This entry is in a <strong>closed month</strong>. Editing it will change past
+              records and update that month's summary. Continue only if you're sure.</span>
+          </div>
+        )}
         <div className="field">
           <label>Date</label>
           <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />

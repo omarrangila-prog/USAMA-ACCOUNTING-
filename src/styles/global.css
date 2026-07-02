@@ -290,3 +290,15 @@ table.grid tfoot td {
   .print-only { display: block !important; }
 }
 .print-only { display: none; }
+
+/* Urdu: use a font stack with good Nastaliq/Naskh coverage and nudge sizing.
+   We keep LTR layout (numbers/tables stay familiar) but render Urdu labels
+   clearly. Full RTL flip is intentionally avoided to not disrupt the ledger
+   number columns an Excel user expects on the right. */
+html[lang='ur'] {
+  font-family: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Segoe UI',
+    -apple-system, system-ui, sans-serif;
+}
+html[lang='ur'] .nav-label,
+html[lang='ur'] .stat-label,
+html[lang='ur'] .segment button { font-size: 14px; }

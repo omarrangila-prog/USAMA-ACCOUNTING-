@@ -24,6 +24,17 @@ const forceMock =
 export const USE_MOCK =
   forceMock || env.VITE_USE_MOCK === 'true' || !env.VITE_FIREBASE_API_KEY;
 
+/**
+ * True when a PRODUCTION build ended up in mock mode because the Firebase keys
+ * were missing (not because the user deliberately set VITE_USE_MOCK=true).
+ * This is the classic "deployed to Vercel but no data shows" situation — env
+ * vars weren't set at build time. The app surfaces a visible banner for this.
+ */
+export const MISCONFIGURED_PROD =
+  import.meta.env.PROD &&
+  env.VITE_USE_MOCK !== 'true' &&
+  !env.VITE_FIREBASE_API_KEY;
+
 const firebaseConfig = {
   apiKey: env.VITE_FIREBASE_API_KEY,
   authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
