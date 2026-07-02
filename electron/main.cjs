@@ -14,6 +14,7 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: '#eef1f7',
     title: 'USAMA RAZA — Bond Ledger',
+    icon: path.join(__dirname, '..', 'build', 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: {
       contextIsolation: true,

@@ -35,6 +35,8 @@
     "cross-env": "^7.0.3",
     "electron": "^31.1.0",
     "electron-builder": "^24.13.3",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.35.3",
     "typescript": "^5.5.3",
     "vite": "^5.3.3",
     "wait-on": "^7.2.0"
@@ -50,8 +52,14 @@
       "electron/**/*"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
-        { "target": "nsis", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "artifactName": "USAMA-RAZA-Bond-Ledger-Setup-${version}.${ext}"
     },
@@ -60,9 +68,17 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Bond Ledger"
+      "shortcutName": "Bond Ledger",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
     },
-    "mac": { "target": "dmg" },
-    "linux": { "target": "AppImage" }
+    "mac": {
+      "icon": "build/icon.png",
+      "target": "dmg"
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "target": "AppImage"
+    }
   }
 }
