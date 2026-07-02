@@ -20,6 +20,9 @@ export function Settings() {
     phone: s.phone ?? '', address: s.address ?? '', currency: s.currency,
   });
   const [seedConfirm, setSeedConfirm] = useState(false);
+  const [resetText, setResetText] = useState('');
+  const [keepMasters, setKeepMasters] = useState(true);
+  const [resetting, setResetting] = useState(false);
 
   const saveInfo = async () => {
     await store.updateSettings(form);
@@ -29,6 +32,14 @@ export function Settings() {
   const loadSample = async () => {
     setSeedConfirm(false);
     await store.importBulk(buildSeed());
+  };
+
+  const doReset = async () => {
+    setResetting(true);
+    try {
+      await store.resetAllData({ keepMasters });
+      setResetText('');
+    } finally { setResetting(false); }
   };
 
   return (
@@ -104,6 +115,34 @@ export function Settings() {
             ? 'Online — changes sync in real time.'
             : 'Offline — changes saved locally and sync automatically when reconnected.'}
         </div>
+      </div>
+
+      {/* Danger zone — permanent data reset */}
+      <div className="card danger-zone">
+        <div className="section-title" style={{ color: 'var(--red)' }}>
+          <Icon name="warning" size={16} /> Danger Zone — Reset All Data
+        </div>
+        <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+          This permanently deletes <strong>all transactions</strong> (purchases, sales, cash, expenses),
+          closings, opening balances and bank files across <strong>every month</strong>. This cannot be undone.
+        </p>
+        <label className="reset-check">
+          <input type="checkbox" checked={keepMasters} onChange={(e) => setKeepMasters(e.target.checked)} />
+          Keep my parties &amp; bond types (only delete transactions)
+        </label>
+        <div className="field" style={{ maxWidth: 320, marginTop: 12 }}>
+          <label>Type <strong>DELETE</strong> to confirm</label>
+          <input className="input" placeholder="DELETE" value={resetText}
+            onChange={(e) => setResetText(e.target.value)} />
+        </div>
+        <button
+          className="btn btn-danger"
+          style={{ marginTop: 12 }}
+          disabled={resetText !== 'DELETE' || resetting}
+          onClick={doReset}
+        >
+          <Icon name="trash" size={16} /> {resetting ? 'Deleting…' : 'Permanently Delete All Data'}
+        </button>
       </div>
 
       <ConfirmDialog

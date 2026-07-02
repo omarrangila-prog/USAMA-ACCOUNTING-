@@ -23,6 +23,16 @@
   display: flex; gap: 8px; align-items: flex-start;
 }
 
+.danger-zone {
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: linear-gradient(180deg, rgba(254, 226, 226, 0.35), var(--surface));
+}
+.reset-check {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--text-soft); cursor: pointer;
+}
+.reset-check input { width: 16px; height: 16px; }
+
 .move-preview {
   margin-top: 14px; padding: 12px 14px;
   border-radius: var(--radius-sm); background: rgba(15,23,42,0.03);

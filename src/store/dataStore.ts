@@ -20,6 +20,8 @@ import {
   upsertDoc,
   removeDoc,
   bulkUpsert,
+  listOnce,
+  type CollectionName,
 } from '@/firebase/dataAccess';
 import {
   type DataSet,
@@ -104,6 +106,8 @@ interface DataStore {
   countInPeriod: (p: Period) => { purchases: number; sales: number; cash: number; expenses: number; total: number };
   /** Move ALL records (purchases/sales/cash/expenses) from one month to another. */
   moveMonth: (from: Period, to: Period) => Promise<number>;
+  /** DANGER: permanently delete every record. Optionally keep parties & bond types. */
+  resetAllData: (opts?: { keepMasters?: boolean }) => Promise<void>;
 
   // migration
   importBulk: (payload: ImportPayload) => Promise<void>;
@@ -698,6 +702,35 @@ export const useData = create<DataStore>((set, get) => ({
       toast.info(`No records found in ${monthName(from.month)} ${from.year}.`);
     }
     return moved;
+  },
+
+  /**
+   * DANGER: permanently delete all records. Enumerates each collection from the
+   * backend (not just in-memory state) and removes every document. When
+   * keepMasters is true, parties + bond types are preserved.
+   */
+  resetAllData: async (opts) => {
+    const u = get().uidRef;
+    if (!u) { toast.error('Not ready yet.'); return; }
+    const collections: CollectionName[] = [
+      'purchases', 'sales', 'cashTransactions', 'expenses',
+      'ledgerEntries', 'monthlyClosings', 'openingBalances', 'fileAccounts',
+      'expenseCategories',
+    ];
+    if (!opts?.keepMasters) {
+      collections.push('parties', 'bondTypes');
+    }
+    let deleted = 0;
+    for (const coll of collections) {
+      const rows = await listOnce<{ id: string }>(u, coll);
+      for (const r of rows) {
+        await removeDoc(u, coll, r.id);
+        deleted++;
+      }
+    }
+    // Clear the in-memory opening snapshot immediately.
+    set({ opening: null });
+    toast.success(`All data cleared${opts?.keepMasters ? ' (parties & bonds kept)' : ''}. ${deleted} records removed.`);
   },
 
   importBulk: async (payload) => {
