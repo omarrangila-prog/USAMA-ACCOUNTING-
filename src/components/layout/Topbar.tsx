@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/store/authStore';
 import { useData } from '@/store/dataStore';
@@ -19,6 +20,7 @@ export function Topbar({ onMenu, onSearch, onSmart }: Props) {
   const { mockMode } = useAuth();
   const { period, setPeriod, online, dataset, settings } = useData();
   const { lang, setLang } = useI18n();
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const years = Array.from({ length: 7 }, (_, i) => new Date().getFullYear() - 4 + i);
 
@@ -82,31 +84,40 @@ export function Topbar({ onMenu, onSearch, onSmart }: Props) {
         <Icon name="sparkles" size={15} /> Smart Entry
       </button>
 
+      {/* Full inline tools on wide screens */}
       <div className="tool-group">
         <button className="btn btn-ghost btn-icon" title="Print (Ctrl/Cmd+P)" onClick={() => window.print()}>
           <Icon name="print" size={17} />
         </button>
-        <button
-          className="btn btn-ghost btn-icon"
-          title="Export PDF"
-          onClick={() => { exportReportPdf(dataset(), settings, period, 'all'); toast.success('PDF exported'); }}
-        >
+        <button className="btn btn-ghost btn-icon" title="Export PDF"
+          onClick={() => { exportReportPdf(dataset(), settings, period, 'all'); toast.success('PDF exported'); }}>
           <Icon name="pdf" size={17} />
         </button>
-        <button
-          className="btn btn-ghost btn-icon"
-          title="Export Excel"
-          onClick={() => { exportReportExcel(dataset(), period); toast.success('Excel exported'); }}
-        >
+        <button className="btn btn-ghost btn-icon" title="Export Excel"
+          onClick={() => { exportReportExcel(dataset(), period); toast.success('Excel exported'); }}>
           <Icon name="excel" size={17} />
         </button>
-        <button
-          className="btn btn-ghost btn-icon"
-          title="Refresh"
-          onClick={() => { window.location.reload(); }}
-        >
+        <button className="btn btn-ghost btn-icon" title="Refresh" onClick={() => window.location.reload()}>
           <Icon name="refresh" size={17} />
         </button>
+      </div>
+
+      {/* Compact overflow menu on small screens */}
+      <div className="tool-more">
+        <button className="btn btn-ghost btn-icon" title="More" onClick={() => setMoreOpen((v) => !v)}>
+          <Icon name="more" size={18} />
+        </button>
+        {moreOpen && (
+          <>
+            <div className="more-overlay" onClick={() => setMoreOpen(false)} />
+            <div className="more-menu glass">
+              <button onClick={() => { setMoreOpen(false); window.print(); }}><Icon name="print" size={16} /> {lang === 'ur' ? 'پرنٹ' : 'Print'}</button>
+              <button onClick={() => { setMoreOpen(false); exportReportPdf(dataset(), settings, period, 'all'); toast.success('PDF exported'); }}><Icon name="pdf" size={16} /> {lang === 'ur' ? 'پی ڈی ایف' : 'Export PDF'}</button>
+              <button onClick={() => { setMoreOpen(false); exportReportExcel(dataset(), period); toast.success('Excel exported'); }}><Icon name="excel" size={16} /> {lang === 'ur' ? 'ایکسل' : 'Export Excel'}</button>
+              <button onClick={() => { setMoreOpen(false); window.location.reload(); }}><Icon name="refresh" size={16} /> {lang === 'ur' ? 'ری فریش' : 'Refresh'}</button>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="user-menu">

@@ -46,7 +46,7 @@ export function Purchase() {
             <div className="empty">No purchases recorded this month.</div>
           ) : (
             <div className="table-wrap">
-              <table className="grid">
+              <table className="grid stack-sm">
                 <thead>
                   <tr>
                     <th>Date</th><th>Party</th><th>Bond</th>
@@ -57,18 +57,18 @@ export function Purchase() {
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.id}>
-                      <td>{formatDate(r.date)}</td>
-                      <td><strong>{partyName(r.partyId)}</strong></td>
-                      <td>Rs. {bondName(r.bondTypeId)}</td>
-                      <td className="num mono">{formatNumber(r.quantity)}</td>
-                      <td className="num mono">{formatNumber(r.rate)}</td>
-                      <td className="num mono">{formatMoney(r.amount, cur)}</td>
-                      <td>
+                      <td data-label="Date">{formatDate(r.date)}</td>
+                      <td data-label="Party"><strong>{partyName(r.partyId)}</strong></td>
+                      <td data-label="Bond">Rs. {bondName(r.bondTypeId)}</td>
+                      <td data-label="Qty" className="num mono">{formatNumber(r.quantity)}</td>
+                      <td data-label="Rate" className="num mono">{formatNumber(r.rate)}</td>
+                      <td data-label="Amount" className="num mono">{formatMoney(r.amount, cur)}</td>
+                      <td data-label="Mode">
                         <span className={`badge ${r.payment === 'cash' ? 'badge-green' : 'badge-orange'}`}>
                           {r.payment}
                         </span>
                       </td>
-                      <td className="no-print">
+                      <td className="no-print actions-cell">
                         {!locked && (
                           <div className="row" style={{ gap: 2, justifyContent: 'flex-end' }}>
                             <button className="btn btn-ghost btn-icon btn-sm" title="Edit" onClick={() => setToEdit(r)}>

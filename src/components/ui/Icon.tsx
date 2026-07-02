@@ -7,7 +7,7 @@ export type IconName =
   | 'pdf' | 'excel' | 'save' | 'refresh' | 'user' | 'plus' | 'trash'
   | 'close' | 'check' | 'lock' | 'chevron' | 'wifi-off' | 'sparkles'
   | 'arrow-up' | 'arrow-down' | 'logout' | 'calendar' | 'wallet' | 'scale'
-  | 'menu' | 'info' | 'warning';
+  | 'menu' | 'info' | 'warning' | 'more';
 
 const paths: Record<IconName, string> = {
   dashboard: 'M4 13h6V4H4v9zm0 7h6v-5H4v5zm10 0h6V11h-6v9zm0-16v5h6V4h-6z',
@@ -44,6 +44,7 @@ const paths: Record<IconName, string> = {
   menu: 'M3 12h18M3 6h18M3 18h18',
   info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
   warning: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
+  more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
 };
 
 interface Props {

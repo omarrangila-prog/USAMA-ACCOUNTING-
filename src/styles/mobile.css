@@ -51,6 +51,47 @@ html, body, #root { max-width: 100%; overflow-x: hidden; }
   .input, .select, textarea.input { font-size: 16px; }
 }
 
+/* ---- Stacked-card tables on phones (opt-in via .stack-sm) --------------------
+   Each row becomes a card; each cell shows its column name via data-label.
+   Avoids the pure horizontal-scroll experience on 8-column accounting tables. */
+@media (max-width: 560px) {
+  table.grid.stack-sm { min-width: 0; width: 100%; }
+  table.grid.stack-sm thead { display: none; }
+  table.grid.stack-sm tbody tr {
+    display: block;
+    background: #fff;
+    border: 1px solid var(--stroke);
+    border-radius: 12px;
+    padding: 6px 12px;
+    margin-bottom: 10px;
+    box-shadow: var(--shadow-sm);
+  }
+  table.grid.stack-sm tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 0;
+    border: none;
+    border-bottom: 1px dashed var(--stroke);
+    text-align: right;
+  }
+  table.grid.stack-sm tbody td:last-child { border-bottom: none; }
+  table.grid.stack-sm tbody td::before {
+    content: attr(data-label);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    text-align: left;
+  }
+  /* Hide the empty action-cell label; keep buttons right-aligned. */
+  table.grid.stack-sm tbody td.actions-cell::before { content: ''; }
+  /* Totals live in the card header badge on mobile; hide the colspan footer. */
+  table.grid.stack-sm tfoot { display: none; }
+}
+
 /* ---- Tables tighten + set a sensible min-width so columns stay legible ---- */
 @media (max-width: 640px) {
   table.grid { font-size: 12.5px; min-width: 480px; }

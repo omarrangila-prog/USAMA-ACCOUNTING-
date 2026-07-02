@@ -62,6 +62,24 @@
 
 .offline-pill, .demo-pill { height: 28px; }
 .lang-toggle button { padding: 5px 10px; font-size: 12.5px; }
+
+/* Tools: inline group on desktop, overflow "More" menu on small screens. */
+.tool-more { position: relative; display: none; }
+.more-overlay { position: fixed; inset: 0; z-index: 60; }
+.more-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 70;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px; min-width: 180px;
+  background: rgba(255,255,255,0.97);
+  animation: fadeUp 0.15s ease;
+}
+.more-menu button {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border: none; background: transparent;
+  border-radius: 9px; font-size: 14px; color: var(--text);
+  cursor: pointer; text-align: left; width: 100%;
+}
+.more-menu button:hover { background: rgba(59,130,246,0.08); }
 @media (max-width: 560px) { .lang-toggle { order: 7; } }
 .tool-group { display: flex; gap: 2px; }
 .smart-btn { flex-shrink: 0; }
@@ -92,4 +110,10 @@
 @media (max-width: 960px) {
   .menu-btn { display: inline-flex; }
   .search-btn { min-width: 0; }
+}
+
+/* On phones, replace the 4 inline tool icons with a single "More" menu. */
+@media (max-width: 640px) {
+  .tool-group { display: none; }
+  .tool-more { display: block; }
 }
