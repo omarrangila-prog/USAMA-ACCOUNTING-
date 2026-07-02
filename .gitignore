@@ -13,3 +13,7 @@ firebase-debug.log
 
 # TS build info
 *.tsbuildinfo
+
+# Electron build output
+release
+

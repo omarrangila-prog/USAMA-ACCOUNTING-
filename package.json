@@ -4,12 +4,17 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Bond Ledger OS — Premium Prize Bond / Bond Trading Accounting Software",
+  "author": "USAMA RAZA",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "seed": "node scripts/seed.mjs"
+    "seed": "node scripts/seed.mjs",
+    "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
+    "electron:build": "cross-env ELECTRON=1 npm run build && electron-builder --win --publish never",
+    "electron:build:all": "cross-env ELECTRON=1 npm run build && electron-builder -mwl --publish never"
   },
   "dependencies": {
     "date-fns": "^3.6.0",
@@ -26,7 +31,38 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^31.1.0",
+    "electron-builder": "^24.13.3",
     "typescript": "^5.5.3",
-    "vite": "^5.3.3"
+    "vite": "^5.3.3",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.usamaraza.bondledger",
+    "productName": "USAMA RAZA Bond Ledger",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "artifactName": "USAMA-RAZA-Bond-Ledger-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Bond Ledger"
+    },
+    "mac": { "target": "dmg" },
+    "linux": { "target": "AppImage" }
   }
 }

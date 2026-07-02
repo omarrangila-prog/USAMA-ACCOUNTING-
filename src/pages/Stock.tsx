@@ -39,7 +39,7 @@ export function Stock() {
           <div className="empty">No bond types yet. Add one via a Purchase entry.</div>
         ) : (
           <div className="table-wrap">
-            <table className="grid">
+            <table className="grid stack-sm">
               <thead>
                 <tr>
                   <th>Bond</th>
@@ -54,13 +54,13 @@ export function Stock() {
               <tbody>
                 {stock.map((s) => (
                   <tr key={s.bondTypeId}>
-                    <td><strong>Rs. {s.bondTypeName}</strong></td>
-                    <td className="num mono">{formatNumber(s.openingQty)}</td>
-                    <td className="num mono pos">+{formatNumber(s.purchasedQty)}</td>
-                    <td className="num mono neg">-{formatNumber(s.soldQty)}</td>
-                    <td className="num mono"><strong>{formatNumber(s.closingQty)}</strong></td>
-                    <td className="num mono">{formatNumber(s.avgCost)}</td>
-                    <td className="num mono">{formatMoney(s.closingValue, cur)}</td>
+                    <td data-label="Bond"><strong>Rs. {s.bondTypeName}</strong></td>
+                    <td data-label="Opening" className="num mono">{formatNumber(s.openingQty)}</td>
+                    <td data-label="Purchased" className="num mono pos">+{formatNumber(s.purchasedQty)}</td>
+                    <td data-label="Sold" className="num mono neg">-{formatNumber(s.soldQty)}</td>
+                    <td data-label="Closing" className="num mono"><strong>{formatNumber(s.closingQty)}</strong></td>
+                    <td data-label="Avg Cost" className="num mono">{formatNumber(s.avgCost)}</td>
+                    <td data-label="Stock Value" className="num mono">{formatMoney(s.closingValue, cur)}</td>
                   </tr>
                 ))}
               </tbody>

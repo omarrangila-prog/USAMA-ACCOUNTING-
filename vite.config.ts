@@ -4,6 +4,9 @@ import path from 'node:path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // For the Electron desktop build, assets must load via relative paths
+  // (file://). Set ELECTRON=1 when building the .exe. Web/Vercel keeps '/'.
+  base: process.env.ELECTRON ? './' : '/',
   plugins: [react()],
   resolve: {
     alias: {

@@ -119,19 +119,19 @@ export function Expenses() {
             <div className="empty">{t('f.noEntries')}</div>
           ) : (
             <div className="table-wrap">
-              <table className="grid">
+              <table className="grid stack-sm">
                 <thead>
                   <tr><th>Date</th><th>Type</th><th>Category</th><th>Note</th><th className="num">Amount</th><th className="no-print"></th></tr>
                 </thead>
                 <tbody>
                   {rows.map((e) => (
                     <tr key={e.id}>
-                      <td>{formatDate(e.date)}</td>
-                      <td><span className={`badge ${e.kind === 'income' ? 'badge-green' : 'badge-red'}`}>{e.kind}</span></td>
-                      <td><strong>{e.category}</strong></td>
-                      <td className="muted">{e.description || '—'}</td>
-                      <td className={cx('num mono', e.kind === 'income' ? 'pos' : 'neg')}>{formatMoney(e.amount, cur)}</td>
-                      <td className="no-print">
+                      <td data-label="Date">{formatDate(e.date)}</td>
+                      <td data-label="Type"><span className={`badge ${e.kind === 'income' ? 'badge-green' : 'badge-red'}`}>{e.kind}</span></td>
+                      <td data-label="Category"><strong>{e.category}</strong></td>
+                      <td data-label="Note" className="muted">{e.description || '—'}</td>
+                      <td data-label="Amount" className={cx('num mono', e.kind === 'income' ? 'pos' : 'neg')}>{formatMoney(e.amount, cur)}</td>
+                      <td className="no-print actions-cell">
                         {!locked && (
                           <div className="row" style={{ gap: 2, justifyContent: 'flex-end' }}>
                             <button className="btn btn-ghost btn-icon btn-sm" title="Edit" onClick={() => startEdit(e)}><Icon name="settings" size={15} /></button>

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/store/authStore';
 import { useData } from '@/store/dataStore';
 import { AppShell } from '@/components/layout/AppShell';
@@ -42,8 +42,12 @@ export default function App() {
 
   if (!user) return <Splash />;
 
+  // Electron loads over file://, where BrowserRouter paths don't resolve —
+  // use HashRouter there. Web/Vercel keeps clean BrowserRouter URLs.
+  const Router = window.location.protocol === 'file:' ? HashRouter : BrowserRouter;
+
   return (
-    <BrowserRouter>
+    <Router>
       <Toasts />
       <Routes>
         <Route element={<AppShell />}>
@@ -63,6 +67,6 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }

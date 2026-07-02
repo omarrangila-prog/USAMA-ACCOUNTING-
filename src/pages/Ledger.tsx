@@ -142,7 +142,7 @@ export function Ledger() {
             <div className="empty">No entries this month.</div>
           ) : (
             <div className="table-wrap">
-              <table className="grid stmt-grid">
+              <table className="grid stmt-grid stack-sm">
                 <thead>
                   <tr>
                     <th>Date</th><th>Tafseel</th>
@@ -156,14 +156,14 @@ export function Ledger() {
                     const editable = !!e && e.refType === 'cash';
                     return (
                       <tr key={e?.id ?? `cb-${i}`}>
-                        <td>{formatDate(r.date)}</td>
-                        <td>{r.tafseel}</td>
-                        <td className="num mono">{r.debit ? formatNumber(r.debit) : '-'}</td>
-                        <td className="num mono">{r.credit ? formatNumber(r.credit) : '-'}</td>
-                        <td className={cx('num mono stmt-bal', r.balance >= 0 ? 'pos' : 'neg')}>
+                        <td data-label="Date">{formatDate(r.date)}</td>
+                        <td data-label="Tafseel">{r.tafseel}</td>
+                        <td data-label="Debit (-)" className="num mono">{r.debit ? formatNumber(r.debit) : '-'}</td>
+                        <td data-label="Credit (+)" className="num mono">{r.credit ? formatNumber(r.credit) : '-'}</td>
+                        <td data-label="Balance" className={cx('num mono stmt-bal', r.balance >= 0 ? 'pos' : 'neg')}>
                           {formatNumber(Math.abs(r.balance))} {r.balance >= 0 ? '(+)' : '(-)'}
                         </td>
-                        <td className="no-print">
+                        <td className="no-print actions-cell">
                           {editable && (
                             <button className="btn btn-ghost btn-icon btn-sm del-btn" title="Delete cash entry"
                               onClick={() => setCashToDelete(e!.refId)}>
