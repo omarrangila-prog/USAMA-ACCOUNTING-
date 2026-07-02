@@ -29,7 +29,7 @@ import {
   avgCostFor,
   computeProfitLoss,
 } from '@/lib/accounting';
-import { uid, now, periodOf, todayISO, round2, monthName, normalizeDenomination, normalizeName } from '@/lib/utils';
+import { uid, now, periodOf, todayISO, round2, monthName, normalizeDenomination, normalizeName, shiftDateToPeriod } from '@/lib/utils';
 import { toast } from './toast';
 
 const DEFAULT_SETTINGS: Settings = {
@@ -99,6 +99,11 @@ interface DataStore {
   closeMonth: (p: Period, closedBy: string) => Promise<MonthlyClosing | null>;
   /** If the given month was closed, silently refresh its snapshot after an edit. */
   resyncClosing: (p: Period) => Promise<void>;
+
+  /** Count records in a period (for the Move Month preview). */
+  countInPeriod: (p: Period) => { purchases: number; sales: number; cash: number; expenses: number; total: number };
+  /** Move ALL records (purchases/sales/cash/expenses) from one month to another. */
+  moveMonth: (from: Period, to: Period) => Promise<number>;
 
   // migration
   importBulk: (payload: ImportPayload) => Promise<void>;
@@ -642,6 +647,57 @@ export const useData = create<DataStore>((set, get) => ({
       },
     };
     await upsertDoc(u, 'monthlyClosings', closing as any);
+  },
+
+  countInPeriod: (p) => {
+    const s = get();
+    const inP = (r: { month: number; year: number }) => r.month === p.month && r.year === p.year;
+    const purchases = s.purchases.filter(inP).length;
+    const sales = s.sales.filter(inP).length;
+    const cash = s.cash.filter(inP).length;
+    const expenses = s.expenses.filter(inP).length;
+    return { purchases, sales, cash, expenses, total: purchases + sales + cash + expenses };
+  },
+
+  /**
+   * Move every record from one month to another by re-dating it (day kept,
+   * month/year changed). Purchases, sales, cash and expenses all move. Closing
+   * snapshots for both months are refreshed so carry-forward stays correct.
+   */
+  moveMonth: async (from, to) => {
+    const u = get().uidRef;
+    if (!u) { toast.error('Not ready yet.'); return 0; }
+    const s = get();
+    const inFrom = (r: { month: number; year: number }) => r.month === from.month && r.year === from.year;
+    let moved = 0;
+
+    const reDate = async <T extends { id: string; date: string; month: number; year: number; updatedAt: number }>(
+      rows: T[], coll: any
+    ) => {
+      for (const r of rows.filter(inFrom)) {
+        const date = shiftDateToPeriod(r.date, to);
+        await upsertDoc(u, coll, { ...r, date, month: to.month, year: to.year, updatedAt: now() });
+        moved++;
+      }
+    };
+
+    await reDate(s.purchases, 'purchases');
+    await reDate(s.sales, 'sales');
+    await reDate(s.cash, 'cashTransactions');
+    await reDate(s.expenses, 'expenses');
+
+    // Refresh closings for both months (source is now emptier, target fuller).
+    await get().resyncClosing(from);
+    await get().resyncClosing(to);
+
+    if (moved > 0) {
+      toast.success(`Moved ${moved} record${moved === 1 ? '' : 's'} from ${monthName(from.month)} ${from.year} to ${monthName(to.month)} ${to.year}.`);
+      // Jump the view to the target month so the user sees the result.
+      set({ period: to });
+    } else {
+      toast.info(`No records found in ${monthName(from.month)} ${from.year}.`);
+    }
+    return moved;
   },
 
   importBulk: async (payload) => {

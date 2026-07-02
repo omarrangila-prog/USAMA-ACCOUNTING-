@@ -107,3 +107,15 @@ export function normalizeDenomination(name: string): string {
 export function normalizeName(name: string): string {
   return name.trim().replace(/\s+/g, ' ').toLowerCase();
 }
+
+/**
+ * Re-date an ISO date into a target month/year, keeping the day-of-month.
+ * If the target month has fewer days (e.g. day 31 → February), clamp to the
+ * last valid day of that month.
+ */
+export function shiftDateToPeriod(dateISO: ISODate, target: Period): ISODate {
+  const day = Number(dateISO.split('-')[2]) || 1;
+  const lastDay = new Date(target.year, target.month, 0).getDate();
+  const d = Math.min(day, lastDay);
+  return `${target.year}-${String(target.month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}

@@ -23,6 +23,11 @@
   display: flex; gap: 8px; align-items: flex-start;
 }
 
+.move-preview {
+  margin-top: 14px; padding: 12px 14px;
+  border-radius: var(--radius-sm); background: rgba(15,23,42,0.03);
+}
+
 .migrated-note {
   display: flex; align-items: center; gap: 12px;
   padding: 14px 16px; border-radius: var(--radius-sm);

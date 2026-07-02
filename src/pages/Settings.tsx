@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import { ExcelMigration } from './ExcelMigration';
+import { MoveMonth } from './MoveMonth';
 import { buildSeed } from '@/lib/seed';
 import { useT } from '@/lib/i18n';
 import { toast } from '@/store/toast';
@@ -89,6 +90,9 @@ export function Settings() {
           </div>
         </div>
       </div>
+
+      {/* Move records between months (e.g. fix wrong-month entries) */}
+      <MoveMonth />
 
       {/* One-time Excel migration — only here, never on the dashboard */}
       <ExcelMigration />
