@@ -14,6 +14,7 @@ import type {
   OpeningBalances,
   Expense,
   ExpenseCategory,
+  StockAdjustment,
 } from '@/types';
 import {
   subscribeCollection,
@@ -55,6 +56,7 @@ interface DataStore {
   closings: MonthlyClosing[];
   fileAccounts: FileAccount[];
   expenses: Expense[];
+  stockAdjustments: StockAdjustment[];
   opening: OpeningBalances | null;
   settings: Settings;
 
@@ -92,6 +94,8 @@ interface DataStore {
   addExpense: (input: ExpenseInput) => Promise<boolean>;
   updateExpense: (id: string, input: ExpenseInput) => Promise<boolean>;
   deleteExpense: (id: string) => Promise<void>;
+  addStockAdjustment: (input: StockAdjustmentInput) => Promise<boolean>;
+  deleteStockAdjustment: (id: string) => Promise<void>;
   deleteRecord: (
     kind: 'purchases' | 'sales' | 'cashTransactions',
     id: string
@@ -154,6 +158,13 @@ export interface ExpenseInput {
   amount: number;
   description?: string;
 }
+export interface StockAdjustmentInput {
+  date: string;
+  bondTypeId: string;
+  quantity: number;   // + add / - remove
+  unitCost: number;
+  reason: string;
+}
 
 export interface ImportPayload {
   parties?: Party[];
@@ -178,6 +189,7 @@ export const useData = create<DataStore>((set, get) => ({
   closings: [],
   fileAccounts: [],
   expenses: [],
+  stockAdjustments: [],
   opening: null,
   settings: DEFAULT_SETTINGS,
 
@@ -204,6 +216,7 @@ export const useData = create<DataStore>((set, get) => ({
       sub<MonthlyClosing>('monthlyClosings', 'closings'),
       sub<FileAccount>('fileAccounts', 'fileAccounts'),
       sub<Expense>('expenses', 'expenses'),
+      sub<StockAdjustment>('stockAdjustments', 'stockAdjustments'),
       subscribeCollection<Settings & { id: string }>(userUid, 'settings', (rows) => {
         const s = rows.find((r) => r.id === 'app');
         if (s) set({ settings: { ...DEFAULT_SETTINGS, ...s } });
@@ -237,6 +250,7 @@ export const useData = create<DataStore>((set, get) => ({
       closings: s.closings,
       opening: s.opening,
       expenses: s.expenses,
+      stockAdjustments: s.stockAdjustments,
     };
   },
 
@@ -558,6 +572,41 @@ export const useData = create<DataStore>((set, get) => ({
     await removeDoc(u, 'expenses', id);
     if (rec) await get().resyncClosing({ month: rec.month, year: rec.year });
     toast.info('Entry deleted.');
+  },
+
+  addStockAdjustment: async (input) => {
+    const u = get().uidRef;
+    if (!u) { toast.error('Not ready yet.'); return false; }
+    const { month, year } = periodOf(input.date);
+    if (input.quantity === 0) { toast.error('Enter a quantity to add or remove.'); return false; }
+    if (input.unitCost < 0) { toast.error('Cost cannot be negative.'); return false; }
+    if (!input.bondTypeId) { toast.error('Select a bond type.'); return false; }
+    // Prevent removing more than available.
+    if (input.quantity < 0) {
+      const avail = availableStock(get().dataset(), input.bondTypeId, { month, year });
+      if (Math.abs(input.quantity) > avail) {
+        toast.error(`Cannot remove ${Math.abs(input.quantity)} — only ${avail} in stock.`);
+        return false;
+      }
+    }
+    const rec: StockAdjustment = {
+      id: uid(), date: input.date, month, year,
+      bondTypeId: input.bondTypeId, quantity: input.quantity,
+      unitCost: round2(input.unitCost), reason: input.reason.trim() || 'Adjustment',
+      createdAt: now(), updatedAt: now(),
+    };
+    await upsertDoc(u, 'stockAdjustments', rec);
+    await get().resyncClosing({ month, year });
+    toast.success(`Stock ${input.quantity > 0 ? 'added' : 'removed'}: ${Math.abs(input.quantity)} bonds.`);
+    return true;
+  },
+
+  deleteStockAdjustment: async (id) => {
+    const u = get().uidRef!;
+    const rec = get().stockAdjustments.find((a) => a.id === id);
+    await removeDoc(u, 'stockAdjustments', id);
+    if (rec) await get().resyncClosing({ month: rec.month, year: rec.year });
+    toast.info('Adjustment deleted.');
   },
 
   deleteRecord: async (kind, id) => {

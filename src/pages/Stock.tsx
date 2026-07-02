@@ -1,19 +1,31 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
 import { computeStock } from '@/lib/accounting';
 import { exportReportPdf } from '@/lib/reportBuilder';
-import { formatMoney, formatNumber } from '@/lib/utils';
+import { formatMoney, formatNumber, formatDate } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
 import { toast } from '@/store/toast';
+import { AdjustStock } from './AdjustStock';
+import { ConfirmDialog } from '@/components/ui/Modal';
+import './entry.css';
 
 export function Stock() {
   const t = useT();
-  const { period, dataset, settings } = useData();
+  const { period, dataset, settings, bondTypes, deleteStockAdjustment } = useData();
   const data = dataset();
   const cur = settings.currency;
   const stock = useMemo(() => computeStock(data, period), [data, period]);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [adjToDelete, setAdjToDelete] = useState<string | null>(null);
+
+  const bondName = (id: string) => bondTypes.find((b) => b.id === id)?.name ?? '—';
+  const adjustments = useMemo(
+    () => data.stockAdjustments!.filter((a) => a.month === period.month && a.year === period.year)
+      .sort((a, b) => (a.date < b.date ? 1 : -1)),
+    [data.stockAdjustments, period]
+  );
 
   const totals = stock.reduce(
     (a, s) => ({
@@ -29,9 +41,14 @@ export function Stock() {
         title={t('p.stockTitle')}
         subtitle="Bond-wise stock movement (weighted-average cost)"
         actions={
-          <button className="btn" onClick={() => { exportReportPdf(data, settings, period, 'stock'); toast.success('Stock PDF exported'); }}>
-            <Icon name="pdf" size={16} /> Export PDF
-          </button>
+          <>
+            <button className="btn btn-primary" onClick={() => setAdjustOpen(true)}>
+              <Icon name="plus" size={16} /> Adjust Stock
+            </button>
+            <button className="btn" onClick={() => { exportReportPdf(data, settings, period, 'stock'); toast.success('Stock PDF exported'); }}>
+              <Icon name="pdf" size={16} /> Export PDF
+            </button>
+          </>
         }
       />
       <div className="card">
@@ -76,6 +93,47 @@ export function Stock() {
           </div>
         )}
       </div>
+
+      {adjustments.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="section-title"><Icon name="plus" size={16} /> Stock Adjustments · {adjustments.length}</div>
+          <div className="table-wrap">
+            <table className="grid stack-sm">
+              <thead>
+                <tr><th>Date</th><th>Bond</th><th className="num">Qty</th><th className="num">Cost</th><th>Reason</th><th className="no-print"></th></tr>
+              </thead>
+              <tbody>
+                {adjustments.map((a) => (
+                  <tr key={a.id}>
+                    <td data-label="Date">{formatDate(a.date)}</td>
+                    <td data-label="Bond"><strong>Rs. {bondName(a.bondTypeId)}</strong></td>
+                    <td data-label="Qty" className={`num mono ${a.quantity >= 0 ? 'pos' : 'neg'}`}>
+                      {a.quantity >= 0 ? '+' : ''}{formatNumber(a.quantity)}
+                    </td>
+                    <td data-label="Cost" className="num mono">{a.quantity > 0 ? formatNumber(a.unitCost) : '—'}</td>
+                    <td data-label="Reason" className="muted">{a.reason}</td>
+                    <td className="no-print actions-cell">
+                      <button className="btn btn-ghost btn-icon btn-sm del-btn" title="Delete" onClick={() => setAdjToDelete(a.id)}>
+                        <Icon name="trash" size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <AdjustStock open={adjustOpen} onClose={() => setAdjustOpen(false)} />
+      <ConfirmDialog
+        open={!!adjToDelete}
+        title="Delete adjustment?"
+        message="This removes the stock adjustment and recalculates stock."
+        confirmLabel="Delete" danger
+        onConfirm={() => { if (adjToDelete) deleteStockAdjustment(adjToDelete); setAdjToDelete(null); }}
+        onCancel={() => setAdjToDelete(null)}
+      />
     </div>
   );
 }

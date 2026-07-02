@@ -23,6 +23,7 @@ import type {
   MonthlyClosing,
   OpeningBalances,
   Expense,
+  StockAdjustment,
 } from '@/types';
 import { formatDate, round2 } from './utils';
 
@@ -36,6 +37,7 @@ export interface DataSet {
   /** One-time imported opening balances (null if never migrated). */
   opening?: OpeningBalances | null;
   expenses?: Expense[];
+  stockAdjustments?: StockAdjustment[];
 }
 
 /** Net effect of expenses/income in a period: income - expense. */
@@ -108,12 +110,21 @@ export function computeStock(data: DataSet, period: Period): StockLine[] {
     const sales = data.sales.filter(
       (s) => s.bondTypeId === bt.id && inPeriod(s, period)
     );
+    const adjustments = (data.stockAdjustments ?? []).filter(
+      (a) => a.bondTypeId === bt.id && inPeriod(a, period)
+    );
 
-    const purchasedQty = purchases.reduce((a, p) => a + p.quantity, 0);
-    const purchasedValue = purchases.reduce((a, p) => a + p.amount, 0);
-    const soldQty = sales.reduce((a, s) => a + s.quantity, 0);
+    // Positive adjustments add stock at their cost (like a purchase); negative
+    // adjustments remove stock (like a sale).
+    const adjAddQty = adjustments.filter((a) => a.quantity > 0).reduce((s, a) => s + a.quantity, 0);
+    const adjAddValue = adjustments.filter((a) => a.quantity > 0).reduce((s, a) => s + a.quantity * a.unitCost, 0);
+    const adjRemoveQty = adjustments.filter((a) => a.quantity < 0).reduce((s, a) => s + Math.abs(a.quantity), 0);
 
-    // Weighted average = (opening value + purchased value) / (opening + purchased qty)
+    const purchasedQty = purchases.reduce((a, p) => a + p.quantity, 0) + adjAddQty;
+    const purchasedValue = purchases.reduce((a, p) => a + p.amount, 0) + adjAddValue;
+    const soldQty = sales.reduce((a, s) => a + s.quantity, 0) + adjRemoveQty;
+
+    // Weighted average = (opening value + purchased+added value) / (opening + purchased+added qty)
     const openingValue = opening.qty * opening.avgCost;
     const totalQty = opening.qty + purchasedQty;
     const avgCost = totalQty > 0 ? (openingValue + purchasedValue) / totalQty : 0;
@@ -143,21 +154,16 @@ export function availableStock(
   return line?.closingQty ?? 0;
 }
 
-/** Weighted-average cost of a bond at the moment of a sale (COGS basis). */
+/** Weighted-average cost of a bond at the moment of a sale (COGS basis).
+ *  Reads the same computed avg (incl. purchases + stock adjustments) so COGS
+ *  and stock value always agree. */
 export function avgCostFor(
   data: DataSet,
   bondTypeId: string,
   period: Period
 ): number {
-  const opening = openingStockFor(bondTypeId, period, data.closings, data.opening);
-  const purchases = data.purchases.filter(
-    (p) => p.bondTypeId === bondTypeId && inPeriod(p, period)
-  );
-  const purchasedQty = purchases.reduce((a, p) => a + p.quantity, 0);
-  const purchasedValue = purchases.reduce((a, p) => a + p.amount, 0);
-  const openingValue = opening.qty * opening.avgCost;
-  const totalQty = opening.qty + purchasedQty;
-  return totalQty > 0 ? round2((openingValue + purchasedValue) / totalQty) : 0;
+  const line = computeStock(data, period).find((s) => s.bondTypeId === bondTypeId);
+  return line?.avgCost ?? 0;
 }
 
 /**

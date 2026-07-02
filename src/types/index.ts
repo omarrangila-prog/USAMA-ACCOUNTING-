@@ -175,6 +175,19 @@ export interface ExpenseCategory {
   updatedAt: number;
 }
 
+/**
+ * Manual stock change that isn't a purchase/sale — e.g. opening stock you
+ * already owned, a physical-count correction, or damaged/lost bonds.
+ * Affects stock quantity & value but NOT cash or any party balance.
+ * quantity is positive to add stock, negative to remove it.
+ */
+export interface StockAdjustment extends BaseRecord {
+  bondTypeId: string;
+  quantity: number;    // +add / -remove
+  unitCost: number;    // cost per bond (for stock value + weighted avg)
+  reason: string;      // "Opening stock", "Physical count", "Damaged", …
+}
+
 export type ExpenseKind = 'expense' | 'income';
 
 export interface Expense extends BaseRecord {
