@@ -5,15 +5,21 @@
 
 .report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
 .report-tile {
-  display: flex; align-items: center; gap: 12px;
-  padding: 16px; border-radius: var(--radius); cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px 10px 16px; border-radius: var(--radius);
   border: 1px solid var(--stroke); background: rgba(255,255,255,0.6);
-  transition: all 0.15s; text-align: left;
+  transition: all 0.15s;
 }
-.report-tile:hover { background: #fff; box-shadow: var(--shadow); transform: translateY(-2px); border-color: var(--blue); }
+.report-tile:hover { background: #fff; box-shadow: var(--shadow); border-color: var(--blue); }
+.report-tile .rt-main {
+  display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;
+  border: none; background: transparent; cursor: pointer; text-align: left; padding: 6px 0;
+}
 .report-tile .rt-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff; flex-shrink: 0; }
 .report-tile strong { font-size: 14px; }
 .report-tile .rt-desc { font-size: 12px; color: var(--text-soft); }
+.rt-actions { display: flex; gap: 2px; flex-shrink: 0; }
+@media (max-width: 480px) { .rt-actions { flex-direction: column; } }
 
 .close-panel {
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;

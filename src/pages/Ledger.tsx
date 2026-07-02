@@ -7,6 +7,7 @@ import { Combo, type ComboHandle } from '@/components/ui/Combo';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { computeLedger, computePartyBalances, computeCashBook } from '@/lib/accounting';
 import { buildStatementPdf, type StatementRow } from '@/lib/statementPdf';
+import { PdfPreview } from '@/components/ui/PdfPreview';
 import { formatMoney, formatNumber, formatDate, defaultDateForPeriod, monthName, cx } from '@/lib/utils';
 import { toast } from '@/store/toast';
 import type { CashDirection } from '@/types';
@@ -23,6 +24,7 @@ export function Ledger() {
   const [cashModal, setCashModal] = useState<CashDirection | null>(null);
   const [cashEditId, setCashEditId] = useState<string | null>(null);
   const [cashToDelete, setCashToDelete] = useState<string | null>(null);
+  const [preview, setPreview] = useState(false);
 
   // Open the cash modal in edit mode for an existing cash entry.
   const editCash = (refId: string) => {
@@ -80,16 +82,18 @@ export function Ledger() {
   const totalCredit = statementRows.reduce((a, r) => a + r.credit, 0);
   const netBal = statementRows.length ? statementRows[statementRows.length - 1].balance : 0;
 
+  const makeStatementDoc = () => buildStatementPdf({
+    settings,
+    title: `${partyLabel} Statement`,
+    fromDate: `${period.year}-${String(period.month).padStart(2, '0')}-01`,
+    toDate: statementRows.length ? statementRows[statementRows.length - 1].date : undefined,
+    rows: statementRows,
+  });
+  const stmtFileName = `statement-${partyLabel}-${monthName(period.month)}-${period.year}.pdf`;
+
   const exportStatement = () => {
     if (!partyLabel) return;
-    const doc = buildStatementPdf({
-      settings,
-      title: `${partyLabel} Statement`,
-      fromDate: `${period.year}-${String(period.month).padStart(2, '0')}-01`,
-      toDate: statementRows.length ? statementRows[statementRows.length - 1].date : undefined,
-      rows: statementRows,
-    });
-    doc.save(`statement-${partyLabel}-${monthName(period.month)}-${period.year}.pdf`);
+    makeStatementDoc().save(stmtFileName);
     toast.success('Statement PDF exported');
   };
 
@@ -112,8 +116,11 @@ export function Ledger() {
             <button className="btn btn-danger" onClick={() => setCashModal('paid')}>
               <Icon name="arrow-up" size={16} /> Cash Paid <span className="faint" style={{ fontSize: 11 }}>F5</span>
             </button>
+            <button className="btn btn-primary" disabled={!partyId} onClick={() => setPreview(true)}>
+              <Icon name="search" size={16} /> Preview
+            </button>
             <button className="btn" disabled={!partyId} onClick={exportStatement}>
-              <Icon name="pdf" size={16} /> Statement PDF
+              <Icon name="pdf" size={16} /> Download
             </button>
           </>
         }
@@ -210,6 +217,12 @@ export function Ledger() {
         confirmLabel="Delete" danger
         onConfirm={() => { if (cashToDelete) store.deleteRecord('cashTransactions', cashToDelete); setCashToDelete(null); }}
         onCancel={() => setCashToDelete(null)}
+      />
+      <PdfPreview
+        makeDoc={preview && partyId ? makeStatementDoc : null}
+        title={`${partyLabel} Statement`}
+        fileName={stmtFileName}
+        onClose={() => setPreview(false)}
       />
     </div>
   );

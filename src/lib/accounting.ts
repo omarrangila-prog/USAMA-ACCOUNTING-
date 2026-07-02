@@ -552,20 +552,11 @@ export function computeTrialBalance(data: DataSet, period: Period): TrialBalance
     credit: profit > 0 ? profit : 0,
   });
 
-  // Assets and liabilities from imported opening don't net to zero on their own;
-  // the residual is the owner's opening capital/equity. Add it as the balancing
-  // credit so the trial balance is honest and always ties out.
-  const preDebit = rows.reduce((a, r) => a + r.debit, 0);
-  const preCredit = rows.reduce((a, r) => a + r.credit, 0);
-  const equity = round2(preDebit - preCredit);
-  if (Math.abs(equity) > 0.5) {
-    rows.push({
-      name: 'Opening Capital / Equity',
-      debit: equity < 0 ? Math.abs(equity) : 0,
-      credit: equity > 0 ? equity : 0,
-    });
-  }
-
+  // NOTE: We intentionally DO NOT add an auto-calculated "Opening Capital /
+  // Equity" plug. The client does not want transaction amounts (receivables,
+  // payables, sales, purchases, cash, profit) flowing into a synthetic capital
+  // figure. These rows are a plain business summary, not a double-entry trial
+  // balance, so they are not forced to tie out.
   const totalDebit = round2(rows.reduce((a, r) => a + r.debit, 0));
   const totalCredit = round2(rows.reduce((a, r) => a + r.credit, 0));
 

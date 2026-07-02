@@ -100,8 +100,11 @@ export function buildSections(
     });
   }
 
+  const azSort = <T extends { name: string }>(rows: T[]) =>
+    [...rows].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
   if (want('receivable')) {
-    const rows = computeReceivables(data, period);
+    const rows = azSort(computeReceivables(data, period));
     sections.push({
       title: 'Cash Receivable',
       head: ['Party', 'Amount Receivable'],
@@ -112,7 +115,7 @@ export function buildSections(
   }
 
   if (want('payable')) {
-    const rows = computePayables(data, period);
+    const rows = azSort(computePayables(data, period));
     sections.push({
       title: 'Cash Payable',
       head: ['Party', 'Amount Payable'],
@@ -134,20 +137,27 @@ export function buildSections(
   }
 
   if (want('balance')) {
-    const balances = computePartyBalances(data, period);
+    // Balance Sheet layout: RECEIVABLES (A→Z) first, then PAYABLES (A→Z).
+    const rec = azSort(computeReceivables(data, period));
+    const pay = azSort(computePayables(data, period));
     sections.push({
-      title: 'Balance Check (All Parties)',
-      head: ['Party', 'Opening', 'Closing Balance', 'Status'],
-      rows: balances.map((b) => [
-        b.name, money(b.opening), money(Math.abs(b.balance)),
-        b.balance > 0 ? 'Receivable' : b.balance < 0 ? 'Payable' : 'Settled',
-      ]),
-      numericCols: [1, 2],
+      title: 'RECEIVABLES (A - Z)',
+      head: ['Party', 'Amount Receivable'],
+      rows: rec.length ? rec.map((r) => [r.name, money(r.balance)]) : [['—', money(0)]],
+      foot: ['Total Receivable', money(rec.reduce((a, r) => a + r.balance, 0))],
+      numericCols: [1],
+    });
+    sections.push({
+      title: 'PAYABLES (A - Z)',
+      head: ['Party', 'Amount Payable'],
+      rows: pay.length ? pay.map((r) => [r.name, money(r.balance)]) : [['—', money(0)]],
+      foot: ['Total Payable', money(pay.reduce((a, r) => a + r.balance, 0))],
+      numericCols: [1],
     });
   }
 
   if (want('ledger')) {
-    data.parties.forEach((party) => {
+    azSort(data.parties).forEach((party) => {
       const entries = computeLedger(data, party.id, period);
       const hasMovement = entries.some((e) => e.refType !== 'opening');
       if (!hasMovement && (entries[0]?.debit ?? 0) === 0 && (entries[0]?.credit ?? 0) === 0) return;
@@ -222,13 +232,14 @@ export type ReportId =
   | 'balance' | 'stock' | 'purchase' | 'sale' | 'receivable'
   | 'payable' | 'trial' | 'ledger' | 'expenses' | 'monthly';
 
-export function exportReportPdf(
+/** Build the report jsPDF doc WITHOUT downloading (used for in-app preview). */
+export function buildReportDoc(
   data: DataSet,
   settings: Settings,
   period: Period,
   which: 'all' | ReportId = 'all'
-): void {
-  const doc = buildReportPdf({
+) {
+  return buildReportPdf({
     title: which === 'all' ? 'Monthly Report' : reportTitle(which),
     settings,
     month: period.month,
@@ -236,7 +247,20 @@ export function exportReportPdf(
     summary: summaryCards(data, period),
     sections: buildSections(data, period, which),
   });
-  doc.save(`bond-report-${period.year}-${String(period.month).padStart(2, '0')}.pdf`);
+}
+
+export function reportFileName(period: Period, which: 'all' | ReportId = 'all'): string {
+  const w = which === 'all' ? 'monthly' : which;
+  return `bond-${w}-${period.year}-${String(period.month).padStart(2, '0')}.pdf`;
+}
+
+export function exportReportPdf(
+  data: DataSet,
+  settings: Settings,
+  period: Period,
+  which: 'all' | ReportId = 'all'
+): void {
+  buildReportDoc(data, settings, period, which).save(reportFileName(period, which));
 }
 
 export function exportReportExcel(data: DataSet, period: Period): void {

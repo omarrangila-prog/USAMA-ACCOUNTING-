@@ -5,8 +5,9 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import {
-  exportReportPdf, exportReportExcel, reportTitle, type ReportId,
+  exportReportPdf, exportReportExcel, reportTitle, buildReportDoc, reportFileName, type ReportId,
 } from '@/lib/reportBuilder';
+import { PdfPreview } from '@/components/ui/PdfPreview';
 import { computeDashboard } from '@/lib/accounting';
 import { formatMoney, formatNumber, monthName } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
@@ -32,13 +33,13 @@ export function Reports() {
   const data = dataset();
   const cur = settings.currency;
   const [confirmClose, setConfirmClose] = useState(false);
+  const [preview, setPreview] = useState<{ which: 'all' | ReportId; title: string } | null>(null);
 
   const stats = useMemo(() => computeDashboard(data, period), [data, period]);
   const closed = isMonthClosed();
 
   const generate = () => {
-    exportReportPdf(data, settings, period, 'all');
-    toast.success(`${monthName(period.month)} ${period.year} report generated`);
+    setPreview({ which: 'all', title: `Monthly Report — ${monthName(period.month)} ${period.year}` });
   };
 
   const doClose = async () => {
@@ -74,19 +75,36 @@ export function Reports() {
         <div className="section-title"><Icon name="reports" size={16} /> Individual Reports (PDF)</div>
         <div className="report-grid">
           {REPORTS.map((r) => (
-            <button
-              key={r.id}
-              className="report-tile"
-              onClick={() => { exportReportPdf(data, settings, period, r.id); toast.success(`${reportTitle(r.id)} exported`); }}
-            >
-              <span className="rt-icon" style={{ background: r.accent }}>
-                <Icon name={r.icon} size={19} />
-              </span>
-              <div className="col">
-                <strong>{reportTitle(r.id)}</strong>
-                <span className="rt-desc">{r.desc}</span>
+            <div key={r.id} className="report-tile">
+              {/* Default click = Preview */}
+              <button
+                className="rt-main"
+                onClick={() => setPreview({ which: r.id, title: reportTitle(r.id) })}
+                title="Preview"
+              >
+                <span className="rt-icon" style={{ background: r.accent }}>
+                  <Icon name={r.icon} size={19} />
+                </span>
+                <div className="col">
+                  <strong>{reportTitle(r.id)}</strong>
+                  <span className="rt-desc">{r.desc}</span>
+                </div>
+              </button>
+              <div className="rt-actions no-print">
+                <button className="btn btn-ghost btn-icon btn-sm" title="Preview"
+                  onClick={() => setPreview({ which: r.id, title: reportTitle(r.id) })}>
+                  <Icon name="search" size={15} />
+                </button>
+                <button className="btn btn-ghost btn-icon btn-sm" title="Download PDF"
+                  onClick={() => { exportReportPdf(data, settings, period, r.id); toast.success('Downloaded'); }}>
+                  <Icon name="pdf" size={15} />
+                </button>
+                <button className="btn btn-ghost btn-icon btn-sm" title="Print"
+                  onClick={() => { const doc = buildReportDoc(data, settings, period, r.id); doc.autoPrint(); window.open(doc.output('bloburl') as unknown as string, '_blank'); }}>
+                  <Icon name="print" size={15} />
+                </button>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       </div>
@@ -128,6 +146,13 @@ export function Reports() {
         confirmLabel={closed ? 'Refresh Summary' : 'Close Month'}
         onConfirm={doClose}
         onCancel={() => setConfirmClose(false)}
+      />
+
+      <PdfPreview
+        makeDoc={preview ? () => buildReportDoc(data, settings, period, preview.which) : null}
+        title={preview?.title ?? ''}
+        fileName={reportFileName(period, preview?.which ?? 'all')}
+        onClose={() => setPreview(null)}
       />
     </div>
   );

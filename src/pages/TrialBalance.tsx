@@ -1,9 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
+import { PdfPreview } from '@/components/ui/PdfPreview';
 import { computeBusinessSummary, computeProfitByBond } from '@/lib/accounting';
+import { buildReportDoc, reportFileName, exportReportPdf } from '@/lib/reportBuilder';
 import { formatMoney, formatNumber, cx } from '@/lib/utils';
+import { toast } from '@/store/toast';
 
 /**
  * Business Summary (replaces the traditional Trial Balance). Prize-bond owners
@@ -13,6 +16,7 @@ export function TrialBalance() {
   const { period, dataset, settings } = useData();
   const data = dataset();
   const cur = settings.currency;
+  const [preview, setPreview] = useState(false);
   const s = useMemo(() => computeBusinessSummary(data, period), [data, period]);
   const byBond = useMemo(() => computeProfitByBond(data, period).filter((b) => b.profit !== 0), [data, period]);
 
@@ -27,7 +31,20 @@ export function TrialBalance() {
 
   return (
     <div>
-      <PageHeader title="Business Summary" subtitle="Your key numbers at a glance" />
+      <PageHeader
+        title="Business Summary"
+        subtitle="Your key numbers at a glance"
+        actions={
+          <>
+            <button className="btn btn-primary" onClick={() => setPreview(true)}>
+              <Icon name="search" size={16} /> Preview
+            </button>
+            <button className="btn" onClick={() => { exportReportPdf(data, settings, period, 'trial'); toast.success('Downloaded'); }}>
+              <Icon name="pdf" size={16} /> Download
+            </button>
+          </>
+        }
+      />
 
       <div className="dash-grid" style={{ marginBottom: 18 }}>
         {items.map((it) => (
@@ -68,6 +85,13 @@ export function TrialBalance() {
           </div>
         </div>
       )}
+
+      <PdfPreview
+        makeDoc={preview ? () => buildReportDoc(data, settings, period, 'trial') : null}
+        title="Business Summary"
+        fileName={reportFileName(period, 'trial')}
+        onClose={() => setPreview(false)}
+      />
     </div>
   );
 }
