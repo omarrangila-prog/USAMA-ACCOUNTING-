@@ -206,6 +206,7 @@ function CashModal({
   const startDate = defaultDateForPeriod(store.period);
   const [partyId, setPartyId] = useState(defaultParty);
   const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
   const [date, setDate] = useState(startDate);
   const [busy, setBusy] = useState(false);
   const partyRef = useRef<ComboHandle>(null);
@@ -215,6 +216,7 @@ function CashModal({
     if (direction) {
       setPartyId(defaultParty);
       setAmount('');
+      setNote('');
       setDate(defaultDateForPeriod(store.period));
       // Focus party if none preselected, else amount.
       setTimeout(() => (defaultParty ? amountRef.current?.focus() : partyRef.current?.focus()), 40);
@@ -230,7 +232,7 @@ function CashModal({
     if (amt <= 0) { toast.error('Enter a positive amount.'); amountRef.current?.focus(); return; }
     setBusy(true);
     try {
-      const ok = await store.addCash({ date, partyId, direction: direction!, amount: amt });
+      const ok = await store.addCash({ date, partyId, direction: direction!, amount: amt, note: note || undefined });
       if (ok) onClose();
     } finally { setBusy(false); }
   };
@@ -270,6 +272,11 @@ function CashModal({
           <label>Amount</label>
           <input ref={amountRef} type="number" min="0" inputMode="numeric" className="input" placeholder="0" value={amount}
             onChange={(e) => setAmount(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
+        </div>
+        <div className="field">
+          <label>Description <span className="faint">(optional)</span></label>
+          <input className="input" placeholder="Details / note" value={note}
+            onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
         </div>
       </div>
     </Modal>
