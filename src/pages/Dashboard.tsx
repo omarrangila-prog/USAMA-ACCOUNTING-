@@ -74,8 +74,16 @@ export function Dashboard() {
         />
         <StatCard label="Sale Profit" value={formatMoney(s.saleProfit, cur)} icon="sale" accent={s.saleProfit >= 0 ? 'green' : 'red'} onClick={() => nav('/sale')} />
         <StatCard label="Purchase Profit" value={formatMoney(s.purchaseProfit, cur)} icon="purchase" accent={s.purchaseProfit >= 0 ? 'green' : 'red'} onClick={() => nav('/purchase')} />
-        <StatCard label="Cash Receivable" value={formatMoney(s.netReceivable, cur)} icon="receivable" accent="green" hint="Money owed to you" onClick={() => nav('/receivable')} />
-        <StatCard label="Cash Payable" value={formatMoney(s.netPayable, cur)} icon="payable" accent="red" hint="Money you owe" onClick={() => nav('/payable')} />
+        {/* Receivable & payable net against each other — only the winner shows. */}
+        {s.netReceivable > 0 && (
+          <StatCard label="Cash Receivable" value={formatMoney(s.netReceivable, cur)} icon="receivable" accent="green" hint="Net money owed to you" onClick={() => nav('/receivable')} />
+        )}
+        {s.netPayable > 0 && (
+          <StatCard label="Cash Payable" value={formatMoney(s.netPayable, cur)} icon="payable" accent="red" hint="Net money you owe" onClick={() => nav('/payable')} />
+        )}
+        {s.netReceivable === 0 && s.netPayable === 0 && (
+          <StatCard label="Net Party Balance" value={formatMoney(0, cur)} icon="receivable" accent="green" hint="All settled" onClick={() => nav('/receivable')} />
+        )}
         <StatCard label="Net Bonds" value={formatNumber(s.netBonds)} icon="stock" accent="purple" hint={`${formatNumber(s.totalPurchased)} bought · ${formatNumber(s.totalSold)} sold`} onClick={() => nav('/stock')} />
       </div>
 

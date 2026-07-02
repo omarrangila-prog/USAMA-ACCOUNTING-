@@ -240,8 +240,12 @@ export function computeBusinessSummary(data: DataSet, period: Period): BusinessS
   const saleProfit = computeTradingProfit(data, period);
   const { expense, income } = computeExpenseNet(data, period);
   const balances = computePartyBalances(data, period);
-  const netReceivable = round2(balances.filter((b) => b.balance > 0).reduce((a, b) => a + b.balance, 0));
-  const netPayable = round2(balances.filter((b) => b.balance < 0).reduce((a, b) => a + Math.abs(b.balance), 0));
+  const grossReceivable = balances.filter((b) => b.balance > 0).reduce((a, b) => a + b.balance, 0);
+  const grossPayable = balances.filter((b) => b.balance < 0).reduce((a, b) => a + Math.abs(b.balance), 0);
+  // Receivable and payable net against each other; only the winner is shown.
+  const netParty = round2(grossReceivable - grossPayable);
+  const netReceivable = netParty > 0 ? netParty : 0;
+  const netPayable = netParty < 0 ? Math.abs(netParty) : 0;
   const mv = computeBondMovement(data, period);
   const totalPurchased = mv.reduce((a, m) => a + m.purchasedQty, 0);
   const totalSold = mv.reduce((a, m) => a + m.soldQty, 0);
@@ -253,7 +257,8 @@ export function computeBusinessSummary(data: DataSet, period: Period): BusinessS
   const totalProfitLoss = round2(saleProfit + income - expense);
 
   return {
-    cashInHand: computeCashInHand(data, period),
+    // Cash in Hand = current cash + net receivable - net payable.
+    cashInHand: round2(computeCashInHand(data, period) + netParty),
     totalProfitLoss,
     purchaseProfit: round2(purchaseProfit),
     saleProfit: round2(saleProfit),
@@ -354,15 +359,13 @@ export function computeCashInHand(data: DataSet, period: Period): number {
     if (c.direction === 'received') cash += c.amount;
     else cash -= c.amount;
   });
-  // Client rule: a manual RECEIVABLE (+amount) is money IN, a manual PAYABLE
-  // (-amount) is money OUT — they hit Cash in Hand immediately when entered.
-  // Settlements (Receive/Pay) only clear the balance, so they don't touch cash.
-  (data.partyAdjustments ?? [])
-    .filter((a) => inPeriod(a, period) && !a.settlement)
-    .forEach((a) => (cash += a.amount));
   // Expenses reduce cash; income increases it.
   const { net } = computeExpenseNet(data, period);
   cash += net;
+  // NOTE: manual receivable/payable adjustments are NOT applied here. They are
+  // not cash yet — they only move real cash when settled via Receive/Pay (which
+  // are recorded as cash transactions above). The dashboard nets the outstanding
+  // receivable/payable into the displayed "Cash in Hand" separately.
   return round2(cash);
 }
 
@@ -654,21 +657,33 @@ export function computeDashboard(data: DataSet, period: Period): DashboardStats 
   const closingStockValue = round2(stock.reduce((a, s) => a + s.closingValue, 0));
   const receivables = computeReceivables(data, period).reduce((a, b) => a + b.balance, 0);
   const payables = computePayables(data, period).reduce((a, b) => a + b.balance, 0);
-  const cashInHand = computeCashInHand(data, period);
+  const rawCash = computeCashInHand(data, period);
   const bank = computeFileBalance(data.opening);
   const exp = computeExpenseNet(data, period);
   const tb = computeTrialBalance(data, period);
+
+  // Net the outstanding party balances against each other, then fold that net
+  // into the displayed Cash in Hand:
+  //   Net Party Balance = Total Receivable - Total Payable
+  //   Cash in Hand      = Current Cash + Net Receivable - Net Payable
+  // Only one of receivable/payable is shown (the winner of the netting).
+  const netParty = round2(receivables - payables);
+  const netReceivable = netParty > 0 ? netParty : 0;
+  const netPayable = netParty < 0 ? Math.abs(netParty) : 0;
+  const cashInHand = round2(rawCash + netParty);
 
   return {
     totalPurchase,
     totalSale,
     closingStockQty,
     closingStockValue,
-    cashReceivable: round2(receivables),
-    cashPayable: round2(payables),
+    cashReceivable: netReceivable,
+    cashPayable: netPayable,
     cashInHand,
-    // Net worth-ish position: assets - liabilities.
-    netBalance: round2(cashInHand + bank + receivables + closingStockValue - payables),
+    // Net worth-ish position: assets - liabilities. netParty already accounts
+    // for receivable - payable, and it's now inside cashInHand, so don't add it
+    // again here.
+    netBalance: round2(cashInHand + bank + closingStockValue),
     profitLoss: computeProfitLoss(data, period),
     totalExpense: exp.expense,
     totalIncome: exp.income,
