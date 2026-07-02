@@ -263,12 +263,16 @@ function PaymentModal({
     if (amt <= 0) { toast.error('Enter a positive amount.'); return; }
     setBusy(true);
     try {
-      const ok = await store.addCash({
+      // Settlement only — clears the party balance without touching cash again
+      // (the cash was already counted when the receivable/payable was entered).
+      // Receivable (+balance): receiving reduces it => -amt.
+      // Payable (shown +, net -): paying reduces what we owe => +amt.
+      const ok = await store.addPartyAdjustment({
         date,
         partyId: target.partyId,
-        direction: isRec ? 'received' : 'paid',
-        amount: amt,
-        note: isRec ? 'Cash received' : 'Cash paid',
+        amount: isRec ? -Math.abs(amt) : Math.abs(amt),
+        reason: isRec ? 'Received (settled)' : 'Paid (settled)',
+        settlement: true,
       });
       if (ok) onClose();
     } finally { setBusy(false); }

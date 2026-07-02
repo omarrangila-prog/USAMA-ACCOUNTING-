@@ -173,6 +173,7 @@ export interface PartyAdjustmentInput {
   partyId: string;
   amount: number;   // +receivable / -payable
   reason: string;
+  settlement?: boolean;
 }
 
 export interface ImportPayload {
@@ -622,11 +623,16 @@ export const useData = create<DataStore>((set, get) => ({
       id: uid(), date: input.date, month, year,
       partyId: input.partyId, amount: round2(input.amount),
       reason: input.reason.trim() || (input.amount > 0 ? 'Receivable' : 'Payable'),
+      settlement: input.settlement || false,
       createdAt: now(), updatedAt: now(),
     };
     await upsertDoc(u, 'partyAdjustments', rec);
     await get().resyncClosing({ month, year });
-    toast.success(`${input.amount > 0 ? 'Receivable' : 'Payable'} recorded · ${Math.abs(rec.amount).toLocaleString()}`);
+    toast.success(
+      input.settlement
+        ? `Settled · ${Math.abs(rec.amount).toLocaleString()}`
+        : `${input.amount > 0 ? 'Receivable' : 'Payable'} recorded · ${Math.abs(rec.amount).toLocaleString()}`
+    );
     return true;
   },
 

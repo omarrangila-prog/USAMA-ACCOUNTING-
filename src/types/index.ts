@@ -82,6 +82,8 @@ export interface PartyAdjustment extends BaseRecord {
   partyId: string;
   amount: number;   // +receivable / -payable
   reason: string;
+  /** true = a Receive/Pay settlement that clears balance only (no cash effect). */
+  settlement?: boolean;
 }
 
 /** Double-entry-ish ledger line used to build party statements + trial balance. */

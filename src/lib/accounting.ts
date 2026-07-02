@@ -354,6 +354,12 @@ export function computeCashInHand(data: DataSet, period: Period): number {
     if (c.direction === 'received') cash += c.amount;
     else cash -= c.amount;
   });
+  // Client rule: a manual RECEIVABLE (+amount) is money IN, a manual PAYABLE
+  // (-amount) is money OUT — they hit Cash in Hand immediately when entered.
+  // Settlements (Receive/Pay) only clear the balance, so they don't touch cash.
+  (data.partyAdjustments ?? [])
+    .filter((a) => inPeriod(a, period) && !a.settlement)
+    .forEach((a) => (cash += a.amount));
   // Expenses reduce cash; income increases it.
   const { net } = computeExpenseNet(data, period);
   cash += net;
