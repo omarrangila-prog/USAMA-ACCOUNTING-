@@ -29,7 +29,7 @@ import {
   avgCostFor,
   computeProfitLoss,
 } from '@/lib/accounting';
-import { uid, now, periodOf, todayISO, round2, monthName } from '@/lib/utils';
+import { uid, now, periodOf, todayISO, round2, monthName, normalizeDenomination, normalizeName } from '@/lib/utils';
 import { toast } from './toast';
 
 const DEFAULT_SETTINGS: Settings = {
@@ -247,9 +247,8 @@ export const useData = create<DataStore>((set, get) => ({
   addParty: async (p) => {
     const u = get().uidRef;
     if (!u) { toast.error('Not ready yet — try again in a moment.'); throw new Error('no workspace'); }
-    const dup = get().parties.find(
-      (x) => x.name.trim().toLowerCase() === p.name.trim().toLowerCase()
-    );
+    const target = normalizeName(p.name);
+    const dup = get().parties.find((x) => normalizeName(x.name) === target);
     if (dup) return dup;
     const party: Party = { id: uid(), createdAt: now(), updatedAt: now(), ...p, name: p.name.trim() };
     await upsertDoc(u, 'parties', party);
@@ -258,9 +257,8 @@ export const useData = create<DataStore>((set, get) => ({
   },
 
   ensureParty: async (name) => {
-    const existing = get().parties.find(
-      (p) => p.name.toLowerCase() === name.trim().toLowerCase()
-    );
+    const target = normalizeName(name);
+    const existing = get().parties.find((p) => normalizeName(p.name) === target);
     if (existing) return existing;
     return get().addParty({ name: name.trim(), openingBalance: 0 });
   },
@@ -291,11 +289,10 @@ export const useData = create<DataStore>((set, get) => ({
   addBondType: async (b) => {
     const u = get().uidRef;
     if (!u) { toast.error('Not ready yet — try again in a moment.'); throw new Error('no workspace'); }
-    // Prevent duplicate denominations.
-    const dup = get().bondTypes.find(
-      (x) => x.name.trim().toLowerCase() === b.name.trim().toLowerCase()
-    );
-    if (dup) return dup;
+    // Prevent duplicate denominations (1,500 == 1500 == "1500").
+    const target = normalizeDenomination(b.name);
+    const dup = get().bondTypes.find((x) => normalizeDenomination(x.name) === target);
+    if (dup) { toast.info(`Bond ${dup.name} already exists.`); return dup; }
     const bond: BondType = { id: uid(), createdAt: now(), updatedAt: now(), ...b, name: b.name.trim() };
     await upsertDoc(u, 'bondTypes', bond);
     toast.success(`Bond type ${bond.name} created.`);
@@ -303,9 +300,8 @@ export const useData = create<DataStore>((set, get) => ({
   },
 
   ensureBondType: async (name, faceValue) => {
-    const existing = get().bondTypes.find(
-      (b) => b.name.toLowerCase() === name.trim().toLowerCase()
-    );
+    const target = normalizeDenomination(name);
+    const existing = get().bondTypes.find((b) => normalizeDenomination(b.name) === target);
     if (existing) return existing;
     const fv = faceValue ?? (Number(name.replace(/,/g, '')) || 0);
     return get().addBondType({ name: name.trim(), faceValue: fv });

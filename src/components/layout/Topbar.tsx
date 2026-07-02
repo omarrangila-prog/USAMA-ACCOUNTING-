@@ -28,23 +28,25 @@ export function Topbar({ onMenu, onSearch, onSmart }: Props) {
         <Icon name="menu" size={20} />
       </button>
 
-      <div className="period-picker">
+      <div className="period-picker" title={lang === 'ur' ? 'مہینہ اور سال منتخب کریں' : 'Select accounting month & year'}>
         <Icon name="calendar" size={16} className="faint" />
+        <span className="period-label faint">{lang === 'ur' ? 'مہینہ' : 'Month'}</span>
         <select
           className="select bare"
           value={period.month}
+          aria-label="Accounting month"
           onChange={(e) => setPeriod({ ...period, month: Number(e.target.value) })}
-          title="Month"
         >
           {MONTHS.map((m, i) => (
             <option key={m} value={i + 1}>{m}</option>
           ))}
         </select>
+        <span className="period-label faint">{lang === 'ur' ? 'سال' : 'Year'}</span>
         <select
           className="select bare"
           value={period.year}
+          aria-label="Accounting year"
           onChange={(e) => setPeriod({ ...period, year: Number(e.target.value) })}
-          title="Year"
         >
           {years.map((y) => (
             <option key={y} value={y}>{y}</option>

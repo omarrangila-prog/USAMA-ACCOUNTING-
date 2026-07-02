@@ -91,3 +91,19 @@ export function fuzzyIncludes(haystack: string, needle: string): boolean {
 export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(' ');
 }
+
+/**
+ * Normalize a bond denomination for duplicate detection: strip commas/spaces
+ * and lowercase, so "1,500", "1500" and " 1500 " all match. Numeric names are
+ * compared by number when possible (so "01500" == "1500").
+ */
+export function normalizeDenomination(name: string): string {
+  const cleaned = name.trim().replace(/[,\s]/g, '').toLowerCase();
+  const n = Number(cleaned);
+  return Number.isFinite(n) && cleaned !== '' ? String(n) : cleaned;
+}
+
+/** Normalize a party name for duplicate detection (case + spacing). */
+export function normalizeName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase();
+}

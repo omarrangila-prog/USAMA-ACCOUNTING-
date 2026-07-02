@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import { computePartyBalances, computeStock, type DataSet } from '@/lib/accounting';
-import { formatMoney, cx } from '@/lib/utils';
+import { formatMoney, cx, normalizeDenomination } from '@/lib/utils';
 import { toast } from '@/store/toast';
 import './masters.css';
 
@@ -56,8 +56,11 @@ function BondsPanel() {
     } catch { /* toast already shown */ }
   };
 
+  const hasDenom = (denom: string) =>
+    bondTypes.some((b) => normalizeDenomination(b.name) === normalizeDenomination(denom));
+
   const quickAdd = async (denom: string) => {
-    if (bondTypes.some((b) => b.name === denom)) { toast.info(`Rs. ${denom} already exists.`); return; }
+    if (hasDenom(denom)) { toast.info(`Rs. ${denom} already exists.`); return; }
     try { await addBondType({ name: denom, faceValue: Number(denom) }); } catch { /* handled */ }
   };
 
@@ -91,8 +94,8 @@ function BondsPanel() {
           <label className="faint" style={{ fontSize: 12, fontWeight: 600 }}>Quick add common bonds</label>
           <div className="chip-row">
             {COMMON_DENOMS.map((d) => (
-              <button key={d} className={cx('chip', bondTypes.some((b) => b.name === d) && 'chip-done')} onClick={() => quickAdd(d)}>
-                {bondTypes.some((b) => b.name === d) ? '✓ ' : '+ '} Rs. {d}
+              <button key={d} className={cx('chip', hasDenom(d) && 'chip-done')} onClick={() => quickAdd(d)}>
+                {hasDenom(d) ? '✓ ' : '+ '} Rs. {d}
               </button>
             ))}
           </div>

@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useLayoutEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { cx } from '@/lib/utils';
 import { toast } from '@/store/toast';
 import './combo.css';
@@ -56,8 +56,18 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
   // Rows = filtered options, plus a virtual "create" row at the end.
   const rowCount = filtered.length + (canCreate ? 1 : 0);
 
-  useEffect(() => { if (open) setTimeout(() => searchRef.current?.focus(), 20); }, [open]);
-  useEffect(() => { setActive(0); }, [query, open]);
+  // Focus the search box synchronously right after it mounts (before paint) so
+  // no keystroke is dropped in the race between opening and focusing. The
+  // caret is placed at the end so a pre-seeded first letter isn't overwritten.
+  useLayoutEffect(() => {
+    if (open && searchRef.current) {
+      const el = searchRef.current;
+      el.focus();
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
+    }
+  }, [open]);
+  useLayoutEffect(() => { setActive(0); }, [query, open]);
 
   const pick = (id: string) => {
     onChange(id);

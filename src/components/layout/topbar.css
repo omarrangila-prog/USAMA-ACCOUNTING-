@@ -20,6 +20,8 @@
   border-radius: var(--radius-sm);
   background: rgba(15, 23, 42, 0.04);
 }
+.period-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; margin-left: 2px; }
+@media (max-width: 760px) { .period-label { display: none; } }
 .select.bare {
   border: none;
   background: transparent;

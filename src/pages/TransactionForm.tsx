@@ -89,11 +89,15 @@ export function TransactionForm({ kind }: Props) {
         ? await store.addSale({ date, partyId, bondTypeId, quantity: qty, rate: rt, receipt: mode })
         : await store.addPurchase({ date, partyId, bondTypeId, quantity: qty, rate: rt, payment: mode });
       if (ok) {
-        // Keep party + date, clear qty/rate, refocus quantity for the next bond.
+        // Reset the entry after a successful save: clear bond, qty, rate and
+        // payment mode; keep only the party + date (same customer, next bond is
+        // the common flow). Refocus the Bond field for the next entry.
+        setBondTypeId('');
         setQuantity('');
         setRate('');
+        setMode('cash');
         setTouched(false);
-        setTimeout(() => qtyRef.current?.focus(), 20);
+        setTimeout(() => bondRef.current?.focus(), 20);
       }
     } finally {
       setSubmitting(false);
