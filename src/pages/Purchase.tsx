@@ -51,7 +51,7 @@ export function Purchase() {
                   <tr>
                     <th>Date</th><th>Party</th><th>Bond</th>
                     <th className="num">Qty</th><th className="num">Rate</th>
-                    <th className="num">Amount</th><th>Mode</th><th></th>
+                    <th className="num">Amount</th><th>Note</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -63,11 +63,7 @@ export function Purchase() {
                       <td data-label="Qty" className="num mono">{formatNumber(r.quantity)}</td>
                       <td data-label="Rate" className="num mono">{formatNumber(r.rate)}</td>
                       <td data-label="Amount" className="num mono">{formatMoney(r.amount, cur)}</td>
-                      <td data-label="Mode">
-                        <span className={`badge ${r.payment === 'cash' ? 'badge-green' : 'badge-orange'}`}>
-                          {r.payment}
-                        </span>
-                      </td>
+                      <td data-label="Note" className="muted">{r.note || '—'}</td>
                       <td className="no-print actions-cell">
                         {!locked && (
                           <div className="row" style={{ gap: 2, justifyContent: 'flex-end' }}>
