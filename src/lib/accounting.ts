@@ -239,13 +239,8 @@ export interface BusinessSummary {
 export function computeBusinessSummary(data: DataSet, period: Period): BusinessSummary {
   const saleProfit = computeTradingProfit(data, period);
   const { expense, income } = computeExpenseNet(data, period);
-  const balances = computePartyBalances(data, period);
-  const grossReceivable = balances.filter((b) => b.balance > 0).reduce((a, b) => a + b.balance, 0);
-  const grossPayable = balances.filter((b) => b.balance < 0).reduce((a, b) => a + Math.abs(b.balance), 0);
-  // Receivable and payable net against each other; only the winner is shown.
-  const netParty = round2(grossReceivable - grossPayable);
-  const netReceivable = netParty > 0 ? netParty : 0;
-  const netPayable = netParty < 0 ? Math.abs(netParty) : 0;
+  // All party/cash totals come from the one Financial Engine.
+  const fin = computeFinancials(data, period);
   const mv = computeBondMovement(data, period);
   const totalPurchased = mv.reduce((a, m) => a + m.purchasedQty, 0);
   const totalSold = mv.reduce((a, m) => a + m.soldQty, 0);
@@ -257,13 +252,12 @@ export function computeBusinessSummary(data: DataSet, period: Period): BusinessS
   const totalProfitLoss = round2(saleProfit + income - expense);
 
   return {
-    // Cash in Hand = current cash + net receivable - net payable.
-    cashInHand: round2(computeCashInHand(data, period) + netParty),
+    cashInHand: fin.cashInHand,
     totalProfitLoss,
     purchaseProfit: round2(purchaseProfit),
     saleProfit: round2(saleProfit),
-    netReceivable,
-    netPayable,
+    netReceivable: fin.netReceivable,
+    netPayable: fin.netPayable,
     totalPurchased,
     totalSold,
     netBonds: totalPurchased - totalSold,
@@ -364,9 +358,45 @@ export function computeCashInHand(data: DataSet, period: Period): number {
   cash += net;
   // NOTE: manual receivable/payable adjustments are NOT applied here. They are
   // not cash yet — they only move real cash when settled via Receive/Pay (which
-  // are recorded as cash transactions above). The dashboard nets the outstanding
-  // receivable/payable into the displayed "Cash in Hand" separately.
+  // are recorded as cash transactions above). The Financial Engine folds the
+  // outstanding net receivable/payable into the displayed "Cash in Hand".
   return round2(cash);
+}
+
+/**
+ * THE single source of truth for all party/cash totals shown anywhere in the
+ * app (dashboard cards, Business Summary, reports, PDF, Excel). Never sum raw
+ * receivable/payable collections directly — always go through here.
+ *
+ *   1. Each party is netted to ONE balance (computePartyBalances):
+ *        partyNet = opening + credit sales + payments in
+ *                 - credit purchases - payments out + adjustments
+ *      partyNet > 0 => receivable, < 0 => payable, = 0 => hidden.
+ *   2. netReceivable = Σ partyNet where partyNet > 0
+ *      netPayable    = |Σ partyNet where partyNet < 0|
+ *   3. cashInHand = rawCash (openingCash + cashSales - cashPurchases
+ *        + cashReceived - cashPaid + income - expenses) + netReceivable - netPayable
+ */
+export interface Financials {
+  rawCash: number;         // cash movements only, before party netting
+  netReceivable: number;   // Σ positive party nets
+  netPayable: number;      // |Σ negative party nets|
+  netParty: number;        // netReceivable - netPayable
+  cashInHand: number;      // rawCash + netReceivable - netPayable
+}
+export function computeFinancials(data: DataSet, period: Period): Financials {
+  const balances = computePartyBalances(data, period);
+  const netReceivable = round2(balances.reduce((a, b) => (b.balance > 0 ? a + b.balance : a), 0));
+  const netPayable = round2(balances.reduce((a, b) => (b.balance < 0 ? a + Math.abs(b.balance) : a), 0));
+  const rawCash = computeCashInHand(data, period);
+  const netParty = round2(netReceivable - netPayable);
+  return {
+    rawCash,
+    netReceivable,
+    netPayable,
+    netParty,
+    cashInHand: round2(rawCash + netParty),
+  };
 }
 
 export interface CashBookLine {
@@ -655,35 +685,23 @@ export function computeDashboard(data: DataSet, period: Period): DashboardStats 
   const stock = computeStock(data, period);
   const closingStockQty = stock.reduce((a, s) => a + s.closingQty, 0);
   const closingStockValue = round2(stock.reduce((a, s) => a + s.closingValue, 0));
-  const receivables = computeReceivables(data, period).reduce((a, b) => a + b.balance, 0);
-  const payables = computePayables(data, period).reduce((a, b) => a + b.balance, 0);
-  const rawCash = computeCashInHand(data, period);
+  // All party/cash totals come from the one Financial Engine (per-party netting).
+  const fin = computeFinancials(data, period);
   const bank = computeFileBalance(data.opening);
   const exp = computeExpenseNet(data, period);
   const tb = computeTrialBalance(data, period);
-
-  // Net the outstanding party balances against each other, then fold that net
-  // into the displayed Cash in Hand:
-  //   Net Party Balance = Total Receivable - Total Payable
-  //   Cash in Hand      = Current Cash + Net Receivable - Net Payable
-  // Only one of receivable/payable is shown (the winner of the netting).
-  const netParty = round2(receivables - payables);
-  const netReceivable = netParty > 0 ? netParty : 0;
-  const netPayable = netParty < 0 ? Math.abs(netParty) : 0;
-  const cashInHand = round2(rawCash + netParty);
 
   return {
     totalPurchase,
     totalSale,
     closingStockQty,
     closingStockValue,
-    cashReceivable: netReceivable,
-    cashPayable: netPayable,
-    cashInHand,
-    // Net worth-ish position: assets - liabilities. netParty already accounts
-    // for receivable - payable, and it's now inside cashInHand, so don't add it
-    // again here.
-    netBalance: round2(cashInHand + bank + closingStockValue),
+    cashReceivable: fin.netReceivable,
+    cashPayable: fin.netPayable,
+    cashInHand: fin.cashInHand,
+    // Net worth-ish position: assets - liabilities. netParty is already folded
+    // into cashInHand, so don't add receivables/payables again here.
+    netBalance: round2(fin.cashInHand + bank + closingStockValue),
     profitLoss: computeProfitLoss(data, period),
     totalExpense: exp.expense,
     totalIncome: exp.income,

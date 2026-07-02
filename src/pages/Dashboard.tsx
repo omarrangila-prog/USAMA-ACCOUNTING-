@@ -74,7 +74,9 @@ export function Dashboard() {
         />
         <StatCard label="Sale Profit" value={formatMoney(s.saleProfit, cur)} icon="sale" accent={s.saleProfit >= 0 ? 'green' : 'red'} onClick={() => nav('/sale')} />
         <StatCard label="Purchase Profit" value={formatMoney(s.purchaseProfit, cur)} icon="purchase" accent={s.purchaseProfit >= 0 ? 'green' : 'red'} onClick={() => nav('/purchase')} />
-        {/* Receivable & payable net against each other — only the winner shows. */}
+        {/* Per-party netting: each card sums only the party nets on its side.
+            A card is hidden when its total is 0. If both are 0, show a single
+            "all settled" card. */}
         {s.netReceivable > 0 && (
           <StatCard label="Cash Receivable" value={formatMoney(s.netReceivable, cur)} icon="receivable" accent="green" hint="Net money owed to you" onClick={() => nav('/receivable')} />
         )}
