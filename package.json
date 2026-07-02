@@ -35,11 +35,13 @@
     "cross-env": "^7.0.3",
     "electron": "^31.1.0",
     "electron-builder": "^24.13.3",
-    "png-to-ico": "^3.0.1",
-    "sharp": "^0.35.3",
     "typescript": "^5.5.3",
     "vite": "^5.3.3",
     "wait-on": "^7.2.0"
+  },
+  "optionalDependencies": {
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.35.3"
   },
   "build": {
     "appId": "com.usamaraza.bondledger",
