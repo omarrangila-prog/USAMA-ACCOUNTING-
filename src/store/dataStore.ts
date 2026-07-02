@@ -368,18 +368,26 @@ export const useData = create<DataStore>((set, get) => ({
       toast.error('Quantity and rate must be positive.');
       return false;
     }
+    // Party is optional. Without a party, the deal can only be Cash — a credit
+    // transaction needs someone to owe, so it's forced to cash and hits
+    // cash-in-hand only (no payable created).
+    const partyId = input.partyId || '';
+    const payment: PaymentMode = partyId ? input.payment : 'cash';
+    if (!partyId && input.payment === 'credit') {
+      toast.info('No party selected — recorded as cash.');
+    }
     const amount = round2(input.quantity * input.rate);
     const rec: Purchase = {
       id: uid(),
       date: input.date,
       month,
       year,
-      partyId: input.partyId,
+      partyId,
       bondTypeId: input.bondTypeId,
       quantity: input.quantity,
       rate: input.rate,
       amount,
-      payment: input.payment,
+      payment,
       note: input.note,
       createdAt: now(),
       updatedAt: now(),
@@ -408,6 +416,11 @@ export const useData = create<DataStore>((set, get) => ({
       toast.error(`Insufficient stock. Available: ${stock}, requested: ${input.quantity}.`);
       return false;
     }
+    const partyId = input.partyId || '';
+    const receipt: PaymentMode = partyId ? input.receipt : 'cash';
+    if (!partyId && input.receipt === 'credit') {
+      toast.info('No party selected — recorded as cash.');
+    }
     const amount = round2(input.quantity * input.rate);
     const unitCost = avgCostFor(get().dataset(), input.bondTypeId, period);
     const costOfGoods = round2(unitCost * input.quantity);
@@ -416,12 +429,12 @@ export const useData = create<DataStore>((set, get) => ({
       date: input.date,
       month,
       year,
-      partyId: input.partyId,
+      partyId,
       bondTypeId: input.bondTypeId,
       quantity: input.quantity,
       rate: input.rate,
       amount,
-      receipt: input.receipt,
+      receipt,
       costOfGoods,
       profit: round2(amount - costOfGoods),
       note: input.note,
@@ -445,12 +458,14 @@ export const useData = create<DataStore>((set, get) => ({
       toast.error('Amount must be positive.');
       return false;
     }
+    // Party optional: a no-party cash entry just moves cash-in-hand, without
+    // settling anyone's balance.
     const rec: CashTransaction = {
       id: uid(),
       date: input.date,
       month,
       year,
-      partyId: input.partyId,
+      partyId: input.partyId || '',
       direction: input.direction,
       amount: round2(input.amount),
       note: input.note,

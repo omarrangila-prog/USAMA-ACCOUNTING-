@@ -226,7 +226,7 @@ function CashModal({
 
   const submit = async () => {
     const amt = Number(amount) || 0;
-    if (!partyId) { toast.error('Select a party.'); partyRef.current?.focus(); return; }
+    // Party is optional — a no-party cash entry just moves cash-in-hand.
     if (amt <= 0) { toast.error('Enter a positive amount.'); amountRef.current?.focus(); return; }
     setBusy(true);
     try {
@@ -257,10 +257,10 @@ function CashModal({
           <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
         <div className="field">
-          <label>Party</label>
+          <label>Party <span className="faint">(optional)</span></label>
           <Combo
             ref={partyRef}
-            value={partyId} options={partyOptions} placeholder="Select or create party" allowCreate
+            value={partyId} options={partyOptions} placeholder="Optional — blank = cash in hand" allowCreate
             onChange={setPartyId}
             onCreate={async (name) => (await store.addParty({ name, openingBalance: 0 })).id}
             onDone={() => amountRef.current?.focus()}

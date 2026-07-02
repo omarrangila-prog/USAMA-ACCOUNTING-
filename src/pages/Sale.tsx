@@ -25,7 +25,7 @@ export function Sale() {
     [data.sales, period]
   );
 
-  const partyName = (id: string) => data.parties.find((p) => p.id === id)?.name ?? '—';
+  const partyName = (id: string) => (id ? (data.parties.find((p) => p.id === id)?.name ?? '—') : 'Cash (no party)');
   const bondName = (id: string) => data.bondTypes.find((b) => b.id === id)?.name ?? '—';
   const total = rows.reduce((a, r) => a + r.amount, 0);
   const profit = rows.reduce((a, r) => a + r.profit, 0);

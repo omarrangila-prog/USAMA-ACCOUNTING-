@@ -91,6 +91,7 @@ const DICT: Dict = {
   'f.totalIncome': ['Total Income', 'کل آمدنی'],
   'f.net': ['Net', 'خالص'],
   'f.cancel': ['Cancel', 'منسوخ'],
+  'f.optional': ['optional', 'اختیاری'],
 };
 
 interface I18nStore {
