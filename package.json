@@ -11,7 +11,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "test": "node src/lib/financials.test.mjs",
+    "test": "vitest run",
     "seed": "node scripts/seed.mjs",
     "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
     "electron:build": "cross-env ELECTRON=1 npm run build && electron-builder --win --publish never",
@@ -28,7 +28,6 @@
     "xlsx": "^0.18.5",
     "zustand": "^4.5.2"
   },
-  
   "devDependencies": {
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
@@ -39,6 +38,7 @@
     "electron-builder": "^24.13.3",
     "typescript": "^5.5.3",
     "vite": "^5.3.3",
+    "vitest": "^4.1.9",
     "wait-on": "^7.2.0"
   },
   "optionalDependencies": {
