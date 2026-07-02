@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
-import { Modal } from '@/components/ui/Modal';
+import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { Combo } from '@/components/ui/Combo';
 import { computeReceivables, computePayables } from '@/lib/accounting';
 import { exportReportPdf } from '@/lib/reportBuilder';
-import { formatMoney, defaultDateForPeriod, cx } from '@/lib/utils';
+import { formatMoney, formatDate, defaultDateForPeriod, cx } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
 import { toast } from '@/store/toast';
 
@@ -23,10 +23,20 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
   // Which party we're recording a payment for (null = closed).
   const [payFor, setPayFor] = useState<{ partyId: string; name: string; balance: number } | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [adjToDelete, setAdjToDelete] = useState<string | null>(null);
 
   const rows = useMemo(
     () => (isRec ? computeReceivables(data, period) : computePayables(data, period)),
     [data, period, isRec]
+  );
+
+  const partyLabel = (id: string) => data.parties.find((p) => p.id === id)?.name ?? '—';
+  // Manual receivable/payable entries added this month for THIS side.
+  const manualAdjustments = useMemo(
+    () => (data.partyAdjustments ?? [])
+      .filter((a) => a.month === period.month && a.year === period.year && (isRec ? a.amount > 0 : a.amount < 0))
+      .sort((a, b) => (a.date < b.date ? 1 : -1)),
+    [data.partyAdjustments, period, isRec]
   );
   const total = rows.reduce((a, r) => a + r.balance, 0);
 
@@ -97,12 +107,50 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
         )}
       </div>
 
+      {manualAdjustments.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="section-title">
+            <Icon name="plus" size={16} /> Manual {isRec ? 'Receivable' : 'Payable'} Entries · {manualAdjustments.length}
+          </div>
+          <div className="table-wrap">
+            <table className="grid stack-sm">
+              <thead>
+                <tr><th>Date</th><th>Party</th><th className="num">Amount</th><th>Reason</th><th className="no-print"></th></tr>
+              </thead>
+              <tbody>
+                {manualAdjustments.map((a) => (
+                  <tr key={a.id}>
+                    <td data-label="Date">{formatDate(a.date)}</td>
+                    <td data-label="Party"><strong>{partyLabel(a.partyId)}</strong></td>
+                    <td data-label="Amount" className={cx('num mono', isRec ? 'pos' : 'neg')}>{formatMoney(Math.abs(a.amount), cur)}</td>
+                    <td data-label="Reason" className="muted">{a.reason}</td>
+                    <td className="no-print actions-cell">
+                      <button className="btn btn-ghost btn-icon btn-sm del-btn" title="Delete" onClick={() => setAdjToDelete(a.id)}>
+                        <Icon name="trash" size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <PaymentModal
         kind={kind}
         target={payFor}
         onClose={() => setPayFor(null)}
       />
       <AddBalanceModal kind={kind} open={addOpen} onClose={() => setAddOpen(false)} />
+      <ConfirmDialog
+        open={!!adjToDelete}
+        title="Delete entry?"
+        message="This removes the manual balance entry and recalculates the party's net balance."
+        confirmLabel="Delete" danger
+        onConfirm={() => { if (adjToDelete) store.deletePartyAdjustment(adjToDelete); setAdjToDelete(null); }}
+        onCancel={() => setAdjToDelete(null)}
+      />
     </div>
   );
 }

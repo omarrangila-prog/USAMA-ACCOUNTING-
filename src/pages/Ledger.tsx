@@ -21,7 +21,16 @@ export function Ledger() {
 
   const [partyId, setPartyId] = useState(params.get('party') ?? '');
   const [cashModal, setCashModal] = useState<CashDirection | null>(null);
+  const [cashEditId, setCashEditId] = useState<string | null>(null);
   const [cashToDelete, setCashToDelete] = useState<string | null>(null);
+
+  // Open the cash modal in edit mode for an existing cash entry.
+  const editCash = (refId: string) => {
+    const rec = store.cash.find((c) => c.id === refId);
+    if (!rec) return;
+    setCashEditId(refId);
+    setCashModal(rec.direction);
+  };
 
   // Deep-links from shortcuts (?cash=received / ?cash=paid) open the cash modal.
   useEffect(() => {
@@ -165,10 +174,16 @@ export function Ledger() {
                         </td>
                         <td className="no-print actions-cell">
                           {editable && (
-                            <button className="btn btn-ghost btn-icon btn-sm del-btn" title="Delete cash entry"
-                              onClick={() => setCashToDelete(e!.refId)}>
-                              <Icon name="trash" size={14} />
-                            </button>
+                            <div className="row" style={{ gap: 2, justifyContent: 'flex-end' }}>
+                              <button className="btn btn-ghost btn-icon btn-sm" title="Edit cash entry"
+                                onClick={() => editCash(e!.refId)}>
+                                <Icon name="settings" size={14} />
+                              </button>
+                              <button className="btn btn-ghost btn-icon btn-sm del-btn" title="Delete cash entry"
+                                onClick={() => setCashToDelete(e!.refId)}>
+                                <Icon name="trash" size={14} />
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -185,7 +200,8 @@ export function Ledger() {
       <CashModal
         direction={cashModal}
         defaultParty={partyId}
-        onClose={() => setCashModal(null)}
+        editId={cashEditId}
+        onClose={() => { setCashModal(null); setCashEditId(null); }}
       />
       <ConfirmDialog
         open={!!cashToDelete}
@@ -200,8 +216,8 @@ export function Ledger() {
 }
 
 function CashModal({
-  direction, defaultParty, onClose,
-}: { direction: CashDirection | null; defaultParty: string; onClose: () => void }) {
+  direction, defaultParty, editId, onClose,
+}: { direction: CashDirection | null; defaultParty: string; editId?: string | null; onClose: () => void }) {
   const store = useData();
   const startDate = defaultDateForPeriod(store.period);
   const [partyId, setPartyId] = useState(defaultParty);
@@ -213,26 +229,31 @@ function CashModal({
   const amountRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (direction) {
-      setPartyId(defaultParty);
-      setAmount('');
-      setNote('');
+    if (!direction) return;
+    if (editId) {
+      // Editing an existing cash entry — prefill from it.
+      const rec = store.cash.find((c) => c.id === editId);
+      if (rec) {
+        setPartyId(rec.partyId); setAmount(String(rec.amount));
+        setNote(rec.note ?? ''); setDate(rec.date);
+      }
+    } else {
+      setPartyId(defaultParty); setAmount(''); setNote('');
       setDate(defaultDateForPeriod(store.period));
-      // Focus party if none preselected, else amount.
-      setTimeout(() => (defaultParty ? amountRef.current?.focus() : partyRef.current?.focus()), 40);
     }
-  }, [direction, defaultParty]);
+    setTimeout(() => amountRef.current?.focus(), 40);
+  }, [direction, defaultParty, editId]);
 
   const isReceived = direction === 'received';
   const partyOptions = store.parties.map((p) => ({ id: p.id, label: p.name, sub: p.phone }));
 
   const submit = async () => {
     const amt = Number(amount) || 0;
-    // Party is optional — a no-party cash entry just moves cash-in-hand.
     if (amt <= 0) { toast.error('Enter a positive amount.'); amountRef.current?.focus(); return; }
     setBusy(true);
     try {
-      const ok = await store.addCash({ date, partyId, direction: direction!, amount: amt, note: note || undefined });
+      const input = { date, partyId, direction: direction!, amount: amt, note: note || undefined };
+      const ok = editId ? await store.updateCash(editId, input) : await store.addCash(input);
       if (ok) onClose();
     } finally { setBusy(false); }
   };
@@ -240,8 +261,8 @@ function CashModal({
   return (
     <Modal
       open={!!direction}
-      title={isReceived ? 'Cash Received' : 'Cash Paid'}
-      subtitle={isReceived ? 'Money received from a party' : 'Money paid to a party'}
+      title={`${editId ? 'Edit ' : ''}${isReceived ? 'Cash Received' : 'Cash Paid'}`}
+      subtitle={isReceived ? 'Money received (adds to cash in hand)' : 'Money paid (reduces cash in hand)'}
       onClose={onClose}
       width={440}
       footer={
