@@ -10,9 +10,17 @@ import './appshell.css';
 
 export function AppShell() {
   const nav = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
+  const [collapsed, setCollapsed] = useState(false);      // desktop collapse
   const [smartOpen, setSmartOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // The hamburger toggles the mobile drawer on small screens, and collapses
+  // the docked sidebar on wide screens — so it always does something visible.
+  const onMenu = () => {
+    if (window.innerWidth <= 960) setSidebarOpen((v) => !v);
+    else setCollapsed((v) => !v);
+  };
 
   useShortcuts({
     onPurchase: () => nav('/purchase?new=1'),
@@ -27,13 +35,13 @@ export function AppShell() {
   });
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${collapsed ? ' sidebar-collapsed' : ''}`}>
       <Sidebar open={sidebarOpen} onNavigate={() => setSidebarOpen(false)} />
       {sidebarOpen && <div className="sidebar-scrim no-print" onClick={() => setSidebarOpen(false)} />}
 
       <div className="main-col">
         <Topbar
-          onMenu={() => setSidebarOpen((v) => !v)}
+          onMenu={onMenu}
           onSearch={() => setPaletteOpen(true)}
           onSmart={() => setSmartOpen(true)}
         />

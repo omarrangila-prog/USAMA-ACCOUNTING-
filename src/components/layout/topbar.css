@@ -10,7 +10,9 @@
   margin: 12px 0 18px;
   border-radius: var(--radius);
 }
-.menu-btn { display: none; }
+/* Hamburger is always visible: it collapses the sidebar on desktop and opens
+   the drawer on mobile. */
+.menu-btn { display: inline-flex; }
 
 .period-picker {
   display: flex;

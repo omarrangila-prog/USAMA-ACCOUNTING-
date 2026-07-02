@@ -5,6 +5,7 @@
   position: sticky;
   top: 0;
   padding: 18px 14px;
+  transition: width 0.2s ease, padding 0.2s ease;
   display: flex;
   flex-direction: column;
   gap: 14px;
