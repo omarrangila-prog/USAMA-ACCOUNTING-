@@ -5,11 +5,13 @@ import { Icon } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import { ExcelMigration } from './ExcelMigration';
 import { buildSeed } from '@/lib/seed';
+import { useT } from '@/lib/i18n';
 import { toast } from '@/store/toast';
 import './settings.css';
 
 export function Settings() {
   const store = useData();
+  const t = useT();
   const s = store.settings;
 
   const [form, setForm] = useState({
@@ -30,7 +32,7 @@ export function Settings() {
 
   return (
     <div>
-      <PageHeader title="Settings" subtitle="Business profile, data & migration" />
+      <PageHeader title={t('p.settingsTitle')} subtitle="Business profile, data & migration" />
 
       <div className="settings-grid">
         {/* Business profile */}

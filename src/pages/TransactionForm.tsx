@@ -4,6 +4,7 @@ import { Combo, type ComboHandle } from '@/components/ui/Combo';
 import { Icon } from '@/components/ui/Icon';
 import { availableStock } from '@/lib/accounting';
 import { formatMoney, formatNumber, periodOf, cx, defaultDateForPeriod } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
 import type { PaymentMode } from '@/types';
 
 interface Props {
@@ -22,6 +23,7 @@ interface Props {
  */
 export function TransactionForm({ kind }: Props) {
   const store = useData();
+  const t = useT();
   const isSale = kind === 'sale';
   const period = store.period;
 
@@ -119,25 +121,19 @@ export function TransactionForm({ kind }: Props) {
     <div className="card entry-form">
       <div className="section-title">
         <Icon name={isSale ? 'sale' : 'purchase'} size={16} />
-        New {isSale ? 'Sale' : 'Purchase'}
+        {isSale ? t('b.newSale') : t('b.newPurchase')}
         <span className="spacer" />
-        <span className="faint kbd-hint">Press Enter to move · ⌘S to save</span>
+        <span className="faint kbd-hint">Enter · ⌘S</span>
       </div>
-
-      {monthLocked && (
-        <div className="locked-banner">
-          <Icon name="lock" size={16} /> This month is closed. Switch to an open month to add entries.
-        </div>
-      )}
 
       <div className="form-grid">
         <div className="field">
-          <label>Date</label>
+          <label>{t('f.date')}</label>
           <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
 
         <div className="field">
-          <label>Party <span className="faint">(1)</span></label>
+          <label>{t('f.party')} <span className="faint">(1)</span></label>
           <Combo
             ref={partyRef}
             value={partyId}
@@ -152,7 +148,7 @@ export function TransactionForm({ kind }: Props) {
         </div>
 
         <div className="field">
-          <label>Bond Type <span className="faint">(2)</span></label>
+          <label>{t('f.bond')} <span className="faint">(2)</span></label>
           <Combo
             ref={bondRef}
             value={bondTypeId}
@@ -168,7 +164,7 @@ export function TransactionForm({ kind }: Props) {
 
         <div className="form-row2">
           <div className="field">
-            <label>Quantity <span className="faint">(3)</span></label>
+            <label>{t('f.quantity')} <span className="faint">(3)</span></label>
             <input
               ref={qtyRef}
               type="number" min="0" inputMode="numeric"
@@ -179,7 +175,7 @@ export function TransactionForm({ kind }: Props) {
             />
           </div>
           <div className="field">
-            <label>Rate <span className="faint">(4)</span></label>
+            <label>{t('f.rate')} <span className="faint">(4)</span></label>
             <input
               ref={rateRef}
               type="number" min="0" inputMode="numeric"
@@ -195,13 +191,13 @@ export function TransactionForm({ kind }: Props) {
           <div className={cx('stock-hint', oversell ? 'warn' : 'ok')}>
             <Icon name={oversell ? 'warning' : 'check'} size={14} />
             {oversell
-              ? `Only ${formatNumber(stock)} in stock — can't sell ${formatNumber(qty)}.`
-              : `Available stock: ${formatNumber(stock)} bonds.`}
+              ? `${t('f.available')}: ${formatNumber(stock)}`
+              : `${t('f.available')}: ${formatNumber(stock)}`}
           </div>
         )}
 
         <div className="field">
-          <label>{isSale ? 'Receipt' : 'Payment'} <span className="faint">(5 · ←/→ or Enter)</span></label>
+          <label>{isSale ? t('f.receipt') : t('f.payment')} <span className="faint">(5)</span></label>
           <div className="segment">
             <button
               ref={modeRef}
@@ -213,7 +209,7 @@ export function TransactionForm({ kind }: Props) {
                 else if (e.key === 'ArrowLeft') setMode('cash');
                 else if (e.key === 'Enter') { e.preventDefault(); saveRef.current?.focus(); saveRef.current?.click(); }
               }}
-            >Cash</button>
+            >{t('f.cash')}</button>
             <button
               type="button"
               className={mode === 'credit' ? 'active' : ''}
@@ -223,12 +219,12 @@ export function TransactionForm({ kind }: Props) {
                 else if (e.key === 'ArrowLeft') setMode('cash');
                 else if (e.key === 'Enter') { e.preventDefault(); submit(); }
               }}
-            >Credit</button>
+            >{t('f.credit')}</button>
           </div>
         </div>
 
         <div className={cx('amount-preview', isSale && 'green')}>
-          <span className="amt-label">Amount</span>
+          <span className="amt-label">{t('f.amount')}</span>
           <span className="amt-value mono">{formatMoney(amount, cur)}</span>
         </div>
 
@@ -238,8 +234,7 @@ export function TransactionForm({ kind }: Props) {
           onClick={submit}
           disabled={submitting || monthLocked}
         >
-          <Icon name="save" size={16} /> Save {isSale ? 'Sale' : 'Purchase'}
-          <span className="faint" style={{ fontSize: 11, opacity: 0.7 }}>⌘S</span>
+          <Icon name="save" size={16} /> {isSale ? t('b.addSale') : t('b.addPurchase')}
         </button>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { Icon } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import { computeExpenseNet } from '@/lib/accounting';
 import { formatMoney, formatDate, defaultDateForPeriod, monthName, cx } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
 import type { Expense, ExpenseKind } from '@/types';
 import './entry.css';
 
@@ -13,6 +14,7 @@ const COMMON_CATEGORIES = ['Rent', 'Salary', 'Utilities', 'Commission', 'Transpo
 /** Expenses & Income for the selected month. Fully month-isolated + auto totals. */
 export function Expenses() {
   const store = useData();
+  const t = useT();
   const { period, expenses, settings, isMonthLocked } = store;
   const cur = settings.currency;
   const locked = isMonthLocked();
@@ -58,29 +60,28 @@ export function Expenses() {
 
   return (
     <div>
-      <PageHeader title="Expenses & Income" subtitle={`${monthName(period.month)} ${period.year}`} />
+      <PageHeader title={t('p.expensesTitle')} subtitle={`${monthName(period.month)} ${period.year}`} />
 
       <div className="entry-layout">
         <div className="card entry-form">
           <div className="section-title">
-            <Icon name="wallet" size={16} /> {editId ? 'Edit Entry' : 'New Entry'}
+            <Icon name="wallet" size={16} /> {editId ? t('f.editEntry') : t('f.newEntry')}
           </div>
-          {locked && <div className="locked-banner"><Icon name="lock" size={16} /> This month is closed.</div>}
 
           <div className="form-grid">
             <div className="field">
-              <label>Type</label>
+              <label>{t('f.type')}</label>
               <div className="segment">
-                <button type="button" className={kind === 'expense' ? 'active' : ''} onClick={() => setKind('expense')}>Expense</button>
-                <button type="button" className={kind === 'income' ? 'active' : ''} onClick={() => setKind('income')}>Income</button>
+                <button type="button" className={kind === 'expense' ? 'active' : ''} onClick={() => setKind('expense')}>{t('f.expense')}</button>
+                <button type="button" className={kind === 'income' ? 'active' : ''} onClick={() => setKind('income')}>{t('f.income')}</button>
               </div>
             </div>
             <div className="field">
-              <label>Date</label>
+              <label>{t('f.date')}</label>
               <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="field">
-              <label>Category</label>
+              <label>{t('f.category')}</label>
               <input ref={catRef} className="input" placeholder="e.g. Rent, Salary" value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && amtRef.current?.focus()} />
@@ -91,31 +92,31 @@ export function Expenses() {
               </div>
             </div>
             <div className="field">
-              <label>Amount</label>
+              <label>{t('f.amount')}</label>
               <input ref={amtRef} type="number" min="0" inputMode="numeric" className="input" placeholder="0" value={amount}
                 onChange={(e) => setAmount(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
             </div>
             <div className="field">
-              <label>Note (optional)</label>
+              <label>{t('f.note')}</label>
               <input className="input" placeholder="Details" value={desc} onChange={(e) => setDesc(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && submit()} />
             </div>
             <button className={kind === 'income' ? 'btn btn-green' : 'btn btn-primary'} onClick={submit} disabled={busy || locked}>
-              <Icon name="save" size={16} /> {editId ? 'Save Changes' : `Add ${kind === 'income' ? 'Income' : 'Expense'}`}
+              <Icon name="save" size={16} /> {editId ? t('f.saveEntry') : (kind === 'income' ? t('f.addIncome') : t('f.addExpense'))}
             </button>
-            {editId && <button className="btn" onClick={resetForm}>Cancel Edit</button>}
+            {editId && <button className="btn" onClick={resetForm}>{t('f.cancel')}</button>}
           </div>
         </div>
 
         <div className="card">
-          <div className="section-title"><Icon name="wallet" size={16} /> Entries · {rows.length}</div>
+          <div className="section-title"><Icon name="wallet" size={16} /> {t('f.entries')} · {rows.length}</div>
           <div className="grid-3" style={{ marginBottom: 14 }}>
-            <MiniStat label="Total Expense" value={formatMoney(totals.expense, cur)} accent="neg" />
-            <MiniStat label="Total Income" value={formatMoney(totals.income, cur)} accent="pos" />
-            <MiniStat label="Net" value={formatMoney(totals.net, cur)} accent={totals.net >= 0 ? 'pos' : 'neg'} />
+            <MiniStat label={t('f.totalExpense')} value={formatMoney(totals.expense, cur)} accent="neg" />
+            <MiniStat label={t('f.totalIncome')} value={formatMoney(totals.income, cur)} accent="pos" />
+            <MiniStat label={t('f.net')} value={formatMoney(totals.net, cur)} accent={totals.net >= 0 ? 'pos' : 'neg'} />
           </div>
           {rows.length === 0 ? (
-            <div className="empty">No expenses or income this month yet.</div>
+            <div className="empty">{t('f.noEntries')}</div>
           ) : (
             <div className="table-wrap">
               <table className="grid">

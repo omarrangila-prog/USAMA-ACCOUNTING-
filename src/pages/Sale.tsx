@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { useT } from '@/lib/i18n';
 import { Icon } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import { TransactionForm } from './TransactionForm';
@@ -15,6 +16,7 @@ export function Sale() {
   const cur = settings.currency;
   const [toDelete, setToDelete] = useState<string | null>(null);
   const [toEdit, setToEdit] = useState<SaleRec | null>(null);
+  const t = useT();
 
   const rows = useMemo(
     () => data.sales
@@ -31,7 +33,7 @@ export function Sale() {
 
   return (
     <div>
-      <PageHeader title="Sale Entry" subtitle="Record bond sales to parties" />
+      <PageHeader title={t('p.saleTitle')} subtitle={t('p.saleSub')} />
       <div className="entry-layout">
         <TransactionForm kind="sale" />
 

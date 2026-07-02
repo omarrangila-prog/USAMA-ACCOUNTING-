@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { useT } from '@/lib/i18n';
 import { Icon } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import { TransactionForm } from './TransactionForm';
@@ -15,6 +16,7 @@ export function Purchase() {
   const cur = settings.currency;
   const [toDelete, setToDelete] = useState<string | null>(null);
   const [toEdit, setToEdit] = useState<PurchaseRec | null>(null);
+  const t = useT();
 
   const rows = useMemo(
     () => data.purchases
@@ -30,7 +32,7 @@ export function Purchase() {
 
   return (
     <div>
-      <PageHeader title="Purchase Entry" subtitle="Record bond purchases from parties" />
+      <PageHeader title={t('p.purchaseTitle')} subtitle={t('p.purchaseSub')} />
       <div className="entry-layout">
         <TransactionForm kind="purchase" />
 

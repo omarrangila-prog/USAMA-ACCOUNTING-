@@ -9,6 +9,7 @@ import {
 } from '@/lib/reportBuilder';
 import { computeDashboard } from '@/lib/accounting';
 import { formatMoney, formatNumber, monthName } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
 import { toast } from '@/store/toast';
 import './reports.css';
 
@@ -26,6 +27,7 @@ const REPORTS: { id: ReportId; icon: IconName; desc: string; accent: string }[] 
 ];
 
 export function Reports() {
+  const t = useT();
   const { period, dataset, settings, isMonthClosed, closeMonth } = useData();
   const data = dataset();
   const cur = settings.currency;
@@ -47,7 +49,7 @@ export function Reports() {
   return (
     <div>
       <PageHeader
-        title="Reports"
+        title={t('p.reportsTitle')}
         subtitle={`Generate professional reports for ${monthName(period.month)} ${period.year}`}
         actions={
           <>

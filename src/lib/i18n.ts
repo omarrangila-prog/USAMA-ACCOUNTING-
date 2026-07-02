@@ -59,6 +59,38 @@ const DICT: Dict = {
   'b.newSale': ['New Sale', 'نئی فروخت'],
   'b.addPurchase': ['Save Purchase', 'خرید محفوظ کریں'],
   'b.addSale': ['Save Sale', 'فروخت محفوظ کریں'],
+
+  // Page titles + subtitles
+  'p.purchaseTitle': ['Purchase Entry', 'خرید کا اندراج'],
+  'p.purchaseSub': ['Record bond purchases from parties', 'پارٹیوں سے بانڈ کی خرید درج کریں'],
+  'p.saleTitle': ['Sale Entry', 'فروخت کا اندراج'],
+  'p.saleSub': ['Record bond sales to parties', 'پارٹیوں کو بانڈ کی فروخت درج کریں'],
+  'p.expensesTitle': ['Expenses & Income', 'اخراجات و آمدنی'],
+  'p.stockTitle': ['Stock Report', 'اسٹاک رپورٹ'],
+  'p.receivableTitle': ['Cash Receivable', 'وصول طلب رقم'],
+  'p.payableTitle': ['Cash Payable', 'قابل ادا رقم'],
+  'p.reportsTitle': ['Reports', 'رپورٹس'],
+  'p.settingsTitle': ['Settings', 'ترتیبات'],
+
+  // Form helpers
+  'f.receipt': ['Receipt', 'وصولی'],
+  'f.payment': ['Payment', 'ادائیگی'],
+  'f.newEntry': ['New Entry', 'نیا اندراج'],
+  'f.editEntry': ['Edit Entry', 'اندراج میں ترمیم'],
+  'f.total': ['Total', 'کل'],
+  'f.profit': ['Profit', 'نفع'],
+  'f.mode': ['Mode', 'طریقہ'],
+  'f.saveEntry': ['Save', 'محفوظ کریں'],
+  'f.available': ['Available stock', 'دستیاب اسٹاک'],
+  'f.monthClosed': ['This month is closed — entries stay editable.', 'یہ مہینہ بند ہے — اندراج قابلِ ترمیم ہیں۔'],
+  'f.noEntries': ['No entries this month yet.', 'اس مہینے ابھی کوئی اندراج نہیں۔'],
+  'f.entries': ['Entries', 'اندراجات'],
+  'f.addExpense': ['Add Expense', 'خرچہ شامل کریں'],
+  'f.addIncome': ['Add Income', 'آمدنی شامل کریں'],
+  'f.totalExpense': ['Total Expense', 'کل خرچہ'],
+  'f.totalIncome': ['Total Income', 'کل آمدنی'],
+  'f.net': ['Net', 'خالص'],
+  'f.cancel': ['Cancel', 'منسوخ'],
 };
 
 interface I18nStore {

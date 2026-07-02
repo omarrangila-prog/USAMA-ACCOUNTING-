@@ -5,9 +5,11 @@ import { Icon } from '@/components/ui/Icon';
 import { computeStock } from '@/lib/accounting';
 import { exportReportPdf } from '@/lib/reportBuilder';
 import { formatMoney, formatNumber } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
 import { toast } from '@/store/toast';
 
 export function Stock() {
+  const t = useT();
   const { period, dataset, settings } = useData();
   const data = dataset();
   const cur = settings.currency;
@@ -24,7 +26,7 @@ export function Stock() {
   return (
     <div>
       <PageHeader
-        title="Stock Report"
+        title={t('p.stockTitle')}
         subtitle="Bond-wise stock movement (weighted-average cost)"
         actions={
           <button className="btn" onClick={() => { exportReportPdf(data, settings, period, 'stock'); toast.success('Stock PDF exported'); }}>

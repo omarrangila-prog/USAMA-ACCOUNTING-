@@ -6,10 +6,12 @@ import { Icon } from '@/components/ui/Icon';
 import { computeReceivables, computePayables } from '@/lib/accounting';
 import { exportReportPdf } from '@/lib/reportBuilder';
 import { formatMoney } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
 import { toast } from '@/store/toast';
 
 export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
   const nav = useNavigate();
+  const t = useT();
   const { period, dataset, settings } = useData();
   const data = dataset();
   const cur = settings.currency;
@@ -24,7 +26,7 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
   return (
     <div>
       <PageHeader
-        title={isRec ? 'Cash Receivable' : 'Cash Payable'}
+        title={isRec ? t('p.receivableTitle') : t('p.payableTitle')}
         subtitle={isRec ? 'Parties who owe you money' : 'Parties you owe money to'}
         actions={
           <button className="btn" onClick={() => { exportReportPdf(data, settings, period, kind); toast.success('PDF exported'); }}>
