@@ -25,6 +25,8 @@ export function CommandPalette({
       { id: 'stk', label: 'Stock', icon: 'stock', run: go('/stock') },
       { id: 'parties', label: 'Parties', sub: 'Add / edit parties', icon: 'user', run: go('/parties') },
       { id: 'bonds', label: 'Bond Types', sub: 'Add / edit bonds', icon: 'wallet', run: go('/bond-types') },
+      { id: 'rec', label: 'Receivable', icon: 'receivable', run: go('/receivable') },
+      { id: 'pay', label: 'Payable', icon: 'payable', run: go('/payable') },
       { id: 'led', label: 'Ledger', sub: 'F6', icon: 'ledger', run: go('/ledger') },
       { id: 'tb', label: 'Trial Balance', icon: 'trial', run: go('/trial-balance') },
       { id: 'rep', label: 'Reports', sub: 'F7', icon: 'reports', run: go('/reports') },

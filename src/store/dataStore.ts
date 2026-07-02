@@ -368,10 +368,14 @@ export const useData = create<DataStore>((set, get) => ({
       toast.error('Quantity and rate must be positive.');
       return false;
     }
-    // Cash-only business: every purchase is cash and hits cash-in-hand. Party
-    // is optional and kept only as a label (no credit / payable is created).
+    // Party is optional. Without a party, the deal can only be Cash — a credit
+    // transaction needs someone to owe, so it's forced to cash and hits
+    // cash-in-hand only (no payable created).
     const partyId = input.partyId || '';
-    const payment: PaymentMode = 'cash';
+    const payment: PaymentMode = partyId ? input.payment : 'cash';
+    if (!partyId && input.payment === 'credit') {
+      toast.info('No party selected — recorded as cash.');
+    }
     const amount = round2(input.quantity * input.rate);
     const rec: Purchase = {
       id: uid(),
@@ -412,9 +416,11 @@ export const useData = create<DataStore>((set, get) => ({
       toast.error(`Insufficient stock. Available: ${stock}, requested: ${input.quantity}.`);
       return false;
     }
-    // Cash-only: every sale is cash and hits cash-in-hand (no receivable).
     const partyId = input.partyId || '';
-    const receipt: PaymentMode = 'cash';
+    const receipt: PaymentMode = partyId ? input.receipt : 'cash';
+    if (!partyId && input.receipt === 'credit') {
+      toast.info('No party selected — recorded as cash.');
+    }
     const amount = round2(input.quantity * input.rate);
     const unitCost = avgCostFor(get().dataset(), input.bondTypeId, period);
     const costOfGoods = round2(unitCost * input.quantity);
@@ -484,7 +490,7 @@ export const useData = create<DataStore>((set, get) => ({
     const amount = round2(input.quantity * input.rate);
     const rec: Purchase = {
       ...cur, date: input.date, month, year, partyId: input.partyId, bondTypeId: input.bondTypeId,
-      quantity: input.quantity, rate: input.rate, amount, payment: 'cash', note: input.note, updatedAt: now(),
+      quantity: input.quantity, rate: input.rate, amount, payment: input.payment, note: input.note, updatedAt: now(),
     };
     await upsertDoc(u, 'purchases', rec);
     await get().resyncClosing({ month: rec.month, year: rec.year });
@@ -513,7 +519,7 @@ export const useData = create<DataStore>((set, get) => ({
     const costOfGoods = round2(unitCost * input.quantity);
     const rec: Sale = {
       ...cur, date: input.date, month, year, partyId: input.partyId, bondTypeId: input.bondTypeId,
-      quantity: input.quantity, rate: input.rate, amount, receipt: 'cash',
+      quantity: input.quantity, rate: input.rate, amount, receipt: input.receipt,
       costOfGoods, profit: round2(amount - costOfGoods), note: input.note, updatedAt: now(),
     };
     await upsertDoc(u, 'sales', rec);

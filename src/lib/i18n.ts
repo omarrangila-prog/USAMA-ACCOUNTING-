@@ -51,7 +51,6 @@ const DICT: Dict = {
   'd.cashPayable': ['Cash Payable', 'قابل ادا'],
   'd.expenses': ['Expenses', 'اخراجات'],
   'd.netBalance': ['Net Balance', 'خالص بیلنس'],
-  'd.cashInHand': ['Cash in Hand', 'نقد رقم'],
   'd.profitLoss': ['Profit / Loss', 'نفع / نقصان'],
   'd.trialBalance': ['Trial Balance', 'ٹرائل بیلنس'],
 

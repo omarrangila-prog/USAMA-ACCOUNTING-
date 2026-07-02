@@ -32,6 +32,7 @@ export function TransactionForm({ kind }: Props) {
   const [bondTypeId, setBondTypeId] = useState('');
   const [quantity, setQuantity] = useState('');
   const [rate, setRate] = useState('');
+  const [mode, setMode] = useState<PaymentMode>('cash');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -41,7 +42,7 @@ export function TransactionForm({ kind }: Props) {
   const bondRef = useRef<ComboHandle>(null);
   const qtyRef = useRef<HTMLInputElement>(null);
   const rateRef = useRef<HTMLInputElement>(null);
-  const noteRef = useRef<HTMLInputElement>(null);
+  const modeRef = useRef<HTMLButtonElement>(null);
   const saveRef = useRef<HTMLButtonElement>(null);
 
   const cur = store.settings.currency;
@@ -71,6 +72,9 @@ export function TransactionForm({ kind }: Props) {
   // Party is OPTIONAL now — a no-party deal is a cash walk-in. Only bond, qty
   // and rate are required. Credit requires a party (enforced in the store).
   const valid = bondTypeId && qty > 0 && rt > 0 && !oversell && !monthLocked;
+  const noParty = !partyId;
+  // When there's no party, force the visible mode to cash for clarity.
+  const effectiveMode: PaymentMode = noParty ? 'cash' : mode;
 
   // Focus the first field on mount for immediate keyboard entry.
   useEffect(() => { partyRef.current?.focus(); }, [kind]);
@@ -87,14 +91,15 @@ export function TransactionForm({ kind }: Props) {
     setSubmitting(true);
     try {
       const ok = isSale
-        ? await store.addSale({ date, partyId, bondTypeId, quantity: qty, rate: rt, receipt: 'cash', note: note || undefined })
-        : await store.addPurchase({ date, partyId, bondTypeId, quantity: qty, rate: rt, payment: 'cash', note: note || undefined });
+        ? await store.addSale({ date, partyId, bondTypeId, quantity: qty, rate: rt, receipt: effectiveMode, note: note || undefined })
+        : await store.addPurchase({ date, partyId, bondTypeId, quantity: qty, rate: rt, payment: effectiveMode, note: note || undefined });
       if (ok) {
         // Reset the entry after a successful save: clear bond, qty, rate, mode
         // and note; keep only the party + date. Refocus the Bond field.
         setBondTypeId('');
         setQuantity('');
         setRate('');
+        setMode('cash');
         setNote('');
         setTouched(false);
         setTimeout(() => bondRef.current?.focus(), 20);
@@ -185,7 +190,7 @@ export function TransactionForm({ kind }: Props) {
               className={cx('input', touched && rt <= 0 && 'invalid')}
               placeholder="0" value={rate}
               onChange={(e) => setRate(e.target.value)}
-              onKeyDown={enterAdvance(() => noteRef.current?.focus())}
+              onKeyDown={enterAdvance(() => modeRef.current?.focus())}
             />
           </div>
         </div>
@@ -200,8 +205,38 @@ export function TransactionForm({ kind }: Props) {
         )}
 
         <div className="field">
+          <label>{isSale ? t('f.receipt') : t('f.payment')} <span className="faint">(5)</span></label>
+          <div className="segment">
+            <button
+              ref={modeRef}
+              type="button"
+              className={effectiveMode === 'cash' ? 'active' : ''}
+              onClick={() => setMode('cash')}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowRight' && !noParty) setMode('credit');
+                else if (e.key === 'ArrowLeft') setMode('cash');
+                else if (e.key === 'Enter') { e.preventDefault(); saveRef.current?.focus(); saveRef.current?.click(); }
+              }}
+            >{t('f.cash')}</button>
+            <button
+              type="button"
+              className={effectiveMode === 'credit' ? 'active' : ''}
+              disabled={noParty}
+              title={noParty ? 'Add a party to use credit' : ''}
+              onClick={() => !noParty && setMode('credit')}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowRight' && !noParty) setMode('credit');
+                else if (e.key === 'ArrowLeft') setMode('cash');
+                else if (e.key === 'Enter') { e.preventDefault(); submit(); }
+              }}
+            >{t('f.credit')}</button>
+          </div>
+          {noParty && <span className="faint" style={{ fontSize: 11 }}>No party → recorded as cash (cash in hand).</span>}
+        </div>
+
+        <div className="field">
           <label>{t('f.note')} <span className="faint">({t('f.optional')})</span></label>
-          <input ref={noteRef} className="input" placeholder="Description / details" value={note}
+          <input className="input" placeholder="Description / details" value={note}
             onChange={(e) => setNote(e.target.value)}
             onKeyDown={enterAdvance()} />
         </div>

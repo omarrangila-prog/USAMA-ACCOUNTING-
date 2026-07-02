@@ -10,6 +10,7 @@ import { Expenses } from '@/pages/Expenses';
 import { Purchase } from '@/pages/Purchase';
 import { Sale } from '@/pages/Sale';
 import { Stock } from '@/pages/Stock';
+import { Balances } from '@/pages/Balances';
 import { Ledger } from '@/pages/Ledger';
 import { TrialBalance } from '@/pages/TrialBalance';
 import { Reports } from '@/pages/Reports';
@@ -57,6 +58,8 @@ export default function App() {
           <Route path="/sale" element={<Sale />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/stock" element={<Stock />} />
+          <Route path="/receivable" element={<Balances kind="receivable" />} />
+          <Route path="/payable" element={<Balances kind="payable" />} />
           <Route path="/ledger" element={<Ledger />} />
           <Route path="/trial-balance" element={<TrialBalance />} />
           <Route path="/reports" element={<Reports />} />

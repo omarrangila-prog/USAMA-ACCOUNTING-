@@ -7,6 +7,8 @@ import { Icon } from '@/components/ui/Icon';
 import {
   computeDashboard,
   computeStock,
+  computeReceivables,
+  computePayables,
 } from '@/lib/accounting';
 import { formatMoney, formatNumber, formatDate, monthName } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
@@ -21,6 +23,8 @@ export function Dashboard() {
 
   const stats = useMemo(() => computeDashboard(data, period), [data, period]);
   const stock = useMemo(() => computeStock(data, period), [data, period]);
+  const receivables = useMemo(() => computeReceivables(data, period), [data, period]);
+  const payables = useMemo(() => computePayables(data, period), [data, period]);
 
   const recent = useMemo(() => {
     const items = [
@@ -54,20 +58,14 @@ export function Dashboard() {
         }
       />
 
-      {/* Cash in Hand is the headline number for this cash-only business. */}
-      <div className="cash-hero card animate-in" onClick={() => nav('/ledger')} role="button" tabIndex={0}>
-        <div className="cash-hero-icon"><Icon name="wallet" size={26} strokeWidth={2} /></div>
-        <div className="col">
-          <span className="cash-hero-label">{t('d.cashInHand') || 'Cash in Hand'}</span>
-          <span className="cash-hero-value mono">{formatMoney(stats.cashInHand, cur)}</span>
-        </div>
-      </div>
-
       <div className="dash-grid">
         <StatCard label={t('d.totalPurchase')} value={formatMoney(stats.totalPurchase, cur)} icon="purchase" accent="blue" onClick={() => nav('/purchase')} />
         <StatCard label={t('d.totalSale')} value={formatMoney(stats.totalSale, cur)} icon="sale" accent="green" onClick={() => nav('/sale')} />
         <StatCard label={t('d.closingStock')} value={formatMoney(stats.closingStockValue, cur)} icon="stock" accent="purple" hint={`${formatNumber(stats.closingStockQty)} bonds`} onClick={() => nav('/stock')} />
+        <StatCard label={t('d.cashReceivable')} value={formatMoney(stats.cashReceivable, cur)} icon="receivable" accent="green" onClick={() => nav('/receivable')} />
+        <StatCard label={t('d.cashPayable')} value={formatMoney(stats.cashPayable, cur)} icon="payable" accent="red" onClick={() => nav('/payable')} />
         <StatCard label={t('d.expenses')} value={formatMoney(stats.totalExpense, cur)} icon="wallet" accent="orange" hint={stats.totalIncome ? `${t('f.income')} ${formatMoney(stats.totalIncome, cur)}` : undefined} onClick={() => nav('/expenses')} />
+        <StatCard label={t('d.netBalance')} value={formatMoney(stats.netBalance, cur)} icon="wallet" accent="blue" hint={`Cash in hand ${formatMoney(stats.cashInHand, cur)}`} onClick={() => nav('/trial-balance')} />
         <StatCard
           label={t('d.profitLoss')}
           value={formatMoney(stats.profitLoss, cur)}
@@ -138,7 +136,37 @@ export function Dashboard() {
           )}
         </div>
       </div>
+
+      <div className="dash-lower">
+        <div className="card">
+          <div className="section-title"><Icon name="receivable" size={16} /> Top Receivables</div>
+          <MiniBalances rows={receivables.slice(0, 5)} cur={cur} empty="No receivables." accent="green" />
+        </div>
+        <div className="card">
+          <div className="section-title"><Icon name="payable" size={16} /> Top Payables</div>
+          <MiniBalances rows={payables.slice(0, 5)} cur={cur} empty="No payables." accent="red" />
+        </div>
+      </div>
     </div>
   );
 }
 
+function MiniBalances({
+  rows, cur, empty, accent,
+}: { rows: { partyId: string; name: string; balance: number }[]; cur: string; empty: string; accent: 'green' | 'red' }) {
+  if (rows.length === 0) return <div className="empty">{empty}</div>;
+  const max = Math.max(...rows.map((r) => r.balance), 1);
+  return (
+    <div className="bal-list">
+      {rows.map((r) => (
+        <div key={r.partyId} className="bal-row">
+          <span className="bal-name">{r.name}</span>
+          <div className="bal-bar-track">
+            <div className={`bal-bar ${accent}`} style={{ width: `${(r.balance / max) * 100}%` }} />
+          </div>
+          <span className="mono bal-amt">{formatMoney(r.balance, cur)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}

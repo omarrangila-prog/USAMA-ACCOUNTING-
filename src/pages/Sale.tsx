@@ -53,7 +53,7 @@ export function Sale() {
                   <tr>
                     <th>Date</th><th>Party</th><th>Bond</th>
                     <th className="num">Qty</th><th className="num">Rate</th>
-                    <th className="num">Amount</th><th className="num">Profit</th><th>Note</th><th></th>
+                    <th className="num">Amount</th><th className="num">Profit</th><th>Mode</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -66,7 +66,11 @@ export function Sale() {
                       <td data-label="Rate" className="num mono">{formatNumber(r.rate)}</td>
                       <td data-label="Amount" className="num mono">{formatMoney(r.amount, cur)}</td>
                       <td data-label="Profit" className={cx('num mono', r.profit >= 0 ? 'pos' : 'neg')}>{formatMoney(r.profit, cur)}</td>
-                      <td data-label="Note" className="muted">{r.note || '—'}</td>
+                      <td data-label="Mode">
+                        <span className={`badge ${r.receipt === 'cash' ? 'badge-green' : 'badge-orange'}`}>
+                          {r.receipt}
+                        </span>
+                      </td>
                       <td className="no-print actions-cell">
                         {!locked && (
                           <div className="row" style={{ gap: 2, justifyContent: 'flex-end' }}>
