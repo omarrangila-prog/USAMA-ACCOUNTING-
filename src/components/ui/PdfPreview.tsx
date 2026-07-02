@@ -39,16 +39,34 @@ export function PdfPreview({ makeDoc, title, fileName, onClose }: Props) {
   if (!makeDoc) return null;
 
   const download = () => docRef.current?.save(fileName);
+
+  /**
+   * Print straight from the preview — no download required. We first try the
+   * in-app iframe's own print (keeps the user in place). If the browser blocks
+   * printing an embedded PDF viewer (Chrome/Safari commonly do), we fall back to
+   * a jsPDF doc with autoPrint() opened in a hidden helper, so the native print
+   * dialog always fires on a document that matches the PDF exactly (same page
+   * size, margins, header/footer & page numbers baked into the PDF).
+   */
   const print = () => {
-    // Print the PDF via its iframe (native print dialog).
-    try {
-      iframeRef.current?.contentWindow?.focus();
-      iframeRef.current?.contentWindow?.print();
-    } catch {
-      // Fallback: open print window from the doc.
-      docRef.current?.autoPrint();
-      window.open(url ?? '', '_blank');
+    const win = iframeRef.current?.contentWindow;
+    if (win) {
+      try {
+        win.focus();
+        win.print();
+        return;
+      } catch {
+        /* fall through to the autoPrint helper */
+      }
     }
+    const doc = docRef.current;
+    if (!doc) return;
+    doc.autoPrint();
+    // Build a fresh blob that carries the autoPrint action and open it; the
+    // browser opens the PDF and immediately shows the print dialog.
+    const printUrl = doc.output('bloburl') as unknown as string;
+    const w = window.open(printUrl, '_blank');
+    if (!w) window.location.href = printUrl; // popup blocked → navigate
   };
 
   return (

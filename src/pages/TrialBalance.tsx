@@ -39,6 +39,15 @@ export function TrialBalance() {
             <button className="btn btn-primary" onClick={() => setPreview(true)}>
               <Icon name="search" size={16} /> Preview
             </button>
+            <button className="btn" onClick={() => {
+              const doc = buildReportDoc(data, settings, period, 'trial');
+              doc.autoPrint();
+              const u = doc.output('bloburl') as unknown as string;
+              const w = window.open(u, '_blank');
+              if (!w) window.location.href = u;
+            }}>
+              <Icon name="print" size={16} /> Print
+            </button>
             <button className="btn" onClick={() => { exportReportPdf(data, settings, period, 'trial'); toast.success('Downloaded'); }}>
               <Icon name="pdf" size={16} /> Download
             </button>

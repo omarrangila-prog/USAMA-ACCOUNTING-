@@ -42,6 +42,15 @@ export function Reports() {
     setPreview({ which: 'all', title: `Monthly Report — ${monthName(period.month)} ${period.year}` });
   };
 
+  /** Open the native print dialog directly on a report — no download needed. */
+  const printReport = (which: 'all' | ReportId) => {
+    const doc = buildReportDoc(data, settings, period, which);
+    doc.autoPrint();
+    const printUrl = doc.output('bloburl') as unknown as string;
+    const w = window.open(printUrl, '_blank');
+    if (!w) window.location.href = printUrl; // popup blocked → navigate to it
+  };
+
   const doClose = async () => {
     setConfirmClose(false);
     await closeMonth(period, 'Owner');
@@ -95,13 +104,17 @@ export function Reports() {
                   onClick={() => setPreview({ which: r.id, title: reportTitle(r.id) })}>
                   <Icon name="search" size={15} />
                 </button>
+                <button className="btn btn-ghost btn-icon btn-sm" title="Print"
+                  onClick={() => printReport(r.id)}>
+                  <Icon name="print" size={15} />
+                </button>
                 <button className="btn btn-ghost btn-icon btn-sm" title="Download PDF"
-                  onClick={() => { exportReportPdf(data, settings, period, r.id); toast.success('Downloaded'); }}>
+                  onClick={() => { exportReportPdf(data, settings, period, r.id); toast.success('PDF downloaded'); }}>
                   <Icon name="pdf" size={15} />
                 </button>
-                <button className="btn btn-ghost btn-icon btn-sm" title="Print"
-                  onClick={() => { const doc = buildReportDoc(data, settings, period, r.id); doc.autoPrint(); window.open(doc.output('bloburl') as unknown as string, '_blank'); }}>
-                  <Icon name="print" size={15} />
+                <button className="btn btn-ghost btn-icon btn-sm" title="Download Excel"
+                  onClick={() => { exportReportExcel(data, period); toast.success('Excel downloaded'); }}>
+                  <Icon name="excel" size={15} />
                 </button>
               </div>
             </div>

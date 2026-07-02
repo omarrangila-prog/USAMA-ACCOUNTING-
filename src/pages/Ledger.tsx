@@ -97,6 +97,16 @@ export function Ledger() {
     toast.success('Statement PDF exported');
   };
 
+  /** One-click print: open the native dialog directly on the statement PDF. */
+  const printStatement = () => {
+    if (!partyId) return;
+    const doc = makeStatementDoc();
+    doc.autoPrint();
+    const printUrl = doc.output('bloburl') as unknown as string;
+    const w = window.open(printUrl, '_blank');
+    if (!w) window.location.href = printUrl;
+  };
+
   // "Cash Book" first (includes expenses/income), then all parties.
   const partyOptions = [
     { id: CASHBOOK, label: 'Cash Book (all cash, expenses & income)', sub: 'Business cash flow' },
@@ -118,6 +128,9 @@ export function Ledger() {
             </button>
             <button className="btn btn-primary" disabled={!partyId} onClick={() => setPreview(true)}>
               <Icon name="search" size={16} /> Preview
+            </button>
+            <button className="btn" disabled={!partyId} onClick={printStatement}>
+              <Icon name="print" size={16} /> Print
             </button>
             <button className="btn" disabled={!partyId} onClick={exportStatement}>
               <Icon name="pdf" size={16} /> Download
