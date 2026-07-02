@@ -72,6 +72,18 @@ export interface CashTransaction extends BaseRecord {
   amount: number;
 }
 
+/**
+ * A manual adjustment to a party's balance that ISN'T a purchase/sale/cash —
+ * e.g. directly recording that a party owes you (receivable) or you owe them
+ * (payable). Affects the party balance and trial balance, NOT cash in hand.
+ * amount is positive => receivable (they owe us), negative => payable (we owe).
+ */
+export interface PartyAdjustment extends BaseRecord {
+  partyId: string;
+  amount: number;   // +receivable / -payable
+  reason: string;
+}
+
 /** Double-entry-ish ledger line used to build party statements + trial balance. */
 export interface LedgerEntry extends BaseRecord {
   partyId: string;

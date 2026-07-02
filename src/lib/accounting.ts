@@ -24,6 +24,7 @@ import type {
   OpeningBalances,
   Expense,
   StockAdjustment,
+  PartyAdjustment,
 } from '@/types';
 import { formatDate, round2 } from './utils';
 
@@ -38,6 +39,7 @@ export interface DataSet {
   opening?: OpeningBalances | null;
   expenses?: Expense[];
   stockAdjustments?: StockAdjustment[];
+  partyAdjustments?: PartyAdjustment[];
 }
 
 /** Net effect of expenses/income in a period: income - expense. */
@@ -223,6 +225,10 @@ export function computePartyBalances(data: DataSet, period: Period): PartyBalanc
         if (c.direction === 'received') balance -= c.amount;
         else balance += c.amount;
       });
+    // Manual party adjustments: +receivable / -payable (no cash effect).
+    (data.partyAdjustments ?? [])
+      .filter((a) => a.partyId === party.id && inPeriod(a, period))
+      .forEach((a) => (balance += a.amount));
 
     return { partyId: party.id, name: party.name, opening, balance: round2(balance) };
   });
@@ -374,6 +380,25 @@ export function computeLedger(
         year: c.year,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
+      })
+    );
+
+  (data.partyAdjustments ?? [])
+    .filter((a) => a.partyId === partyId && inPeriod(a, period))
+    .forEach((a) =>
+      entries.push({
+        id: 'pa-' + a.id,
+        partyId,
+        refType: 'opening',
+        refId: a.id,
+        description: a.reason || (a.amount > 0 ? 'Receivable added' : 'Payable added'),
+        debit: a.amount > 0 ? a.amount : 0,
+        credit: a.amount < 0 ? Math.abs(a.amount) : 0,
+        date: a.date,
+        month: a.month,
+        year: a.year,
+        createdAt: a.createdAt,
+        updatedAt: a.updatedAt,
       })
     );
 

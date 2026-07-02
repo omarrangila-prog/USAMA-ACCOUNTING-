@@ -4,9 +4,10 @@ import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
+import { Combo } from '@/components/ui/Combo';
 import { computeReceivables, computePayables } from '@/lib/accounting';
 import { exportReportPdf } from '@/lib/reportBuilder';
-import { formatMoney, defaultDateForPeriod } from '@/lib/utils';
+import { formatMoney, defaultDateForPeriod, cx } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
 import { toast } from '@/store/toast';
 
@@ -21,6 +22,7 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
 
   // Which party we're recording a payment for (null = closed).
   const [payFor, setPayFor] = useState<{ partyId: string; name: string; balance: number } | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   const rows = useMemo(
     () => (isRec ? computeReceivables(data, period) : computePayables(data, period)),
@@ -34,9 +36,14 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
         title={isRec ? t('p.receivableTitle') : t('p.payableTitle')}
         subtitle={isRec ? 'Parties who owe you money — record a receipt here' : 'Parties you owe money to — record a payment here'}
         actions={
-          <button className="btn" onClick={() => { exportReportPdf(data, settings, period, kind); toast.success('PDF exported'); }}>
-            <Icon name="pdf" size={16} /> Export PDF
-          </button>
+          <>
+            <button className={isRec ? 'btn btn-green' : 'btn btn-danger'} onClick={() => setAddOpen(true)}>
+              <Icon name="plus" size={16} /> {isRec ? 'Add Receivable' : 'Add Payable'}
+            </button>
+            <button className="btn" onClick={() => { exportReportPdf(data, settings, period, kind); toast.success('PDF exported'); }}>
+              <Icon name="pdf" size={16} /> Export PDF
+            </button>
+          </>
         }
       />
       <div className="card">
@@ -95,7 +102,88 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
         target={payFor}
         onClose={() => setPayFor(null)}
       />
+      <AddBalanceModal kind={kind} open={addOpen} onClose={() => setAddOpen(false)} />
     </div>
+  );
+}
+
+/** Directly record a receivable (they owe you) or payable (you owe them). */
+function AddBalanceModal({
+  kind, open, onClose,
+}: { kind: 'receivable' | 'payable'; open: boolean; onClose: () => void }) {
+  const store = useData();
+  const cur = store.settings.currency;
+  const isRec = kind === 'receivable';
+  const [partyId, setPartyId] = useState('');
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [date, setDate] = useState(defaultDateForPeriod(store.period));
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (open) { setPartyId(''); setAmount(''); setReason(''); setDate(defaultDateForPeriod(store.period)); }
+  }, [open]);
+
+  const partyOptions = store.parties.map((p) => ({ id: p.id, label: p.name, sub: p.phone }));
+  const amt = Number(amount) || 0;
+
+  const submit = async () => {
+    if (!partyId) { toast.error('Select a party.'); return; }
+    if (amt <= 0) { toast.error('Enter a positive amount.'); return; }
+    setBusy(true);
+    try {
+      // +ve => receivable, -ve => payable
+      const ok = await store.addPartyAdjustment({
+        date, partyId, amount: isRec ? Math.abs(amt) : -Math.abs(amt),
+        reason: reason || (isRec ? 'Receivable' : 'Payable'),
+      });
+      if (ok) onClose();
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal
+      open={open}
+      title={isRec ? 'Add Receivable' : 'Add Payable'}
+      subtitle={isRec ? 'Record that a party owes you (no cash / bond involved)' : 'Record that you owe a party (no cash / bond involved)'}
+      onClose={onClose}
+      width={440}
+      footer={
+        <>
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className={isRec ? 'btn btn-green' : 'btn btn-danger'} onClick={submit} disabled={busy || !partyId || amt <= 0}>
+            <Icon name="save" size={16} /> {isRec ? 'Add Receivable' : 'Add Payable'}
+          </button>
+        </>
+      }
+    >
+      <div className="form-grid">
+        <div className="field">
+          <label>Date</label>
+          <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Party</label>
+          <Combo value={partyId} options={partyOptions} placeholder="Select or create party" allowCreate
+            onChange={setPartyId}
+            onCreate={async (name) => (await store.addParty({ name, openingBalance: 0 })).id} />
+        </div>
+        <div className="field">
+          <label>{isRec ? 'Amount they owe you' : 'Amount you owe them'}</label>
+          <input type="number" min="0" inputMode="numeric" className="input" placeholder="0" value={amount}
+            onChange={(e) => setAmount(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
+        </div>
+        <div className="field">
+          <label>Reason / note</label>
+          <input className="input" placeholder="e.g. Old balance, loan, advance" value={reason}
+            onChange={(e) => setReason(e.target.value)} />
+        </div>
+        <div className={cx('amount-preview', isRec && 'green')}>
+          <span className="amt-label">{isRec ? 'Receivable' : 'Payable'}</span>
+          <span className="amt-value mono">{formatMoney(amt, cur)}</span>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

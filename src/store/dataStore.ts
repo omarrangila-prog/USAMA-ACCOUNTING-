@@ -15,6 +15,7 @@ import type {
   Expense,
   ExpenseCategory,
   StockAdjustment,
+  PartyAdjustment,
 } from '@/types';
 import {
   subscribeCollection,
@@ -57,6 +58,7 @@ interface DataStore {
   fileAccounts: FileAccount[];
   expenses: Expense[];
   stockAdjustments: StockAdjustment[];
+  partyAdjustments: PartyAdjustment[];
   opening: OpeningBalances | null;
   settings: Settings;
 
@@ -96,6 +98,8 @@ interface DataStore {
   deleteExpense: (id: string) => Promise<void>;
   addStockAdjustment: (input: StockAdjustmentInput) => Promise<boolean>;
   deleteStockAdjustment: (id: string) => Promise<void>;
+  addPartyAdjustment: (input: PartyAdjustmentInput) => Promise<boolean>;
+  deletePartyAdjustment: (id: string) => Promise<void>;
   deleteRecord: (
     kind: 'purchases' | 'sales' | 'cashTransactions',
     id: string
@@ -165,6 +169,12 @@ export interface StockAdjustmentInput {
   unitCost: number;
   reason: string;
 }
+export interface PartyAdjustmentInput {
+  date: string;
+  partyId: string;
+  amount: number;   // +receivable / -payable
+  reason: string;
+}
 
 export interface ImportPayload {
   parties?: Party[];
@@ -190,6 +200,7 @@ export const useData = create<DataStore>((set, get) => ({
   fileAccounts: [],
   expenses: [],
   stockAdjustments: [],
+  partyAdjustments: [],
   opening: null,
   settings: DEFAULT_SETTINGS,
 
@@ -217,6 +228,7 @@ export const useData = create<DataStore>((set, get) => ({
       sub<FileAccount>('fileAccounts', 'fileAccounts'),
       sub<Expense>('expenses', 'expenses'),
       sub<StockAdjustment>('stockAdjustments', 'stockAdjustments'),
+      sub<PartyAdjustment>('partyAdjustments', 'partyAdjustments'),
       subscribeCollection<Settings & { id: string }>(userUid, 'settings', (rows) => {
         const s = rows.find((r) => r.id === 'app');
         if (s) set({ settings: { ...DEFAULT_SETTINGS, ...s } });
@@ -251,6 +263,7 @@ export const useData = create<DataStore>((set, get) => ({
       opening: s.opening,
       expenses: s.expenses,
       stockAdjustments: s.stockAdjustments,
+      partyAdjustments: s.partyAdjustments,
     };
   },
 
@@ -622,6 +635,32 @@ export const useData = create<DataStore>((set, get) => ({
     await removeDoc(u, 'stockAdjustments', id);
     if (rec) await get().resyncClosing({ month: rec.month, year: rec.year });
     toast.info('Adjustment deleted.');
+  },
+
+  addPartyAdjustment: async (input) => {
+    const u = get().uidRef;
+    if (!u) { toast.error('Not ready yet.'); return false; }
+    const { month, year } = periodOf(input.date);
+    if (!input.partyId) { toast.error('Select a party.'); return false; }
+    if (input.amount === 0) { toast.error('Enter an amount.'); return false; }
+    const rec: PartyAdjustment = {
+      id: uid(), date: input.date, month, year,
+      partyId: input.partyId, amount: round2(input.amount),
+      reason: input.reason.trim() || (input.amount > 0 ? 'Receivable' : 'Payable'),
+      createdAt: now(), updatedAt: now(),
+    };
+    await upsertDoc(u, 'partyAdjustments', rec);
+    await get().resyncClosing({ month, year });
+    toast.success(`${input.amount > 0 ? 'Receivable' : 'Payable'} recorded · ${Math.abs(rec.amount).toLocaleString()}`);
+    return true;
+  },
+
+  deletePartyAdjustment: async (id) => {
+    const u = get().uidRef!;
+    const rec = get().partyAdjustments.find((a) => a.id === id);
+    await removeDoc(u, 'partyAdjustments', id);
+    if (rec) await get().resyncClosing({ month: rec.month, year: rec.year });
+    toast.info('Entry deleted.');
   },
 
   deleteRecord: async (kind, id) => {
