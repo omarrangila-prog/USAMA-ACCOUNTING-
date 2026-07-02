@@ -4,7 +4,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Combo } from '@/components/ui/Combo';
 import { Icon } from '@/components/ui/Icon';
 import { formatMoney, cx } from '@/lib/utils';
-import type { Purchase, Sale, PaymentMode } from '@/types';
+import type { Purchase, Sale } from '@/types';
 
 /** Edit an existing Purchase or Sale (every field editable). */
 export function EditTransactionModal({
@@ -23,7 +23,6 @@ export function EditTransactionModal({
   const [bondTypeId, setBondTypeId] = useState('');
   const [quantity, setQuantity] = useState('');
   const [rate, setRate] = useState('');
-  const [mode, setMode] = useState<PaymentMode>('cash');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -33,7 +32,6 @@ export function EditTransactionModal({
     setBondTypeId(record.bondTypeId);
     setQuantity(String(record.quantity));
     setRate(String(record.rate));
-    setMode(isSale ? (record as Sale).receipt : (record as Purchase).payment);
   }, [record, isSale]);
 
   const qty = Number(quantity) || 0;
@@ -51,8 +49,8 @@ export function EditTransactionModal({
     setBusy(true);
     try {
       const ok = isSale
-        ? await store.updateSale(record.id, { date, partyId, bondTypeId, quantity: qty, rate: rt, receipt: mode })
-        : await store.updatePurchase(record.id, { date, partyId, bondTypeId, quantity: qty, rate: rt, payment: mode });
+        ? await store.updateSale(record.id, { date, partyId, bondTypeId, quantity: qty, rate: rt, receipt: 'cash' })
+        : await store.updatePurchase(record.id, { date, partyId, bondTypeId, quantity: qty, rate: rt, payment: 'cash' });
       if (ok) onClose();
     } finally { setBusy(false); }
   };
@@ -103,13 +101,6 @@ export function EditTransactionModal({
           <div className="field">
             <label>Rate</label>
             <input type="number" min="0" inputMode="numeric" className="input" value={rate} onChange={(e) => setRate(e.target.value)} />
-          </div>
-        </div>
-        <div className="field">
-          <label>{isSale ? 'Receipt' : 'Payment'}</label>
-          <div className="segment">
-            <button type="button" className={mode === 'cash' ? 'active' : ''} onClick={() => setMode('cash')}>Cash</button>
-            <button type="button" className={mode === 'credit' ? 'active' : ''} onClick={() => setMode('credit')}>Credit</button>
           </div>
         </div>
         <div className={cx('amount-preview', isSale && 'green')}>

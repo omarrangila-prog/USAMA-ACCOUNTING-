@@ -14,8 +14,6 @@ const items: NavItem[] = [
   { to: '/stock', tkey: 'nav.stock', icon: 'stock' },
   { to: '/parties', tkey: 'nav.parties', icon: 'user' },
   { to: '/bond-types', tkey: 'nav.bondTypes', icon: 'wallet' },
-  { to: '/receivable', tkey: 'nav.receivable', icon: 'receivable' },
-  { to: '/payable', tkey: 'nav.payable', icon: 'payable' },
   { to: '/ledger', tkey: 'nav.ledger', icon: 'ledger', shortcut: 'F6' },
   { to: '/trial-balance', tkey: 'nav.trialBalance', icon: 'trial' },
   { to: '/reports', tkey: 'nav.reports', icon: 'reports', shortcut: 'F7' },
