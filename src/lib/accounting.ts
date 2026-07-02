@@ -156,16 +156,113 @@ export function availableStock(
   return line?.closingQty ?? 0;
 }
 
-/** Weighted-average cost of a bond at the moment of a sale (COGS basis).
- *  Reads the same computed avg (incl. purchases + stock adjustments) so COGS
- *  and stock value always agree. */
+/** Weighted-average PURCHASE rate for a bond (profit basis only — no valuation).
+ *  Prize-bond model: stock is unlimited, so we only need the average buy rate to
+ *  compute sale profit. Uses all purchases in the period (+ carried avg). */
 export function avgCostFor(
   data: DataSet,
   bondTypeId: string,
   period: Period
 ): number {
-  const line = computeStock(data, period).find((s) => s.bondTypeId === bondTypeId);
-  return line?.avgCost ?? 0;
+  const opening = openingStockFor(bondTypeId, period, data.closings, data.opening);
+  const purchases = data.purchases.filter((p) => p.bondTypeId === bondTypeId && inPeriod(p, period));
+  const pQty = purchases.reduce((a, p) => a + p.quantity, 0);
+  const pVal = purchases.reduce((a, p) => a + p.amount, 0);
+  const totalQty = opening.qty + pQty;
+  const totalVal = opening.qty * opening.avgCost + pVal;
+  return totalQty > 0 ? round2(totalVal / totalQty) : (purchases[0]?.rate ?? 0);
+}
+
+/**
+ * Prize-bond running movement per denomination: purchased qty, sold qty, and
+ * net qty (may be NEGATIVE — that's fine, stock is unlimited). NO valuation.
+ */
+export interface BondMovement {
+  bondTypeId: string;
+  bondTypeName: string;
+  purchasedQty: number;
+  soldQty: number;
+  netQty: number;      // purchased - sold; can be negative
+  avgBuyRate: number;  // for reference
+}
+
+/** Realised profit per bond denomination (Σ sale.profit grouped by bond). */
+export function computeProfitByBond(data: DataSet, period: Period): { bondTypeId: string; bondTypeName: string; profit: number }[] {
+  return data.bondTypes.map((bt) => ({
+    bondTypeId: bt.id,
+    bondTypeName: bt.name,
+    profit: round2(
+      data.sales
+        .filter((s) => s.bondTypeId === bt.id && inPeriod(s, period))
+        .reduce((a, s) => a + s.profit, 0)
+    ),
+  }));
+}
+
+export function computeBondMovement(data: DataSet, period: Period): BondMovement[] {
+  return data.bondTypes.map((bt) => {
+    const purchases = data.purchases.filter((p) => p.bondTypeId === bt.id && inPeriod(p, period));
+    const sales = data.sales.filter((s) => s.bondTypeId === bt.id && inPeriod(s, period));
+    const opening = openingStockFor(bt.id, period, data.closings, data.opening);
+    const purchasedQty = purchases.reduce((a, p) => a + p.quantity, 0);
+    const soldQty = sales.reduce((a, s) => a + s.quantity, 0);
+    const pVal = purchases.reduce((a, p) => a + p.amount, 0);
+    const totQty = opening.qty + purchasedQty;
+    const avgBuyRate = totQty > 0 ? round2((opening.qty * opening.avgCost + pVal) / totQty) : 0;
+    return {
+      bondTypeId: bt.id,
+      bondTypeName: bt.name,
+      purchasedQty,
+      soldQty,
+      netQty: (opening.qty + purchasedQty) - soldQty,
+      avgBuyRate,
+    };
+  });
+}
+
+/**
+ * Business summary — the only figures a prize-bond owner watches. No debit/
+ * credit, no stock valuation.
+ */
+export interface BusinessSummary {
+  cashInHand: number;
+  totalProfitLoss: number;  // sale profit + income - expense
+  purchaseProfit: number;   // profit attributable to buying below sell avg (see note)
+  saleProfit: number;       // trading profit from sales (sell - avg buy)
+  netReceivable: number;    // sum of positive party net balances
+  netPayable: number;       // sum of negative party net balances (abs)
+  totalPurchased: number;   // total bonds bought (qty)
+  totalSold: number;        // total bonds sold (qty)
+  netBonds: number;         // purchased - sold
+}
+
+export function computeBusinessSummary(data: DataSet, period: Period): BusinessSummary {
+  const saleProfit = computeTradingProfit(data, period);
+  const { expense, income } = computeExpenseNet(data, period);
+  const balances = computePartyBalances(data, period);
+  const netReceivable = round2(balances.filter((b) => b.balance > 0).reduce((a, b) => a + b.balance, 0));
+  const netPayable = round2(balances.filter((b) => b.balance < 0).reduce((a, b) => a + Math.abs(b.balance), 0));
+  const mv = computeBondMovement(data, period);
+  const totalPurchased = mv.reduce((a, m) => a + m.purchasedQty, 0);
+  const totalSold = mv.reduce((a, m) => a + m.soldQty, 0);
+
+  // Realised trading profit = Σ (sell rate − avg buy rate) × qty sold. The owner
+  // wants it visible per denomination (see computeProfitByBond). Both KPI cards
+  // reflect this realised margin; Total P/L folds in income/expenses.
+  const purchaseProfit = saleProfit;
+  const totalProfitLoss = round2(saleProfit + income - expense);
+
+  return {
+    cashInHand: computeCashInHand(data, period),
+    totalProfitLoss,
+    purchaseProfit: round2(purchaseProfit),
+    saleProfit: round2(saleProfit),
+    netReceivable,
+    netPayable,
+    totalPurchased,
+    totalSold,
+    netBonds: totalPurchased - totalSold,
+  };
 }
 
 /**

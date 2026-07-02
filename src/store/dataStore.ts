@@ -29,7 +29,6 @@ import {
   type DataSet,
   computeStock,
   computePartyBalances,
-  availableStock,
   avgCostFor,
   computeProfitLoss,
 } from '@/lib/accounting';
@@ -419,12 +418,8 @@ export const useData = create<DataStore>((set, get) => ({
       toast.error('Quantity and rate must be positive.');
       return false;
     }
-    // Oversell prevention against live stock in that period.
-    const stock = availableStock(get().dataset(), input.bondTypeId, period);
-    if (input.quantity > stock) {
-      toast.error(`Insufficient stock. Available: ${stock}, requested: ${input.quantity}.`);
-      return false;
-    }
+    // Prize-bond model: stock is UNLIMITED. Never block a sale — net qty may go
+    // negative and that's fine.
     // Cash-only: every sale is cash and flows into Cash in Hand.
     const partyId = input.partyId || '';
     const receipt: PaymentMode = 'cash';
@@ -513,14 +508,7 @@ export const useData = create<DataStore>((set, get) => ({
     const period = { month, year };
     if (get().isMonthLocked(period)) { toast.error('Month is locked.'); return false; }
     if (input.quantity <= 0 || input.rate <= 0) { toast.error('Quantity and rate must be positive.'); return false; }
-    // Oversell check against stock EXCLUDING this sale's current quantity.
-    const stockNow = availableStock(get().dataset(), input.bondTypeId, period);
-    const sameBond = cur.bondTypeId === input.bondTypeId;
-    const allowance = stockNow + (sameBond ? cur.quantity : 0);
-    if (input.quantity > allowance) {
-      toast.error(`Insufficient stock. Max sellable: ${allowance}.`);
-      return false;
-    }
+    // Unlimited stock — no oversell check.
     const amount = round2(input.quantity * input.rate);
     const unitCost = avgCostFor(get().dataset(), input.bondTypeId, period);
     const costOfGoods = round2(unitCost * input.quantity);
@@ -603,14 +591,7 @@ export const useData = create<DataStore>((set, get) => ({
     if (input.quantity === 0) { toast.error('Enter a quantity to add or remove.'); return false; }
     if (input.unitCost < 0) { toast.error('Cost cannot be negative.'); return false; }
     if (!input.bondTypeId) { toast.error('Select a bond type.'); return false; }
-    // Prevent removing more than available.
-    if (input.quantity < 0) {
-      const avail = availableStock(get().dataset(), input.bondTypeId, { month, year });
-      if (Math.abs(input.quantity) > avail) {
-        toast.error(`Cannot remove ${Math.abs(input.quantity)} — only ${avail} in stock.`);
-        return false;
-      }
-    }
+    // Unlimited stock — allow any adjustment (net qty may go negative).
     const rec: StockAdjustment = {
       id: uid(), date: input.date, month, year,
       bondTypeId: input.bondTypeId, quantity: input.quantity,

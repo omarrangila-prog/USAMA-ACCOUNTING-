@@ -23,7 +23,7 @@ const DICT: Dict = {
   'nav.receivable': ['Receivable', 'وصول طلب'],
   'nav.payable': ['Payable', 'قابل ادا'],
   'nav.ledger': ['Ledger', 'کھاتہ'],
-  'nav.trialBalance': ['Trial Balance', 'ٹرائل بیلنس'],
+  'nav.trialBalance': ['Business Summary', 'کاروبار خلاصہ'],
   'nav.reports': ['Reports', 'رپورٹس'],
   'nav.settings': ['Settings', 'ترتیبات'],
 

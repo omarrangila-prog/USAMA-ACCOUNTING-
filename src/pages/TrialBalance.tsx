@@ -2,69 +2,81 @@ import { useMemo } from 'react';
 import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
-import { computeTrialBalance } from '@/lib/accounting';
-import { exportReportPdf } from '@/lib/reportBuilder';
-import { formatMoney } from '@/lib/utils';
-import { toast } from '@/store/toast';
+import { computeBusinessSummary, computeProfitByBond } from '@/lib/accounting';
+import { formatMoney, formatNumber, cx } from '@/lib/utils';
 
+/**
+ * Business Summary (replaces the traditional Trial Balance). Prize-bond owners
+ * don't want debit/credit reports — just the key figures at a glance.
+ */
 export function TrialBalance() {
   const { period, dataset, settings } = useData();
   const data = dataset();
   const cur = settings.currency;
-  const tb = useMemo(() => computeTrialBalance(data, period), [data, period]);
+  const s = useMemo(() => computeBusinessSummary(data, period), [data, period]);
+  const byBond = useMemo(() => computeProfitByBond(data, period).filter((b) => b.profit !== 0), [data, period]);
+
+  const items: { label: string; value: string; accent?: 'pos' | 'neg' }[] = [
+    { label: 'Cash in Hand', value: formatMoney(s.cashInHand, cur), accent: s.cashInHand >= 0 ? 'pos' : 'neg' },
+    { label: 'Total Profit / Loss', value: formatMoney(s.totalProfitLoss, cur), accent: s.totalProfitLoss >= 0 ? 'pos' : 'neg' },
+    { label: 'Sale Profit', value: formatMoney(s.saleProfit, cur), accent: s.saleProfit >= 0 ? 'pos' : 'neg' },
+    { label: 'Purchase Profit', value: formatMoney(s.purchaseProfit, cur), accent: s.purchaseProfit >= 0 ? 'pos' : 'neg' },
+    { label: 'Net Receivable', value: formatMoney(s.netReceivable, cur), accent: 'pos' },
+    { label: 'Net Payable', value: formatMoney(s.netPayable, cur), accent: 'neg' },
+  ];
 
   return (
     <div>
-      <PageHeader
-        title="Trial Balance"
-        subtitle="Debits and credits must be equal"
-        actions={
-          <button className="btn" onClick={() => { exportReportPdf(data, settings, period, 'trial'); toast.success('PDF exported'); }}>
-            <Icon name="pdf" size={16} /> Export PDF
-          </button>
-        }
-      />
+      <PageHeader title="Business Summary" subtitle="Your key numbers at a glance" />
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className={`tb-status ${tb.balanced ? 'ok' : 'bad'}`}>
-          <span className="tb-status-icon">
-            <Icon name={tb.balanced ? 'check' : 'warning'} size={20} strokeWidth={2.4} />
-          </span>
-          <div className="col">
-            <strong style={{ fontSize: 15 }}>{tb.balanced ? 'Trial Balance is Balanced' : 'Trial Balance is Out of Balance'}</strong>
-            <span className="faint" style={{ fontSize: 13 }}>
-              Debits {formatMoney(tb.totalDebit, cur)} · Credits {formatMoney(tb.totalCredit, cur)}
-              {!tb.balanced && ` · Difference ${formatMoney(Math.abs(tb.totalDebit - tb.totalCredit), cur)}`}
-            </span>
+      <div className="dash-grid" style={{ marginBottom: 18 }}>
+        {items.map((it) => (
+          <div key={it.label} className="card summary-tile animate-in">
+            <div className="faint" style={{ fontSize: 12.5, fontWeight: 600 }}>{it.label}</div>
+            <div className={cx('mono', it.accent)} style={{ fontSize: 22, fontWeight: 750, marginTop: 4 }}>{it.value}</div>
           </div>
-        </div>
+        ))}
       </div>
 
       <div className="card">
-        <div className="table-wrap">
-          <table className="grid">
-            <thead>
-              <tr><th>Account</th><th className="num">Debit</th><th className="num">Credit</th></tr>
-            </thead>
-            <tbody>
-              {tb.rows.map((r) => (
-                <tr key={r.name}>
-                  <td><strong>{r.name}</strong></td>
-                  <td className="num mono">{r.debit ? formatMoney(r.debit, cur) : '—'}</td>
-                  <td className="num mono">{r.credit ? formatMoney(r.credit, cur) : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td>Total</td>
-                <td className="num mono">{formatMoney(tb.totalDebit, cur)}</td>
-                <td className="num mono">{formatMoney(tb.totalCredit, cur)}</td>
-              </tr>
-            </tfoot>
-          </table>
+        <div className="section-title"><Icon name="stock" size={16} /> Net Bonds</div>
+        <div className="row" style={{ gap: 24, flexWrap: 'wrap' }}>
+          <Metric label="Bought" value={formatNumber(s.totalPurchased)} />
+          <Metric label="Sold" value={formatNumber(s.totalSold)} />
+          <Metric label="Net Quantity" value={formatNumber(s.netBonds)} accent={s.netBonds < 0 ? 'neg' : undefined} />
         </div>
       </div>
+
+      {byBond.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="section-title"><Icon name="trial" size={16} /> Profit by Bond</div>
+          <div className="table-wrap">
+            <table className="grid">
+              <thead><tr><th>Bond</th><th className="num">Profit / Loss</th></tr></thead>
+              <tbody>
+                {byBond.map((b) => (
+                  <tr key={b.bondTypeId}>
+                    <td><strong>Rs. {b.bondTypeName}</strong></td>
+                    <td className={cx('num mono', b.profit >= 0 ? 'pos' : 'neg')}>{formatMoney(b.profit, cur)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr><td>Total</td><td className={cx('num mono', s.saleProfit >= 0 ? 'pos' : 'neg')}>{formatMoney(s.saleProfit, cur)}</td></tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Metric({ label, value, accent }: { label: string; value: string; accent?: 'neg' }) {
+  return (
+    <div className="col">
+      <span className="faint" style={{ fontSize: 12 }}>{label}</span>
+      <span className={cx('mono', accent)} style={{ fontSize: 24, fontWeight: 750 }}>{value}</span>
     </div>
   );
 }

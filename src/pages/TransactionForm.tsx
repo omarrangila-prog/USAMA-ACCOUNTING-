@@ -2,8 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useData } from '@/store/dataStore';
 import { Combo, type ComboHandle } from '@/components/ui/Combo';
 import { Icon } from '@/components/ui/Icon';
-import { availableStock } from '@/lib/accounting';
-import { formatMoney, formatNumber, periodOf, cx, defaultDateForPeriod } from '@/lib/utils';
+import { formatMoney, periodOf, cx, defaultDateForPeriod } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
 import type { PaymentMode } from '@/types';
 
@@ -59,18 +58,12 @@ export function TransactionForm({ kind }: Props) {
     setDate(defaultDateForPeriod(period));
   }, [period.month, period.year]);
 
-  const stock = useMemo(
-    () => (bondTypeId ? availableStock(store.dataset(), bondTypeId, entryPeriod) : 0),
-    [bondTypeId, store, date]
-  );
-  const oversell = isSale && qty > stock;
-
   const partyOptions = store.parties.map((p) => ({ id: p.id, label: p.name, sub: p.phone }));
   const bondOptions = store.bondTypes.map((b) => ({ id: b.id, label: `Rs. ${b.name}`, sub: `face ${b.faceValue}` }));
 
-  // Party is OPTIONAL now — a no-party deal is a cash walk-in. Only bond, qty
-  // and rate are required. Credit requires a party (enforced in the store).
-  const valid = bondTypeId && qty > 0 && rt > 0 && !oversell && !monthLocked;
+  // Unlimited stock — never block a sale for insufficient stock. Party is
+  // optional; only bond, qty and rate are required.
+  const valid = bondTypeId && qty > 0 && rt > 0 && !monthLocked;
 
   // Focus the first field on mount for immediate keyboard entry.
   useEffect(() => { partyRef.current?.focus(); }, [kind]);
@@ -189,15 +182,6 @@ export function TransactionForm({ kind }: Props) {
             />
           </div>
         </div>
-
-        {isSale && bondTypeId && (
-          <div className={cx('stock-hint', oversell ? 'warn' : 'ok')}>
-            <Icon name={oversell ? 'warning' : 'check'} size={14} />
-            {oversell
-              ? `${t('f.available')}: ${formatNumber(stock)}`
-              : `${t('f.available')}: ${formatNumber(stock)}`}
-          </div>
-        )}
 
         <div className="field">
           <label>{t('f.note')} <span className="faint">({t('f.optional')})</span></label>

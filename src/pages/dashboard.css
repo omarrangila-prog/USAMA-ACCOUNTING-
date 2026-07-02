@@ -1,3 +1,26 @@
+.cash-hero {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #eafff5, #e6f0ff);
+  border: 1px solid rgba(16,185,129,0.25);
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+.cash-hero:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.cash-hero-icon {
+  width: 60px; height: 60px; flex-shrink: 0;
+  border-radius: 16px; display: grid; place-items: center;
+  color: #fff; background: linear-gradient(150deg, #34d399, #10b981);
+  box-shadow: 0 8px 20px rgba(16,185,129,0.35);
+}
+.cash-hero-label { font-size: 13px; font-weight: 600; color: var(--text-soft); }
+.cash-hero-value { font-size: clamp(26px, 7vw, 38px); font-weight: 780; letter-spacing: -0.02em; line-height: 1.1; }
+@media (max-width: 480px) { .cash-hero-icon { width: 48px; height: 48px; } }
+
+.summary-tile { padding: 16px 18px; }
+
 .dash-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
