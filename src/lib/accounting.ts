@@ -26,7 +26,7 @@ import type {
   StockAdjustment,
   PartyAdjustment,
 } from '@/types';
-import { formatDate, round2 } from './utils';
+import { formatDate, formatNumber, round2 } from './utils';
 
 export interface DataSet {
   parties: Party[];
@@ -383,12 +383,12 @@ export interface CashBookLine {
 export function computeCashBook(data: DataSet, period: Period): CashBookLine[] {
   const lines: CashBookLine[] = [];
   data.sales.filter((s) => inPeriod(s, period) && s.receipt === 'cash')
-    .forEach((s) => lines.push({ date: s.date, description: `Cash Sale (${s.quantity} bond)`, inflow: s.amount, outflow: 0 }));
+    .forEach((s) => lines.push({ date: s.date, description: describeSale(data, s), inflow: s.amount, outflow: 0 }));
   data.purchases.filter((p) => inPeriod(p, period) && p.payment === 'cash')
-    .forEach((p) => lines.push({ date: p.date, description: `Cash Purchase (${p.quantity} bond)`, inflow: 0, outflow: p.amount }));
+    .forEach((p) => lines.push({ date: p.date, description: describePurchase(data, p), inflow: 0, outflow: p.amount }));
   data.cash.filter((c) => inPeriod(c, period)).forEach((c) => {
-    if (c.direction === 'received') lines.push({ date: c.date, description: 'Cash Received', inflow: c.amount, outflow: 0 });
-    else lines.push({ date: c.date, description: 'Cash Paid', inflow: 0, outflow: c.amount });
+    if (c.direction === 'received') lines.push({ date: c.date, description: describeCash(data, c), inflow: c.amount, outflow: 0 });
+    else lines.push({ date: c.date, description: describeCash(data, c), inflow: 0, outflow: c.amount });
   });
   (data.expenses ?? []).filter((e) => inPeriod(e, period)).forEach((e) => {
     if (e.kind === 'income') lines.push({ date: e.date, description: `Income · ${e.category}`, inflow: e.amount, outflow: 0 });
@@ -401,6 +401,46 @@ export function computeCashBook(data: DataSet, period: Period): CashBookLine[] {
 export function computeFileBalance(opening: OpeningBalances | null | undefined): number {
   if (!opening) return 0;
   return round2(opening.files.reduce((a, f) => a + f.balance, 0));
+}
+
+/** Party display name (falls back to "Cash" when no party is attached). */
+function nameOfParty(data: DataSet, id: string | undefined): string {
+  if (!id) return 'Cash';
+  return data.parties.find((p) => p.id === id)?.name ?? 'Cash';
+}
+/** Bond denomination label, e.g. "Rs. 100 Prize Bonds". */
+function nameOfBond(data: DataSet, id: string): string {
+  const b = data.bondTypes.find((x) => x.id === id);
+  return b ? `Rs. ${b.name} Prize Bonds` : 'Prize Bonds';
+}
+/** "… from X" / "… to X"; omits the party phrase for cash-only entries. */
+function withParty(prefix: string, data: DataSet, id: string | undefined): string {
+  if (!id || !data.parties.find((p) => p.id === id)) return '';
+  return ` ${prefix} ${nameOfParty(data, id)}`;
+}
+
+/**
+ * A meaningful, human-readable description for any transaction. Prefers the
+ * user's own note/remarks; otherwise auto-generates one from the party, bond
+ * and quantity so no ledger line is ever blank or cryptic.
+ */
+export function describePurchase(data: DataSet, p: Purchase): string {
+  if (p.note?.trim()) return p.note.trim();
+  return `Purchased ${formatNumber(p.quantity)} ${nameOfBond(data, p.bondTypeId)}${withParty('from', data, p.partyId)}`;
+}
+export function describeSale(data: DataSet, s: Sale): string {
+  if (s.note?.trim()) return s.note.trim();
+  return `Sold ${formatNumber(s.quantity)} ${nameOfBond(data, s.bondTypeId)}${withParty('to', data, s.partyId)}`;
+}
+export function describeCash(data: DataSet, c: CashTransaction): string {
+  if (c.note?.trim()) return c.note.trim();
+  const hasParty = c.partyId && data.parties.find((p) => p.id === c.partyId);
+  if (c.direction === 'received') return hasParty ? `Received payment from ${nameOfParty(data, c.partyId)}` : 'Cash received';
+  return hasParty ? `Payment made to ${nameOfParty(data, c.partyId)}` : 'Cash paid';
+}
+export function describeAdjustment(a: PartyAdjustment): string {
+  if (a.reason?.trim()) return a.reason.trim();
+  return a.amount > 0 ? 'Receivable added' : 'Payable added';
 }
 
 /** Build a full ledger for a specific party in a period. */
@@ -437,7 +477,7 @@ export function computeLedger(
         partyId,
         refType: 'purchase',
         refId: p.id,
-        description: `Purchase ${p.quantity} × bond @ ${p.rate}${p.payment === 'cash' ? ' (cash)' : ''}`,
+        description: describePurchase(data, p),
         debit: 0,
         credit: p.payment === 'credit' ? p.amount : 0,
         date: p.date,
@@ -456,7 +496,7 @@ export function computeLedger(
         partyId,
         refType: 'sale',
         refId: s.id,
-        description: `Sale ${s.quantity} × bond @ ${s.rate}${s.receipt === 'cash' ? ' (cash)' : ''}`,
+        description: describeSale(data, s),
         debit: s.receipt === 'credit' ? s.amount : 0,
         credit: 0,
         date: s.date,
@@ -475,7 +515,7 @@ export function computeLedger(
         partyId,
         refType: 'cash',
         refId: c.id,
-        description: c.direction === 'received' ? 'Cash Received' : 'Cash Paid',
+        description: describeCash(data, c),
         debit: c.direction === 'paid' ? c.amount : 0,
         credit: c.direction === 'received' ? c.amount : 0,
         date: c.date,
@@ -494,7 +534,7 @@ export function computeLedger(
         partyId,
         refType: 'opening',
         refId: a.id,
-        description: a.reason || (a.amount > 0 ? 'Receivable added' : 'Payable added'),
+        description: describeAdjustment(a),
         debit: a.amount > 0 ? a.amount : 0,
         credit: a.amount < 0 ? Math.abs(a.amount) : 0,
         date: a.date,
