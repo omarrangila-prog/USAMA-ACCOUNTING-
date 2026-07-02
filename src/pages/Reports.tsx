@@ -8,6 +8,7 @@ import {
   exportReportPdf, exportReportExcel, reportTitle, buildReportDoc, reportFileName, type ReportId,
 } from '@/lib/reportBuilder';
 import { PdfPreview } from '@/components/ui/PdfPreview';
+import { usePrintConfirm } from '@/components/ui/PrintConfirm';
 import { computeDashboard } from '@/lib/accounting';
 import { formatMoney, formatNumber, monthName } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
@@ -34,6 +35,7 @@ export function Reports() {
   const cur = settings.currency;
   const [confirmClose, setConfirmClose] = useState(false);
   const [preview, setPreview] = useState<{ which: 'all' | ReportId; title: string } | null>(null);
+  const printConfirm = usePrintConfirm();
 
   const stats = useMemo(() => computeDashboard(data, period), [data, period]);
   const closed = isMonthClosed();
@@ -44,11 +46,10 @@ export function Reports() {
 
   /** Open the native print dialog directly on a report — no download needed. */
   const printReport = (which: 'all' | ReportId) => {
-    const doc = buildReportDoc(data, settings, period, which);
-    doc.autoPrint();
-    const printUrl = doc.output('bloburl') as unknown as string;
-    const w = window.open(printUrl, '_blank');
-    if (!w) window.location.href = printUrl; // popup blocked → navigate to it
+    printConfirm.print({
+      makeDoc: () => buildReportDoc(data, settings, period, which),
+      fileName: reportFileName(period, which),
+    });
   };
 
   const doClose = async () => {
@@ -167,6 +168,7 @@ export function Reports() {
         fileName={reportFileName(period, preview?.which ?? 'all')}
         onClose={() => setPreview(null)}
       />
+      {printConfirm.dialog}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { computeLedger, computePartyBalances, computeCashBook } from '@/lib/accounting';
 import { buildStatementPdf, type StatementRow } from '@/lib/statementPdf';
 import { PdfPreview } from '@/components/ui/PdfPreview';
+import { usePrintConfirm } from '@/components/ui/PrintConfirm';
 import { formatMoney, formatNumber, formatDate, defaultDateForPeriod, monthName, cx } from '@/lib/utils';
 import { toast } from '@/store/toast';
 import type { CashDirection } from '@/types';
@@ -25,6 +26,7 @@ export function Ledger() {
   const [cashEditId, setCashEditId] = useState<string | null>(null);
   const [cashToDelete, setCashToDelete] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
+  const printConfirm = usePrintConfirm();
 
   // Open the cash modal in edit mode for an existing cash entry.
   const editCash = (refId: string) => {
@@ -100,11 +102,7 @@ export function Ledger() {
   /** One-click print: open the native dialog directly on the statement PDF. */
   const printStatement = () => {
     if (!partyId) return;
-    const doc = makeStatementDoc();
-    doc.autoPrint();
-    const printUrl = doc.output('bloburl') as unknown as string;
-    const w = window.open(printUrl, '_blank');
-    if (!w) window.location.href = printUrl;
+    printConfirm.print({ makeDoc: makeStatementDoc, fileName: stmtFileName });
   };
 
   // "Cash Book" first (includes expenses/income), then all parties.
@@ -237,6 +235,7 @@ export function Ledger() {
         fileName={stmtFileName}
         onClose={() => setPreview(false)}
       />
+      {printConfirm.dialog}
     </div>
   );
 }

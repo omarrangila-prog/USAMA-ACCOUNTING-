@@ -3,6 +3,7 @@ import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
 import { PdfPreview } from '@/components/ui/PdfPreview';
+import { usePrintConfirm } from '@/components/ui/PrintConfirm';
 import { computeBusinessSummary, computeProfitByBond } from '@/lib/accounting';
 import { buildReportDoc, reportFileName, exportReportPdf } from '@/lib/reportBuilder';
 import { formatMoney, formatNumber, cx } from '@/lib/utils';
@@ -17,6 +18,7 @@ export function TrialBalance() {
   const data = dataset();
   const cur = settings.currency;
   const [preview, setPreview] = useState(false);
+  const printConfirm = usePrintConfirm();
   const s = useMemo(() => computeBusinessSummary(data, period), [data, period]);
   const byBond = useMemo(() => computeProfitByBond(data, period).filter((b) => b.profit !== 0), [data, period]);
 
@@ -39,13 +41,10 @@ export function TrialBalance() {
             <button className="btn btn-primary" onClick={() => setPreview(true)}>
               <Icon name="search" size={16} /> Preview
             </button>
-            <button className="btn" onClick={() => {
-              const doc = buildReportDoc(data, settings, period, 'trial');
-              doc.autoPrint();
-              const u = doc.output('bloburl') as unknown as string;
-              const w = window.open(u, '_blank');
-              if (!w) window.location.href = u;
-            }}>
+            <button className="btn" onClick={() => printConfirm.print({
+              makeDoc: () => buildReportDoc(data, settings, period, 'trial'),
+              fileName: reportFileName(period, 'trial'),
+            })}>
               <Icon name="print" size={16} /> Print
             </button>
             <button className="btn" onClick={() => { exportReportPdf(data, settings, period, 'trial'); toast.success('Downloaded'); }}>
@@ -101,6 +100,7 @@ export function TrialBalance() {
         fileName={reportFileName(period, 'trial')}
         onClose={() => setPreview(false)}
       />
+      {printConfirm.dialog}
     </div>
   );
 }
