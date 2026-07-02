@@ -43,7 +43,9 @@
   gap: 8px;
   height: 38px;
   padding: 0 12px;
-  min-width: 220px;
+  min-width: 180px;
+  max-width: 320px;
+  flex: 1 1 auto;
   border-radius: var(--radius-sm);
   border: 1px solid var(--stroke-strong);
   background: rgba(255, 255, 255, 0.7);
@@ -51,6 +53,15 @@
   font-size: 13px;
   cursor: pointer;
   transition: background 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.search-btn > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  text-align: left;
 }
 .search-btn:hover { background: #fff; }
 .search-btn kbd {
@@ -86,7 +97,7 @@
 .tool-group { display: flex; gap: 2px; }
 .smart-btn { flex-shrink: 0; }
 
-.user-menu { display: flex; align-items: center; gap: 4px; padding-left: 6px; border-left: 1px solid var(--stroke); }
+.user-menu { display: flex; align-items: center; gap: 4px; padding-left: 6px; border-left: 1px solid var(--stroke); flex-shrink: 0; }
 .user-btn {
   display: flex;
   align-items: center;
