@@ -17,7 +17,7 @@ import {
 } from './accounting';
 import { buildReportPdf, money, type PdfSection, type PdfSummaryCard } from './exportPdf';
 import { exportWorkbook, type Sheet } from './exportExcel';
-import { formatDate, formatNumber, monthName } from './utils';
+import { formatDate, formatNumber, monthName, round2 } from './utils';
 
 /**
  * Strict alphabetical (A→Z) sort by party name, case-insensitive so "ali" and
@@ -141,12 +141,18 @@ export function buildSections(
   }
 
   if (want('trial')) {
+    // Business Summary of positions (assets vs liabilities). Since we do NOT
+    // synthesise an opening-capital plug, this is a position summary rather than
+    // a self-tying double-entry trial balance — so we don't flag it as
+    // "(Out of Balance)", which would look like an error to the owner. A neutral
+    // "Net Position" foot shows assets − liabilities.
     const tb = computeTrialBalance(data, period);
+    const netPosition = round2(tb.totalDebit - tb.totalCredit);
     sections.push({
-      title: `Trial Balance ${tb.balanced ? '(Balanced)' : '(Out of Balance)'}`,
+      title: 'Business Summary',
       head: ['Account', 'Debit', 'Credit'],
       rows: tb.rows.map((r) => [r.name, r.debit ? money(r.debit) : '', r.credit ? money(r.credit) : '']),
-      foot: ['Total', money(tb.totalDebit), money(tb.totalCredit)],
+      foot: ['Net Position (Assets − Liabilities)', money(netPosition), ''],
       numericCols: [1, 2],
     });
   }
