@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
 import { Combo, type ComboHandle } from '@/components/ui/Combo';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
-import { computeLedger, computePartyBalances, computeCashBook } from '@/lib/accounting';
+import { computeLedger, computePartyBalances, computeCashBook, partyDropdownOptions } from '@/lib/accounting';
 import { buildStatementPdf, type StatementRow } from '@/lib/statementPdf';
 import { PdfPreview } from '@/components/ui/PdfPreview';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
@@ -105,10 +105,15 @@ export function Ledger() {
     printConfirm.print({ makeDoc: makeStatementDoc, fileName: stmtFileName });
   };
 
-  // "Cash Book" first (includes expenses/income), then all parties.
+  // Party dropdown ALWAYS lists every party from the master Parties collection
+  // (independent of transactions/month/filters), sorted A→Z case-insensitively,
+  // each showing its current net balance + Receivable/Payable status.
+  const statusSub = (o: { balance: number; status: string }) =>
+    o.status === 'Settled' ? formatMoney(0, cur) : `${o.status} ${formatMoney(Math.abs(o.balance), cur)}`;
+  // "Cash Book" first (includes expenses/income), then all parties A→Z.
   const partyOptions = [
     { id: CASHBOOK, label: 'Cash Book (all cash, expenses & income)', sub: 'Business cash flow' },
-    ...data.parties.map((p) => ({ id: p.id, label: p.name, sub: p.phone })),
+    ...partyDropdownOptions(data, period).map((o) => ({ id: o.id, label: o.name, sub: statusSub(o) })),
   ];
 
   return (
@@ -163,10 +168,18 @@ export function Ledger() {
                 {formatMoney(Math.abs(netBal), cur)} {netBal >= 0 ? '(+)' : '(-)'}
               </span>
             </div>
+            {!isCashBook && (
+              <div className="stmt-sum-item">
+                <span className="stmt-sum-label">Status</span>
+                <span className={cx('stmt-sum-value', netBal > 0 ? 'pos' : netBal < 0 ? 'neg' : '')}>
+                  {netBal > 0 ? 'Receivable' : netBal < 0 ? 'Payable' : 'Settled'}
+                </span>
+              </div>
+            )}
           </div>
 
           {statementRows.length === 0 ? (
-            <div className="empty">No entries this month.</div>
+            <div className="empty">No transactions found for this party.</div>
           ) : (
             <div className="table-wrap">
               <table className="grid stmt-grid stack-sm">

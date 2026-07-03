@@ -340,6 +340,36 @@ export function computePayables(data: DataSet, period: Period): PartyBalance[] {
     .map((b) => ({ ...b, balance: Math.abs(b.balance) }));
 }
 
+export interface PartyOption {
+  id: string;
+  name: string;
+  /** Net balance: +receivable / -payable / 0 settled. */
+  balance: number;
+  status: 'Receivable' | 'Payable' | 'Settled';
+}
+
+/**
+ * The Ledger party dropdown list. ALWAYS built from the master Parties
+ * collection (never from ledger entries / transactions), so parties without any
+ * transactions still appear. Sorted A→Z case-insensitively, each carrying its
+ * current net balance + status for display.
+ */
+export function partyDropdownOptions(data: DataSet, period: Period): PartyOption[] {
+  const balances = computePartyBalances(data, period);
+  const balOf = (id: string) => balances.find((b) => b.partyId === id)?.balance ?? 0;
+  return [...data.parties]
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+    .map((p) => {
+      const balance = balOf(p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        balance,
+        status: balance > 0.005 ? 'Receivable' : balance < -0.005 ? 'Payable' : 'Settled',
+      };
+    });
+}
+
 /** Net cash position from cash transactions in the period. */
 export function computeCashInHand(data: DataSet, period: Period): number {
   let cash = 0;
