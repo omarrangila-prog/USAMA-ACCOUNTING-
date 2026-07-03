@@ -116,6 +116,8 @@ export interface MonthlySummary {
   closingStockValue: number;
   cashReceivable: number;
   cashPayable: number;
+  /** Corrected Cash in Hand from the shared Financial Engine (computeFinancials). */
+  cashInHand: number;
   netBalance: number;
   profitLoss: number;
   trialBalanced: boolean;

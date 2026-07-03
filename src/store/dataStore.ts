@@ -29,6 +29,8 @@ import {
   type DataSet,
   computeStock,
   computePartyBalances,
+  computeFinancials,
+  availableStock,
   avgCostFor,
   computeProfitLoss,
 } from '@/lib/accounting';
@@ -186,6 +188,26 @@ export interface ImportPayload {
 
 let unsubs: Array<() => void> = [];
 
+const PERIOD_KEY = 'bond.period';
+/** Read the last-selected month from localStorage, else the current month. */
+function loadPersistedPeriod(): Period {
+  try {
+    const raw = localStorage.getItem(PERIOD_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (
+        typeof p?.month === 'number' && p.month >= 1 && p.month <= 12 &&
+        typeof p?.year === 'number' && p.year >= 2000 && p.year <= 2100
+      ) return { month: p.month, year: p.year };
+    }
+  } catch { /* fall through to current month */ }
+  const d = new Date();
+  return { month: d.getMonth() + 1, year: d.getFullYear() };
+}
+function savePersistedPeriod(p: Period): void {
+  try { localStorage.setItem(PERIOD_KEY, JSON.stringify(p)); } catch { /* ignore */ }
+}
+
 export const useData = create<DataStore>((set, get) => ({
   uidRef: null,
   ready: false,
@@ -204,10 +226,9 @@ export const useData = create<DataStore>((set, get) => ({
   opening: null,
   settings: DEFAULT_SETTINGS,
 
-  period: (() => {
-    const d = new Date();
-    return { month: d.getMonth() + 1, year: d.getFullYear() };
-  })(),
+  // Selected month persists across refreshes (localStorage), falling back to
+  // the current month on first run or if the stored value is invalid.
+  period: loadPersistedPeriod(),
 
   bind: (userUid) => {
     get().unbind();
@@ -248,7 +269,7 @@ export const useData = create<DataStore>((set, get) => ({
     set({ ready: false });
   },
 
-  setPeriod: (p) => set({ period: p }),
+  setPeriod: (p) => { savePersistedPeriod(p); set({ period: p }); },
   setOnline: (v) => set({ online: v }),
 
   dataset: () => {
@@ -420,8 +441,16 @@ export const useData = create<DataStore>((set, get) => ({
       toast.error('Quantity and rate must be positive.');
       return false;
     }
-    // Prize-bond model: stock is UNLIMITED. Never block a sale — net qty may go
-    // negative and that's fine.
+    // Prize-bond model: stock is UNLIMITED, so we never BLOCK a sale — but we do
+    // WARN if it drives the bond's stock negative (usually a data-entry slip).
+    const avail = availableStock(get().dataset(), input.bondTypeId, period);
+    if (input.quantity > avail) {
+      const ok = window.confirm(
+        `Only ${avail.toLocaleString()} in stock for this bond but you're selling ` +
+        `${input.quantity.toLocaleString()}. Stock will go negative. Continue?`
+      );
+      if (!ok) return false;
+    }
     // Reconciliation model: a NAMED party => credit (builds that party's
     // outstanding receivable, no immediate cash effect). No party => cash
     // (flows straight into Cash in Hand).
@@ -676,8 +705,11 @@ export const useData = create<DataStore>((set, get) => ({
       .reduce((a, r) => a + r.amount, 0);
     // Profit including expenses & income for this period.
     const profit = computeProfitLoss(data, p);
-    const receivable = balances.filter((b) => b.balance > 0).reduce((a, b) => a + b.balance, 0);
-    const payable = balances.filter((b) => b.balance < 0).reduce((a, b) => a + Math.abs(b.balance), 0);
+    // Cash / receivable / payable ALL from the shared Financial Engine so the
+    // snapshot matches the dashboard & reports exactly.
+    const fin = computeFinancials(data, p);
+    const receivable = fin.netReceivable;
+    const payable = fin.netPayable;
     const closingStockValue = stock.reduce((a, s) => a + s.closingValue, 0);
     const closingStockQty = stock.reduce((a, s) => a + s.closingQty, 0);
 
@@ -696,7 +728,8 @@ export const useData = create<DataStore>((set, get) => ({
         closingStockValue: round2(closingStockValue),
         cashReceivable: round2(receivable),
         cashPayable: round2(payable),
-        netBalance: round2(receivable - payable + closingStockValue),
+        cashInHand: fin.cashInHand,
+        netBalance: round2(fin.cashInHand + closingStockValue),
         profitLoss: round2(profit),
         trialBalanced: true,
       },
@@ -719,8 +752,8 @@ export const useData = create<DataStore>((set, get) => ({
     const inP = (r: { month: number; year: number }) => r.month === p.month && r.year === p.year;
     const totalPurchase = data.purchases.filter(inP).reduce((a, r) => a + r.amount, 0);
     const totalSale = data.sales.filter(inP).reduce((a, r) => a + r.amount, 0);
-    const receivable = balances.filter((b) => b.balance > 0).reduce((a, b) => a + b.balance, 0);
-    const payable = balances.filter((b) => b.balance < 0).reduce((a, b) => a + Math.abs(b.balance), 0);
+    // Same shared Financial Engine as closeMonth / dashboard / reports.
+    const fin = computeFinancials(data, p);
     const closingStockValue = stock.reduce((a, s) => a + s.closingValue, 0);
     const existing = get().closings.find((c) => c.month === p.month && c.year === p.year)!;
     const closing: MonthlyClosing = {
@@ -732,9 +765,10 @@ export const useData = create<DataStore>((set, get) => ({
         totalSale: round2(totalSale),
         closingStockQty: stock.reduce((a, s) => a + s.closingQty, 0),
         closingStockValue: round2(closingStockValue),
-        cashReceivable: round2(receivable),
-        cashPayable: round2(payable),
-        netBalance: round2(receivable - payable + closingStockValue),
+        cashReceivable: fin.netReceivable,
+        cashPayable: fin.netPayable,
+        cashInHand: fin.cashInHand,
+        netBalance: round2(fin.cashInHand + closingStockValue),
         profitLoss: computeProfitLoss(data, p),
         trialBalanced: true,
       },
@@ -801,10 +835,13 @@ export const useData = create<DataStore>((set, get) => ({
   resetAllData: async (opts) => {
     const u = get().uidRef;
     if (!u) { toast.error('Not ready yet.'); return; }
+    // Every accounting/transaction collection the app writes to — nothing left
+    // orphaned. partyAdjustments & stockAdjustments were previously missed and
+    // silently corrupted balances after a reset.
     const collections: CollectionName[] = [
-      'purchases', 'sales', 'cashTransactions', 'expenses',
-      'ledgerEntries', 'monthlyClosings', 'openingBalances', 'fileAccounts',
-      'expenseCategories',
+      'purchases', 'sales', 'cashTransactions', 'partyAdjustments',
+      'stockAdjustments', 'expenses', 'ledgerEntries', 'monthlyClosings',
+      'openingBalances', 'fileAccounts', 'expenseCategories',
     ];
     if (!opts?.keepMasters) {
       collections.push('parties', 'bondTypes');

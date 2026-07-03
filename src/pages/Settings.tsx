@@ -86,6 +86,9 @@ export function Settings() {
             <DataStat label="Purchases" value={store.purchases.length} />
             <DataStat label="Sales" value={store.sales.length} />
             <DataStat label="Cash Entries" value={store.cash.length} />
+            <DataStat label="Receivable / Payable" value={store.partyAdjustments.length} />
+            <DataStat label="Stock Adjustments" value={store.stockAdjustments.length} />
+            <DataStat label="Expenses / Income" value={store.expenses.length} />
             <DataStat label="Bank Files" value={store.fileAccounts.length} />
             <DataStat label="Closed Months" value={store.closings.length} />
             <DataStat label="Opening Set" value={store.opening ? 1 : 0} />

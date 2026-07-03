@@ -31,6 +31,7 @@ export default function App() {
   const { user, init } = useAuth();
   const bind = useData((s) => s.bind);
   const unbind = useData((s) => s.unbind);
+  const ready = useData((s) => s.ready);
 
   useEffect(() => init(), [init]);
 
@@ -41,6 +42,9 @@ export default function App() {
   }, [user, bind, unbind]);
 
   if (!user) return <Splash />;
+  // Don't render the app (and its derived dashboard/report totals) until the
+  // Firestore snapshots have loaded — prevents flicker / stale partial values.
+  if (!ready) return <Splash />;
 
   // Electron loads over file://, where BrowserRouter paths don't resolve —
   // use HashRouter there. Web/Vercel keeps clean BrowserRouter URLs.

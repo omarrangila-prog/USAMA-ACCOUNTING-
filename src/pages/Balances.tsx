@@ -261,6 +261,18 @@ function PaymentModal({
   const submit = async () => {
     if (!target) return;
     if (amt <= 0) { toast.error('Enter a positive amount.'); return; }
+    // Safety: warn before over-settling. Paying/receiving MORE than the
+    // outstanding balance flips the party to the opposite side (creates a new
+    // receivable/payable), which is usually a typo.
+    if (amt > Math.abs(target.balance) + 0.005) {
+      const flip = isRec ? 'turn this party into a Payable' : 'turn this party into a Receivable';
+      const ok = window.confirm(
+        `This ${isRec ? 'receipt' : 'payment'} of ${amt.toLocaleString()} is more than the ` +
+        `outstanding ${target.balance >= 0 ? 'receivable' : 'payable'} of ${Math.abs(target.balance).toLocaleString()}. ` +
+        `It will ${flip} for the difference. Continue?`
+      );
+      if (!ok) return;
+    }
     setBusy(true);
     try {
       // Settlement only — clears the party balance without touching cash again
