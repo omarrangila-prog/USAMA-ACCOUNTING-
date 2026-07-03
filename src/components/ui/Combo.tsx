@@ -1,4 +1,5 @@
 import { forwardRef, useLayoutEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cx } from '@/lib/utils';
 import { toast } from '@/store/toast';
 import './combo.css';
@@ -36,8 +37,28 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const [busy, setBusy] = useState(false);
+  // Screen-space position of the popup, measured from the trigger. The popup is
+  // portalled to <body> so it escapes any parent stacking context / overflow.
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Measure the trigger and place the popup just below it (in viewport coords).
+  const place = () => {
+    const r = triggerRef.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 6, left: r.left, width: r.width });
+  };
+  useLayoutEffect(() => {
+    if (!open) return;
+    place();
+    const onMove = () => place();
+    window.addEventListener('resize', onMove);
+    window.addEventListener('scroll', onMove, true); // capture: any scroll container
+    return () => {
+      window.removeEventListener('resize', onMove);
+      window.removeEventListener('scroll', onMove, true);
+    };
+  }, [open]);
 
   useImperativeHandle(ref, () => ({
     focus: () => triggerRef.current?.focus(),
@@ -118,7 +139,7 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
   };
 
   return (
-    <div className={cx('combo', invalid && 'combo-invalid', open && 'is-open')}>
+    <div className={cx('combo', invalid && 'combo-invalid')}>
       <button
         ref={triggerRef}
         type="button"
@@ -129,10 +150,15 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
         <span className={selected ? '' : 'faint'}>{selected?.label ?? placeholder}</span>
         <span className="faint">▾</span>
       </button>
-      {open && (
+      {open && pos && createPortal(
         <>
-          <div className="combo-overlay" onClick={() => setOpen(false)} />
-          <div className="combo-pop glass">
+          {/* Full-screen backdrop catches outside clicks; sits just below pop. */}
+          <div className="combo-overlay" onMouseDown={() => setOpen(false)} />
+          <div
+            className="combo-pop glass"
+            style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             <input
               ref={searchRef}
               className="input combo-search"
@@ -170,7 +196,8 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
               )}
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );

@@ -1,9 +1,4 @@
 .combo { position: relative; width: 100%; }
-/* When open, lift the WHOLE combo into a stacking context above the fixed
-   full-screen overlay, so the popup (a child of .combo) paints above it and
-   stays clickable. Without this, the fixed overlay (root stacking context)
-   covers the absolutely-positioned popup and swallows every mouse click. */
-.combo.is-open { z-index: 820; }
 .combo-trigger {
   display: flex;
   align-items: center;
@@ -11,15 +6,13 @@
   cursor: pointer;
   text-align: left;
 }
-.combo-overlay { position: fixed; inset: 0; z-index: 800; }
+/* Popup + overlay are portalled to <body>, so they escape every parent
+   stacking context / overflow. Very high z-index keeps them above all page
+   content; the pop sits just above its own backdrop. */
+.combo-overlay { position: fixed; inset: 0; z-index: 3000; }
 .combo-pop {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  /* Above page cards/tables/headers (which top out ~200) and its own overlay,
-     but below full-screen modals (900+). Opaque so nothing bleeds through. */
-  z-index: 810;
+  /* position/top/left/width are set inline (measured from the trigger). */
+  z-index: 3001;
   padding: 8px;
   background: #ffffff;
   border: 1px solid var(--stroke, #e5e7eb);
