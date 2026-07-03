@@ -19,6 +19,18 @@ import { buildReportPdf, money, type PdfSection, type PdfSummaryCard } from './e
 import { exportWorkbook, type Sheet } from './exportExcel';
 import { formatDate, formatNumber, monthName } from './utils';
 
+/**
+ * Strict alphabetical (A→Z) sort by party name, case-insensitive so "ali" and
+ * "Ali" sort together. THE single sort used by every Balance Sheet output
+ * (preview / PDF / print / Excel) plus the receivable, payable & ledger
+ * sections — never by amount, creation date or transaction date.
+ */
+export function azSortByName<T extends { name: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+  );
+}
+
 const C = {
   blue: [59, 130, 246] as [number, number, number],
   green: [16, 185, 129] as [number, number, number],
@@ -104,8 +116,7 @@ export function buildSections(
     });
   }
 
-  const azSort = <T extends { name: string }>(rows: T[]) =>
-    [...rows].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  const azSort = azSortByName;
 
   if (want('receivable')) {
     const rows = azSort(computeReceivables(data, period));
@@ -348,8 +359,8 @@ export function exportReportExcel(data: DataSet, period: Period): void {
   // driven by the same Financial Engine as the dashboard & PDF report.
   {
     const fin = computeFinancials(data, period);
-    const recRows = [...computeReceivables(data, period)].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-    const payRows = [...computePayables(data, period)].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    const recRows = azSortByName(computeReceivables(data, period));
+    const payRows = azSortByName(computePayables(data, period));
     sheets.push({
       name: 'BalanceCheck',
       rows: [

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildSections, buildReportDoc } from './reportBuilder';
+import { buildSections, buildReportDoc, azSortByName } from './reportBuilder';
+import { computeReceivables, computePayables } from './accounting';
 import { money } from './exportPdf';
 import { computeFinancials, type DataSet } from './accounting';
 import type { Party, PartyAdjustment } from '@/types';
@@ -98,3 +99,50 @@ describe('Balance Check report — not blank, per-party net', () => {
 const settingsFixture = {
   businessName: 'Test', ownerName: 'Owner', currency: 'Rs', smartEntryEnabled: false, updatedAt: now,
 };
+
+describe('Balance Sheet strict alphabetical sorting (A→Z, case-insensitive)', () => {
+  // Parties created in deliberately jumbled order.
+  const data = dataset({
+    parties: [
+      party('P1', 'Yameen'), party('P2', 'Ali'), party('P3', 'Ahmed'),
+      party('P4', 'Bilal'), party('P5', 'Mustafa'), party('P6', 'Aslam'),
+    ],
+    partyAdjustments: [
+      adj('r1', 'P1', 100000),  // Yameen  receivable
+      adj('r2', 'P2', 200000),  // Ali     receivable
+      adj('r3', 'P3', 500000),  // Ahmed   receivable
+      adj('p1', 'P4', -100000), // Bilal   payable
+      adj('p2', 'P5', -300000), // Mustafa payable
+      adj('p3', 'P6', -400000), // Aslam   payable
+    ],
+  });
+
+  it('receivables then payables, each independently A→Z', () => {
+    const sections = buildSections(data, P, 'balance');
+    const rec = sections.find((s) => s.title.startsWith('RECEIVABLES'))!;
+    const pay = sections.find((s) => s.title.startsWith('PAYABLES'))!;
+
+    const recNames = rec.rows.map((r) => r[0]);
+    const payNames = pay.rows.map((r) => r[0]);
+
+    expect(recNames).toEqual(['Ahmed', 'Ali', 'Yameen']);
+    expect(payNames).toEqual(['Aslam', 'Bilal', 'Mustafa']);
+  });
+
+  it('Excel BalanceCheck ordering matches (same shared sorter)', () => {
+    // Excel uses azSortByName over the same engine rows → identical order.
+    const recNames = azSortByName(computeReceivables(data, P)).map((r) => r.name);
+    const payNames = azSortByName(computePayables(data, P)).map((r) => r.name);
+    expect(recNames).toEqual(['Ahmed', 'Ali', 'Yameen']);
+    expect(payNames).toEqual(['Aslam', 'Bilal', 'Mustafa']);
+  });
+
+  it('sort is case-insensitive (ali sorts with Ali, not after Z)', () => {
+    const mixed = dataset({
+      parties: [party('X', 'bravo'), party('Y', 'Alpha'), party('Z', 'ALI')],
+      partyAdjustments: [adj('a', 'X', 1), adj('b', 'Y', 1), adj('c', 'Z', 1)],
+    });
+    const rec = buildSections(mixed, P, 'balance').find((s) => s.title.startsWith('RECEIVABLES'))!;
+    expect(rec.rows.map((r) => r[0])).toEqual(['ALI', 'Alpha', 'bravo']);
+  });
+});
