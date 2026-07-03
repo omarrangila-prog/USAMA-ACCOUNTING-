@@ -118,7 +118,7 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
   };
 
   return (
-    <div className={cx('combo', invalid && 'combo-invalid')}>
+    <div className={cx('combo', invalid && 'combo-invalid', open && 'is-open')}>
       <button
         ref={triggerRef}
         type="button"

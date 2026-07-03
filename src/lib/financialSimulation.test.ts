@@ -64,7 +64,7 @@ function assertConsistent(data: DataSet, period: { month: number; year: number }
 
   expect(fin.netReceivable).toBe(netRec);
   expect(fin.netPayable).toBe(netPay);
-  expect(fin.cashInHand).toBe(round(raw + netRec - netPay));
+  expect(fin.cashInHand).toBe(raw); // Cash in Hand = physical cash only
 
   // Dashboard, Business Summary must equal the engine — always.
   expect(computeDashboard(data, period).cashInHand).toBe(fin.cashInHand);

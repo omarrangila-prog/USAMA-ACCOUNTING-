@@ -31,12 +31,14 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
   );
 
   const partyLabel = (id: string) => data.parties.find((p) => p.id === id)?.name ?? '—';
-  // Manual receivable/payable entries added this month for THIS side.
+  // Manual receivable/payable entries added this month for THIS side. Skip any
+  // orphan whose party has been deleted — otherwise it renders as a blank row.
+  const partyExists = (id: string) => data.parties.some((p) => p.id === id);
   const manualAdjustments = useMemo(
     () => (data.partyAdjustments ?? [])
-      .filter((a) => a.month === period.month && a.year === period.year && (isRec ? a.amount > 0 : a.amount < 0))
+      .filter((a) => partyExists(a.partyId) && a.month === period.month && a.year === period.year && (isRec ? a.amount > 0 : a.amount < 0))
       .sort((a, b) => (a.date < b.date ? 1 : -1)),
-    [data.partyAdjustments, period, isRec]
+    [data.partyAdjustments, data.parties, period, isRec]
   );
   const total = rows.reduce((a, r) => a + r.balance, 0);
 

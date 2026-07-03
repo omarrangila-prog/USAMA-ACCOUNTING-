@@ -66,9 +66,10 @@ describe('Cash-event rules (QA A–F) + closing snapshot (G, M)', () => {
     expect(fin.rawCash).toBe(300000);            // 700k -500k +300k -200k
     expect(fin.netReceivable).toBe(300000);      // Ali: 400k -300k +200k
     expect(fin.netPayable).toBe(0);
-    // cashInHand = rawCash + netReceivable - netPayable (the value the monthly
-    // closing snapshots — so carried-forward cash == dashboard cash).
-    expect(fin.cashInHand).toBe(300000 + 300000 - 0);
-    expect(fin.cashInHand).toBe(fin.rawCash + fin.netReceivable - fin.netPayable);
+    // Cash in Hand = PHYSICAL CASH ONLY = rawCash. Receivable/payable NOT folded
+    // in. The monthly closing snapshots exactly this → carried cash == dashboard
+    // == cash book == 300k.
+    expect(fin.cashInHand).toBe(300000);
+    expect(fin.cashInHand).toBe(fin.rawCash);
   });
 });

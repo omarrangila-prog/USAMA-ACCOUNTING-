@@ -113,7 +113,7 @@ describe('Financial Engine — per-party netting', () => {
     expect(fin.netPayable).toBe(500000);
   });
 
-  it('3. different parties offset into final cash → CIH -100000', () => {
+  it('3. receivable/payable are SEPARATE from cash (physical cash only)', () => {
     const data = dataset({
       parties: [party('A', 'Ali'), party('B', 'Ahmed')],
       sales: [openingCash(400000)],
@@ -122,19 +122,19 @@ describe('Financial Engine — per-party netting', () => {
     const fin = computeFinancials(data, P);
     expect(fin.netReceivable).toBe(500000); // different parties → both show
     expect(fin.netPayable).toBe(1000000);
-    // cashInHand = openingCash + netReceivable - netPayable
-    expect(fin.cashInHand).toBe(400000 + 500000 - 1000000);
-    expect(fin.cashInHand).toBe(-100000);
+    // Cash in Hand = PHYSICAL CASH ONLY (the 400k cash sale). Receivable/payable
+    // are NOT folded in.
+    expect(fin.cashInHand).toBe(400000);
 
     // dashboard + business summary must agree with the engine
     const d = computeDashboard(data, P);
     expect(d.cashReceivable).toBe(500000);
     expect(d.cashPayable).toBe(1000000);
-    expect(d.cashInHand).toBe(-100000);
+    expect(d.cashInHand).toBe(400000);
     const bs = computeBusinessSummary(data, P);
     expect(bs.netReceivable).toBe(500000);
     expect(bs.netPayable).toBe(1000000);
-    expect(bs.cashInHand).toBe(-100000);
+    expect(bs.cashInHand).toBe(400000);
   });
 
   it('4. delete reverses effect → payable 0, totals recalculated', () => {

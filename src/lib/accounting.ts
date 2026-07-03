@@ -404,15 +404,18 @@ export function computeCashInHand(data: DataSet, period: Period): number {
  *      partyNet > 0 => receivable, < 0 => payable, = 0 => hidden.
  *   2. netReceivable = Σ partyNet where partyNet > 0
  *      netPayable    = |Σ partyNet where partyNet < 0|
- *   3. cashInHand = rawCash (openingCash + cashSales - cashPurchases
- *        + cashReceived - cashPaid + income - expenses) + netReceivable - netPayable
+ *   3. cashInHand = PHYSICAL CASH ONLY = openingCash + cashSales - cashPurchases
+ *        + cashReceived - cashPaid + income - expenses.
+ *      Receivable/Payable are NOT folded into cash — they are separate figures
+ *      shown on their own cards. cashInHand === computeCashInHand (the SAME
+ *      value the Cash Book & Monthly Closing use).
  */
 export interface Financials {
-  rawCash: number;         // cash movements only, before party netting
-  netReceivable: number;   // Σ positive party nets
-  netPayable: number;      // |Σ negative party nets|
-  netParty: number;        // netReceivable - netPayable
-  cashInHand: number;      // rawCash + netReceivable - netPayable
+  rawCash: number;         // physical cash from cash events
+  netReceivable: number;   // Σ positive party nets (own card, NOT in cash)
+  netPayable: number;      // |Σ negative party nets| (own card, NOT in cash)
+  netParty: number;        // netReceivable - netPayable (informational)
+  cashInHand: number;      // === rawCash — physical cash only
 }
 export function computeFinancials(data: DataSet, period: Period): Financials {
   const balances = computePartyBalances(data, period);
@@ -425,7 +428,8 @@ export function computeFinancials(data: DataSet, period: Period): Financials {
     netReceivable,
     netPayable,
     netParty,
-    cashInHand: round2(rawCash + netParty),
+    // Cash in Hand is PHYSICAL CASH ONLY — receivable/payable are NOT added.
+    cashInHand: rawCash,
   };
 }
 
@@ -729,9 +733,9 @@ export function computeDashboard(data: DataSet, period: Period): DashboardStats 
     cashReceivable: fin.netReceivable,
     cashPayable: fin.netPayable,
     cashInHand: fin.cashInHand,
-    // Net worth-ish position: assets - liabilities. netParty is already folded
-    // into cashInHand, so don't add receivables/payables again here.
-    netBalance: round2(fin.cashInHand + bank + closingStockValue),
+    // Net worth = physical cash + bank + stock + net party position (receivable
+    // − payable). This is a SEPARATE figure from Cash in Hand.
+    netBalance: round2(fin.cashInHand + bank + closingStockValue + fin.netParty),
     profitLoss: computeProfitLoss(data, period),
     totalExpense: exp.expense,
     totalIncome: exp.income,

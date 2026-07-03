@@ -249,8 +249,8 @@ describe('Test 15/16/17 — property tests over 1000s of random records', () => 
   }
 
   // The invariant the whole engine rests on:
-  //   cashInHand === rawCash + netReceivable - netPayable
-  //   netReceivable/netPayable come ONLY from per-party nets.
+  //   cashInHand === physical cash ONLY (rawCash). Receivable/Payable are
+  //   SEPARATE figures and are NOT folded into cash.
   function assertInvariants(data: DataSet) {
     const balances = computePartyBalances(data, P);
     const netRec = round(balances.reduce((a, b) => (b.balance > 0 ? a + b.balance : a), 0));
@@ -260,7 +260,7 @@ describe('Test 15/16/17 — property tests over 1000s of random records', () => 
 
     expect(fin.netReceivable).toBe(netRec);
     expect(fin.netPayable).toBe(netPay);
-    expect(fin.cashInHand).toBe(round(raw + netRec - netPay));
+    expect(fin.cashInHand).toBe(raw); // physical cash only
     // Dashboard & summary must equal the engine, always.
     expect(computeDashboard(data, P).cashInHand).toBe(fin.cashInHand);
     expect(computeBusinessSummary(data, P).cashInHand).toBe(fin.cashInHand);

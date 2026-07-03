@@ -1,4 +1,9 @@
 .combo { position: relative; width: 100%; }
+/* When open, lift the WHOLE combo into a stacking context above the fixed
+   full-screen overlay, so the popup (a child of .combo) paints above it and
+   stays clickable. Without this, the fixed overlay (root stacking context)
+   covers the absolutely-positioned popup and swallows every mouse click. */
+.combo.is-open { z-index: 820; }
 .combo-trigger {
   display: flex;
   align-items: center;
