@@ -6,6 +6,7 @@ import {
   computePartyBalances,
   computeReceivables,
   computePayables,
+  computeFinancials,
   computeCashInHand,
   computeTrialBalance,
   computeDashboard,
@@ -140,21 +141,48 @@ export function buildSections(
   }
 
   if (want('balance')) {
-    // Balance Sheet layout: RECEIVABLES (A→Z) first, then PAYABLES (A→Z).
+    // Balance Check — driven ONLY by the Financial Engine's per-party net
+    // balances (same source as the dashboard). computeReceivables = parties
+    // whose net > 0; computePayables = parties whose net < 0 (abs). Net-zero
+    // parties are already excluded by those helpers.
+    const fin = computeFinancials(data, period);
     const rec = azSort(computeReceivables(data, period));
     const pay = azSort(computePayables(data, period));
+    const totalRec = rec.reduce((a, r) => a + r.balance, 0);
+    const totalPay = pay.reduce((a, r) => a + r.balance, 0);
+
+    // RECEIVABLES first, A→Z: Party | Amount | Status.
     sections.push({
       title: 'RECEIVABLES (A - Z)',
-      head: ['Party', 'Amount Receivable'],
-      rows: rec.length ? rec.map((r) => [r.name, money(r.balance)]) : [['—', money(0)]],
-      foot: ['Total Receivable', money(rec.reduce((a, r) => a + r.balance, 0))],
+      head: ['Party', 'Amount', 'Status'],
+      rows: rec.length
+        ? rec.map((r) => [r.name, money(r.balance), 'Receivable'])
+        : [['No receivables', money(0), '—']],
+      foot: ['Total Receivable', money(totalRec), ''],
       numericCols: [1],
     });
+
+    // PAYABLES next, A→Z: Party | Amount | Status.
     sections.push({
       title: 'PAYABLES (A - Z)',
-      head: ['Party', 'Amount Payable'],
-      rows: pay.length ? pay.map((r) => [r.name, money(r.balance)]) : [['—', money(0)]],
-      foot: ['Total Payable', money(pay.reduce((a, r) => a + r.balance, 0))],
+      head: ['Party', 'Amount', 'Status'],
+      rows: pay.length
+        ? pay.map((r) => [r.name, money(r.balance), 'Payable'])
+        : [['No payables', money(0), '—']],
+      foot: ['Total Payable', money(totalPay), ''],
+      numericCols: [1],
+    });
+
+    // Summary totals — same numbers as the dashboard.
+    sections.push({
+      title: 'SUMMARY',
+      head: ['Metric', 'Amount'],
+      rows: [
+        ['Total Receivable', money(fin.netReceivable)],
+        ['Total Payable', money(fin.netPayable)],
+        ['Cash in Hand', money(fin.cashInHand)],
+        ['Net Position', money(fin.netReceivable - fin.netPayable)],
+      ],
       numericCols: [1],
     });
   }
@@ -316,6 +344,29 @@ export function exportReportExcel(data: DataSet, period: Period): void {
       ...balances.map((b) => [b.name, b.opening, b.balance, b.balance > 0 ? 'Receivable' : b.balance < 0 ? 'Payable' : 'Settled']),
     ],
   });
+  // Balance Check sheet — receivables (A→Z) then payables (A→Z) with totals,
+  // driven by the same Financial Engine as the dashboard & PDF report.
+  {
+    const fin = computeFinancials(data, period);
+    const recRows = [...computeReceivables(data, period)].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    const payRows = [...computePayables(data, period)].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    sheets.push({
+      name: 'BalanceCheck',
+      rows: [
+        ['Party', 'Amount', 'Status'],
+        ['RECEIVABLES (A-Z)', '', ''],
+        ...recRows.map((r) => [r.name, r.balance, 'Receivable']),
+        ['Total Receivable', fin.netReceivable, ''],
+        ['', '', ''],
+        ['PAYABLES (A-Z)', '', ''],
+        ...payRows.map((r) => [r.name, r.balance, 'Payable']),
+        ['Total Payable', fin.netPayable, ''],
+        ['', '', ''],
+        ['Cash in Hand', fin.cashInHand, ''],
+        ['Net Position', fin.netReceivable - fin.netPayable, ''],
+      ],
+    });
+  }
   const tb = computeTrialBalance(data, period);
   sheets.push({
     name: 'TrialBalance',
