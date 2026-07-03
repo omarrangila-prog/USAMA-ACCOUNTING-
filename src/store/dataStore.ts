@@ -117,6 +117,9 @@ interface DataStore {
   moveMonth: (from: Period, to: Period) => Promise<number>;
   /** DANGER: permanently delete every record. Optionally keep parties & bond types. */
   resetAllData: (opts?: { keepMasters?: boolean }) => Promise<void>;
+  /** Delete any transaction/adjustment whose partyId no longer exists. Returns
+   *  the number of orphan records removed. */
+  cleanOrphans: () => Promise<number>;
 
   // migration
   importBulk: (payload: ImportPayload) => Promise<void>;
@@ -334,9 +337,10 @@ export const useData = create<DataStore>((set, get) => ({
     const inUse =
       s.purchases.some((p) => p.partyId === id) ||
       s.sales.some((x) => x.partyId === id) ||
-      s.cash.some((c) => c.partyId === id);
+      s.cash.some((c) => c.partyId === id) ||
+      (s.partyAdjustments ?? []).some((a) => a.partyId === id);
     if (inUse) {
-      toast.error('Party has transactions — cannot delete.');
+      toast.error('Party has transactions or balances — cannot delete.');
       return;
     }
     await removeDoc(u, 'parties', id);
@@ -857,6 +861,36 @@ export const useData = create<DataStore>((set, get) => ({
     // Clear the in-memory opening snapshot immediately.
     set({ opening: null });
     toast.success(`All data cleared${opts?.keepMasters ? ' (parties & bonds kept)' : ''}. ${deleted} records removed.`);
+    // A full reset can't leave orphans, but a keepMasters reset shouldn't either.
+    if (opts?.keepMasters) await get().cleanOrphans();
+  },
+
+  /**
+   * Maintenance: delete any party-linked record whose partyId no longer exists
+   * in the Parties collection. Keeps the DB tidy and prevents stale
+   * receivable/payable adjustments from lingering after a party is removed.
+   * Reads live from the backend so it also catches records not yet in memory.
+   */
+  cleanOrphans: async () => {
+    const u = get().uidRef;
+    if (!u) { toast.error('Not ready yet.'); return 0; }
+    const parties = await listOnce<{ id: string }>(u, 'parties');
+    const alive = new Set(parties.map((p) => p.id));
+    // Collections whose rows carry a partyId. A blank partyId ('') is a valid
+    // cash/no-party record and must NOT be treated as an orphan.
+    const linked: CollectionName[] = ['purchases', 'sales', 'cashTransactions', 'partyAdjustments'];
+    let removed = 0;
+    for (const coll of linked) {
+      const rows = await listOnce<{ id: string; partyId?: string }>(u, coll);
+      for (const r of rows) {
+        if (r.partyId && !alive.has(r.partyId)) {
+          await removeDoc(u, coll, r.id);
+          removed++;
+        }
+      }
+    }
+    if (removed > 0) toast.success(`Cleaned ${removed} orphan record${removed === 1 ? '' : 's'}.`);
+    return removed;
   },
 
   importBulk: async (payload) => {

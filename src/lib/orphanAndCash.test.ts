@@ -60,4 +60,22 @@ describe('BUG 3 — orphan adjustments (deleted party) never create balance/rows
     // No balance row references a non-existent party.
     balances.forEach((b) => expect(data.parties.some((p) => p.id === b.partyId)).toBe(true));
   });
+
+  it('cleanOrphans predicate: removes deleted-party records, keeps blank-party (cash) rows', () => {
+    // Mirrors store.cleanOrphans(): orphan = partyId set AND not in alive set.
+    const alive = new Set(['A', 'B']);
+    const isOrphan = (r: { partyId?: string }) => !!r.partyId && !alive.has(r.partyId);
+
+    expect(isOrphan({ partyId: 'A' })).toBe(false);        // valid party
+    expect(isOrphan({ partyId: 'GHOST' })).toBe(true);     // deleted party → remove
+    expect(isOrphan({ partyId: '' })).toBe(false);         // cash / no-party → keep
+    expect(isOrphan({ partyId: undefined })).toBe(false);  // no-party → keep
+
+    const rows = [
+      { id: '1', partyId: 'A' }, { id: '2', partyId: 'GHOST' },
+      { id: '3', partyId: '' }, { id: '4', partyId: 'B' }, { id: '5', partyId: 'DELETED' },
+    ];
+    const removed = rows.filter(isOrphan).map((r) => r.id);
+    expect(removed).toEqual(['2', '5']); // only the two deleted-party rows
+  });
 });

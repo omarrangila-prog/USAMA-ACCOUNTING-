@@ -23,6 +23,15 @@ export function Settings() {
   const [resetText, setResetText] = useState('');
   const [keepMasters, setKeepMasters] = useState(true);
   const [resetting, setResetting] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
+
+  const doCleanOrphans = async () => {
+    setCleaning(true);
+    try {
+      const n = await store.cleanOrphans();
+      if (n === 0) toast.info('No orphan records found — database is tidy.');
+    } finally { setCleaning(false); }
+  };
 
   const saveInfo = async () => {
     await store.updateSettings(form);
@@ -100,6 +109,16 @@ export function Settings() {
             </div>
             <button className="btn btn-green" onClick={() => setSeedConfirm(true)}>
               <Icon name="sparkles" size={16} /> Load Sample Data
+            </button>
+          </div>
+          <div className="divider" />
+          <div className="col" style={{ gap: 10 }}>
+            <div className="muted" style={{ fontSize: 13 }}>
+              Maintenance — remove stale records left behind by deleted parties
+              (receivable/payable entries or transactions with no matching party).
+            </div>
+            <button className="btn" onClick={doCleanOrphans} disabled={cleaning}>
+              <Icon name="refresh" size={16} /> {cleaning ? 'Cleaning…' : 'Clean Up Orphan Records'}
             </button>
           </div>
         </div>
