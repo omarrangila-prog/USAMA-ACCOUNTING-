@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/store/authStore';
 import { useData } from '@/store/dataStore';
+import { PinLock, isUnlocked } from '@/components/PinLock';
 import { AppShell } from '@/components/layout/AppShell';
 import { Toasts } from '@/components/ui/Toasts';
 import { Dashboard } from '@/pages/Dashboard';
@@ -32,6 +33,7 @@ export default function App() {
   const bind = useData((s) => s.bind);
   const unbind = useData((s) => s.unbind);
   const ready = useData((s) => s.ready);
+  const [unlocked, setUnlocked] = useState(isUnlocked);
 
   useEffect(() => init(), [init]);
 
@@ -42,6 +44,8 @@ export default function App() {
   }, [user, bind, unbind]);
 
   if (!user) return <Splash />;
+  // 4-digit PIN gate — must unlock before the app is shown (per session).
+  if (!unlocked) return <PinLock onUnlock={() => setUnlocked(true)} />;
   // Don't render the app (and its derived dashboard/report totals) until the
   // Firestore snapshots have loaded — prevents flicker / stale partial values.
   if (!ready) return <Splash />;

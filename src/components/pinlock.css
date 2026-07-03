@@ -1,0 +1,49 @@
+.pinlock {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #eff6ff, #f0fdf4);
+  z-index: 2000;
+}
+.pinlock-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 34px 40px;
+  background: #fff;
+  border: 1px solid var(--stroke, #e5e7eb);
+  border-radius: 18px;
+  box-shadow: 0 16px 44px rgba(15, 23, 42, 0.14);
+  min-width: 300px;
+}
+.pinlock-title { font-size: 20px; font-weight: 750; margin: 6px 0 0; }
+.pinlock-sub { font-size: 13px; color: var(--text-soft, #64748b); margin: 0 0 8px; }
+.pinlock-boxes { display: flex; gap: 12px; margin-top: 6px; }
+.pinlock-box {
+  width: 52px;
+  height: 60px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  border: 1.5px solid var(--stroke, #d1d5db);
+  border-radius: 12px;
+  background: #f9fafb;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pinlock-box:focus {
+  border-color: var(--blue, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+  background: #fff;
+}
+.pinlock-box.err { border-color: var(--red, #ef4444); }
+.pinlock-error { color: var(--red, #ef4444); font-size: 13px; font-weight: 600; margin-top: 4px; }
+
+.pinlock-boxes.shake { animation: pin-shake 0.5s; }
+@keyframes pin-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-7px); }
+  40%, 80% { transform: translateX(7px); }
+}
