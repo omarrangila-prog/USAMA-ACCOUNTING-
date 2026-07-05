@@ -40,7 +40,17 @@ export function PdfPreview({ makeDoc, title, fileName, onClose }: Props) {
 
   if (!makeDoc) return null;
 
+  // Mobile browsers (iOS Safari, most Android) do NOT render a PDF inside an
+  // <iframe src="blob:…"> — it shows a blank box. Detect small / touch screens
+  // and offer an "Open PDF" action that opens the blob in a new tab instead,
+  // which mobile browsers DO render.
+  const isMobile =
+    typeof window !== 'undefined' &&
+    (window.matchMedia?.('(max-width: 640px)').matches ||
+      window.matchMedia?.('(pointer: coarse)').matches);
+
   const download = () => docRef.current?.save(fileName);
+  const openInTab = () => { if (url) { const w = window.open(url, '_blank'); if (!w) window.location.href = url; } };
 
   /**
    * Print straight from the preview — no download required. Routes through the
@@ -75,10 +85,26 @@ export function PdfPreview({ makeDoc, title, fileName, onClose }: Props) {
           </div>
         </div>
         <div className="pdfpv-body">
-          {url ? (
-            <iframe ref={iframeRef} src={url} title={title} className="pdfpv-frame" />
-          ) : (
+          {!url ? (
             <div className="empty">Generating preview…</div>
+          ) : isMobile ? (
+            // On mobile the in-frame PDF viewer is unreliable — offer clear
+            // actions that DO work on phones.
+            <div className="pdfpv-mobile">
+              <Icon name="pdf" size={40} />
+              <div className="pdfpv-mobile-title">{title}</div>
+              <div className="faint" style={{ fontSize: 13, textAlign: 'center', maxWidth: 260 }}>
+                Your report is ready. Open it in a new tab to view, or download it.
+              </div>
+              <button className="btn btn-primary" onClick={openInTab}>
+                <Icon name="search" size={16} /> Open PDF
+              </button>
+              <button className="btn" onClick={download}>
+                <Icon name="pdf" size={16} /> Download PDF
+              </button>
+            </div>
+          ) : (
+            <iframe ref={iframeRef} src={url} title={title} className="pdfpv-frame" />
           )}
         </div>
         <div className="pdfpv-foot faint">

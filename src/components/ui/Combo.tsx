@@ -39,14 +39,26 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
   const [busy, setBusy] = useState(false);
   // Screen-space position of the popup, measured from the trigger. The popup is
   // portalled to <body> so it escapes any parent stacking context / overflow.
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; width: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Measure the trigger and place the popup just below it (in viewport coords).
+  // Measure the trigger and place the popup below it — or ABOVE if there isn't
+  // room below (common on phones when the field is low on screen). Width is
+  // clamped to the viewport so it never overflows horizontally on mobile.
   const place = () => {
     const r = triggerRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 6, left: r.left, width: r.width });
+    if (!r) return;
+    const POP_MAX = 300; // ~max-height + search box
+    const spaceBelow = window.innerHeight - r.bottom;
+    const openUp = spaceBelow < POP_MAX && r.top > spaceBelow;
+    const width = Math.min(r.width, window.innerWidth - 16);
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
+    if (openUp) {
+      setPos({ bottom: window.innerHeight - r.top + 6, left, width });
+    } else {
+      setPos({ top: r.bottom + 6, left, width });
+    }
   };
   useLayoutEffect(() => {
     if (!open) return;
@@ -156,7 +168,7 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
           <div className="combo-overlay" onMouseDown={() => setOpen(false)} />
           <div
             className="combo-pop glass"
-            style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width }}
+            style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, width: pos.width }}
             onMouseDown={(e) => e.stopPropagation()}
           >
             <input
