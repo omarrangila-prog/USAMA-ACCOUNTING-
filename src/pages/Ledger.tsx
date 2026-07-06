@@ -9,6 +9,7 @@ import { computeLedger, computePartyBalances, computeCashBook, partyDropdownOpti
 import { buildStatementPdf, type StatementRow } from '@/lib/statementPdf';
 import { PdfPreview } from '@/components/ui/PdfPreview';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
+import { previewCashEntry } from '@/lib/cashSafeguard';
 import { formatMoney, formatNumber, formatDate, defaultDateForPeriod, monthName, cx } from '@/lib/utils';
 import { toast } from '@/store/toast';
 import type { CashDirection } from '@/types';
@@ -285,9 +286,21 @@ function CashModal({
   const isReceived = direction === 'received';
   const partyOptions = store.parties.map((p) => ({ id: p.id, label: p.name, sub: p.phone }));
 
+  // Live before/after balance preview + advance-warning for the selected party.
+  const amt = Number(amount) || 0;
+  const partyBalance = partyId
+    ? computePartyBalances(store.dataset(), store.period).find((b) => b.partyId === partyId)?.balance ?? 0
+    : 0;
+  const preview = partyId && amt > 0 && direction
+    ? previewCashEntry(partyBalance, direction, amt)
+    : null;
+
   const submit = async () => {
     const amt = Number(amount) || 0;
     if (amt <= 0) { toast.error('Enter a positive amount.'); amountRef.current?.focus(); return; }
+    // Safeguard: if this entry would create an advance (flip receivable↔payable),
+    // confirm first — never silently create one.
+    if (preview?.createsAdvance && !window.confirm(preview.warning)) return;
     setBusy(true);
     try {
       const input = { date, partyId, direction: direction!, amount: amt, note: note || undefined };
@@ -337,6 +350,19 @@ function CashModal({
           <input className="input" placeholder="Details / note" value={note}
             onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
         </div>
+        {preview && (
+          <div className={cx('cash-preview', preview.createsAdvance && 'warn')}>
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <span className="faint">Current Balance</span><strong>{preview.beforeLabel}</strong>
+            </div>
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <span className="faint">After This Entry</span><strong>{preview.afterLabel}</strong>
+            </div>
+            {preview.createsAdvance && (
+              <div className="cash-preview-note">⚠ Creates an advance — you'll be asked to confirm.</div>
+            )}
+          </div>
+        )}
       </div>
     </Modal>
   );

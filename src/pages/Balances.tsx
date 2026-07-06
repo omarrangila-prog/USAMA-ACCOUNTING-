@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { Combo } from '@/components/ui/Combo';
 import { computeReceivables, computePayables } from '@/lib/accounting';
+import { previewCashEntry } from '@/lib/cashSafeguard';
 import { exportReportPdf } from '@/lib/reportBuilder';
 import { formatMoney, formatDate, defaultDateForPeriod, cx } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
@@ -265,23 +266,19 @@ function PaymentModal({
   }, [target]);
 
   const amt = Number(amount) || 0;
-  const remaining = target ? target.balance - amt : 0;
+  // target.balance is ABSOLUTE (from computeReceivables/computePayables); the
+  // signed net is + on the receivable page, − on the payable page.
+  const signedBalance = target ? (isRec ? target.balance : -target.balance) : 0;
+  const preview = target && amt > 0
+    ? previewCashEntry(signedBalance, isRec ? 'received' : 'paid', amt)
+    : null;
 
   const submit = async () => {
     if (!target) return;
     if (amt <= 0) { toast.error('Enter a positive amount.'); return; }
-    // Safety: warn before over-settling. Paying/receiving MORE than the
-    // outstanding balance flips the party to the opposite side (creates a new
-    // receivable/payable), which is usually a typo.
-    if (amt > Math.abs(target.balance) + 0.005) {
-      const flip = isRec ? 'turn this party into a Payable' : 'turn this party into a Receivable';
-      const ok = window.confirm(
-        `This ${isRec ? 'receipt' : 'payment'} of ${amt.toLocaleString()} is more than the ` +
-        `outstanding ${target.balance >= 0 ? 'receivable' : 'payable'} of ${Math.abs(target.balance).toLocaleString()}. ` +
-        `It will ${flip} for the difference. Continue?`
-      );
-      if (!ok) return;
-    }
+    // Safeguard: over-settling flips the party to the opposite side (creates an
+    // advance). Confirm first — never silent.
+    if (preview?.createsAdvance && !window.confirm(preview.warning)) return;
     setBusy(true);
     try {
       // Settlement only — clears the party balance without touching cash again
@@ -328,10 +325,17 @@ function PaymentModal({
           <label>{isRec ? 'Amount received' : 'Amount paid'}</label>
           <input ref={amtRef} type="number" min="0" inputMode="numeric" className="input" value={amount}
             onChange={(e) => setAmount(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
-          <span className="faint" style={{ fontSize: 11.5 }}>
-            After this: {formatMoney(Math.max(remaining, 0), cur)} {remaining > 0.5 ? 'still ' + (isRec ? 'receivable' : 'payable') : 'settled'}
-          </span>
         </div>
+        {preview && (
+          <div className={cx('cash-preview', preview.createsAdvance && 'warn')}>
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <span className="faint">After This Entry</span><strong>{preview.afterLabel}</strong>
+            </div>
+            {preview.createsAdvance && (
+              <div className="cash-preview-note">⚠ Creates an advance — you'll be asked to confirm.</div>
+            )}
+          </div>
+        )}
       </div>
     </Modal>
   );

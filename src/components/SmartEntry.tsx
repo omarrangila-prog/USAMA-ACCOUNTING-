@@ -3,6 +3,8 @@ import { Modal } from './ui/Modal';
 import { Icon } from './ui/Icon';
 import { useData } from '@/store/dataStore';
 import { parseSmartEntry } from '@/lib/smartEntry';
+import { computePartyBalances } from '@/lib/accounting';
+import { previewCashEntry } from '@/lib/cashSafeguard';
 import { todayISO, formatMoney } from '@/lib/utils';
 import { toast } from '@/store/toast';
 import type { SmartIntent } from '@/types';
@@ -41,6 +43,11 @@ export function SmartEntry({ open, onClose }: { open: boolean; onClose: () => vo
           return;
         }
         const party = await store.ensureParty(intent.partyName);
+        // Safeguard: warn before creating an advance (flip receivable↔payable).
+        const bal = computePartyBalances(store.dataset(), store.period)
+          .find((b) => b.partyId === party.id)?.balance ?? 0;
+        const pv = previewCashEntry(bal, intent.direction!, intent.amount);
+        if (pv.createsAdvance && !window.confirm(pv.warning)) return;
         const ok = await store.addCash({
           date, partyId: party.id, direction: intent.direction!, amount: intent.amount,
         });
