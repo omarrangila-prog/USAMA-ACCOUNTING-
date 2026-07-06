@@ -42,6 +42,7 @@ const DEFAULT_SETTINGS: Settings = {
   ownerName: 'Usama Raza',
   currency: 'Rs',
   smartEntryEnabled: true,
+  settlementMode: 'pending', // default: balances stay pending until settled
   updatedAt: now(),
 };
 
@@ -102,6 +103,9 @@ interface DataStore {
   addPartyAdjustment: (input: PartyAdjustmentInput) => Promise<boolean>;
   updatePartyAdjustment: (id: string, input: PartyAdjustmentInput) => Promise<boolean>;
   deletePartyAdjustment: (id: string) => Promise<void>;
+  /** Settle every currently-outstanding party balance to zero (used when
+   *  turning on Auto Settled Mode for existing data). Returns count settled. */
+  settleAllOutstanding: (date: string) => Promise<number>;
   deleteRecord: (
     kind: 'purchases' | 'sales' | 'cashTransactions',
     id: string
@@ -666,11 +670,29 @@ export const useData = create<DataStore>((set, get) => ({
       createdAt: now(), updatedAt: now(),
     };
     await upsertDoc(u, 'partyAdjustments', rec);
+
+    // Auto Settled Mode (Easy-Khata style): a NEW manual receivable/payable
+    // immediately gets a matching Received/Paid settlement so the party nets to
+    // zero. Only for genuine new entries (never for settlements themselves).
+    const autoMode = get().settings.settlementMode === 'auto';
+    if (autoMode && !rec.settlement) {
+      const settle: PartyAdjustment = {
+        id: uid(), date: rec.date, month, year,
+        partyId: rec.partyId, amount: -rec.amount,          // opposite sign clears it
+        reason: rec.amount > 0 ? 'Received (auto-settled)' : 'Paid (auto-settled)',
+        settlement: true,
+        createdAt: now(), updatedAt: now(),
+      };
+      await upsertDoc(u, 'partyAdjustments', settle);
+    }
+
     await get().resyncClosing({ month, year });
     toast.success(
       input.settlement
         ? `Settled · ${Math.abs(rec.amount).toLocaleString()}`
-        : `${input.amount > 0 ? 'Receivable' : 'Payable'} recorded · ${Math.abs(rec.amount).toLocaleString()}`
+        : autoMode
+          ? `${input.amount > 0 ? 'Receivable' : 'Payable'} recorded & ${input.amount > 0 ? 'received' : 'paid'} · ${Math.abs(rec.amount).toLocaleString()}`
+          : `${input.amount > 0 ? 'Receivable' : 'Payable'} recorded · ${Math.abs(rec.amount).toLocaleString()}`
     );
     return true;
   },
@@ -707,6 +729,31 @@ export const useData = create<DataStore>((set, get) => ({
     await removeDoc(u, 'partyAdjustments', id);
     if (rec) await get().resyncClosing({ month: rec.month, year: rec.year });
     toast.info('Entry deleted.');
+  },
+
+  settleAllOutstanding: async (date) => {
+    const u = get().uidRef;
+    if (!u) { toast.error('Not ready yet.'); return 0; }
+    const { month, year } = periodOf(date);
+    const data = get().dataset();
+    // One settlement per party whose current net balance is non-zero. Additive:
+    // it does NOT delete any existing entry — the original receivable/payable
+    // rows stay in the ledger; a settlement row nets each party to zero.
+    const balances = computePartyBalances(data, get().period)
+      .filter((b) => Math.abs(b.balance) > 0.005);
+    for (const b of balances) {
+      const settle: PartyAdjustment = {
+        id: uid(), date, month, year,
+        partyId: b.partyId, amount: -round2(b.balance), // opposite of the net
+        reason: b.balance > 0 ? 'Received (settled)' : 'Paid (settled)',
+        settlement: true,
+        createdAt: now(), updatedAt: now(),
+      };
+      await upsertDoc(u, 'partyAdjustments', settle);
+    }
+    await get().resyncClosing({ month, year });
+    if (balances.length) toast.success(`Settled ${balances.length} outstanding balance${balances.length === 1 ? '' : 's'}.`);
+    return balances.length;
   },
 
   deleteRecord: async (kind, id) => {

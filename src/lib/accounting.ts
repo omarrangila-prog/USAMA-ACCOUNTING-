@@ -340,6 +340,40 @@ export function computePayables(data: DataSet, period: Period): PartyBalance[] {
     .map((b) => ({ ...b, balance: Math.abs(b.balance) }));
 }
 
+export interface SettlementSummary {
+  receivableCreated: number; // gross non-settlement receivable adjustments (+)
+  received: number;          // gross receive settlements applied
+  pendingReceivable: number; // net receivable still outstanding
+  payableCreated: number;    // gross non-settlement payable adjustments (abs)
+  paid: number;              // gross pay settlements applied
+  pendingPayable: number;    // net payable still outstanding
+}
+
+/**
+ * Split manual adjustments into "created" vs "settled" so reports can show
+ * Total Receivable Created / Received / Pending (and payable equivalents).
+ * Pending = the live net from computeReceivables/computePayables.
+ */
+export function computeSettlementSummary(data: DataSet, period: Period): SettlementSummary {
+  const adj = (data.partyAdjustments ?? []).filter((a) => inPeriod(a, period));
+  const created = adj.filter((a) => !a.settlement);
+  const settled = adj.filter((a) => a.settlement);
+  const sum = (arr: PartyAdjustment[], pred: (a: PartyAdjustment) => boolean) =>
+    round2(arr.filter(pred).reduce((s, a) => s + Math.abs(a.amount), 0));
+
+  const pendingReceivable = round2(computeReceivables(data, period).reduce((s, b) => s + b.balance, 0));
+  const pendingPayable = round2(computePayables(data, period).reduce((s, b) => s + b.balance, 0));
+
+  return {
+    receivableCreated: sum(created, (a) => a.amount > 0),
+    received: sum(settled, (a) => a.amount < 0), // receive settlement is negative
+    pendingReceivable,
+    payableCreated: sum(created, (a) => a.amount < 0),
+    paid: sum(settled, (a) => a.amount > 0),      // pay settlement is positive
+    pendingPayable,
+  };
+}
+
 export interface PartyOption {
   id: string;
   name: string;

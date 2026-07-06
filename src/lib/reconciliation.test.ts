@@ -74,8 +74,8 @@ function assertReconciled(data: DataSet, partyId: string) {
   const bsec = buildSections(data, P, 'balance');
   const sum = bsec.find((s) => s.title === 'SUMMARY')!;
   const metric = (label: string) => sum.rows.find((r) => r[0] === label)?.[1];
-  expect(metric('Total Receivable')).toBe(money(fin.netReceivable));
-  expect(metric('Total Payable')).toBe(money(fin.netPayable));
+  expect(metric('Pending Receivable')).toBe(money(fin.netReceivable));
+  expect(metric('Pending Payable')).toBe(money(fin.netPayable));
   expect(metric('Cash in Hand')).toBe(money(fin.cashInHand));
 }
 

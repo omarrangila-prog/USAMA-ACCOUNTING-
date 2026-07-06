@@ -135,6 +135,8 @@ export interface StockLine {
   closingValue: number;
 }
 
+export type SettlementMode = 'pending' | 'auto';
+
 export interface Settings {
   businessName: string;
   ownerName: string;
@@ -142,6 +144,13 @@ export interface Settings {
   phone?: string;
   currency: string; // "PKR"
   smartEntryEnabled: boolean;
+  /**
+   * 'pending' (default): manual receivable/payable stay outstanding until the
+   * user settles them. 'auto' (Easy-Khata style): every new manual receivable/
+   * payable immediately gets a matching Received/Paid settlement, so the party
+   * balance nets to zero and nothing shows as pending.
+   */
+  settlementMode?: SettlementMode;
   updatedAt: number;
 }
 

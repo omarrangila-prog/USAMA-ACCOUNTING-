@@ -76,8 +76,8 @@ describe('Balance Check report — not blank, per-party net', () => {
     const sum = sections.find((s) => s.title === 'SUMMARY')!;
     expect(sum).toBeTruthy();
     const metric = (label: string) => sum.rows.find((r) => r[0] === label)?.[1];
-    expect(metric('Total Receivable')).toContain('200,000');
-    expect(metric('Total Payable')).toContain('1,000,000');
+    expect(metric('Pending Receivable')).toContain('200,000');
+    expect(metric('Pending Payable')).toContain('1,000,000');
     expect(metric('Cash in Hand')).toBe(money(fin.cashInHand));
     expect(metric('Net Position')).toBe(money(fin.netReceivable - fin.netPayable));
   });

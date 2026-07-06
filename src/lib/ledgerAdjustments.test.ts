@@ -58,7 +58,7 @@ describe('Manual adjustments in the party ledger', () => {
     const bal = buildSections(data, P, 'balance');
     const summary = bal.find((s) => s.title === 'SUMMARY')!;
     const metric = (label: string) => summary.rows.find((r) => r[0] === label)?.[1];
-    expect(metric('Total Receivable')).toContain('200,000');
-    expect(metric('Total Payable')).toContain('0');
+    expect(metric('Pending Receivable')).toContain('200,000');
+    expect(metric('Pending Payable')).toContain('0');
   });
 });

@@ -7,6 +7,7 @@ import {
   computeReceivables,
   computePayables,
   computeFinancials,
+  computeSettlementSummary,
   computeCashInHand,
   computeTrialBalance,
   computeDashboard,
@@ -190,13 +191,19 @@ export function buildSections(
       numericCols: [1],
     });
 
-    // Summary totals — same numbers as the dashboard.
+    // Summary totals — same numbers as the dashboard, plus the created / settled
+    // / pending breakdown so settlement activity is clear.
+    const ss = computeSettlementSummary(data, period);
     sections.push({
       title: 'SUMMARY',
       head: ['Metric', 'Amount'],
       rows: [
-        ['Total Receivable', money(fin.netReceivable)],
-        ['Total Payable', money(fin.netPayable)],
+        ['Total Receivable Created', money(ss.receivableCreated)],
+        ['Total Received', money(ss.received)],
+        ['Pending Receivable', money(ss.pendingReceivable)],
+        ['Total Payable Created', money(ss.payableCreated)],
+        ['Total Paid', money(ss.paid)],
+        ['Pending Payable', money(ss.pendingPayable)],
         ['Cash in Hand', money(fin.cashInHand)],
         ['Net Position', money(fin.netReceivable - fin.netPayable)],
       ],
