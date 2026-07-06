@@ -27,6 +27,7 @@ export function Ledger() {
   const [cashModal, setCashModal] = useState<CashDirection | null>(null);
   const [cashEditId, setCashEditId] = useState<string | null>(null);
   const [cashToDelete, setCashToDelete] = useState<string | null>(null);
+  const [adjToDelete, setAdjToDelete] = useState<string | null>(null);
   const [adjModal, setAdjModal] = useState<'receivable' | 'payable' | null>(null);
   const [addTxn, setAddTxn] = useState(false);
   const [preview, setPreview] = useState(false);
@@ -210,6 +211,7 @@ export function Ledger() {
                   {statementRows.map((r, i) => {
                     const e = isCashBook ? undefined : entries[i];
                     const editable = !!e && e.refType === 'cash';
+                    const deletableAdj = !!e && e.refType === 'adjustment';
                     return (
                       <tr key={e?.id ?? `cb-${i}`}>
                         <td data-label="Date">{formatDate(r.date)}</td>
@@ -228,6 +230,14 @@ export function Ledger() {
                               </button>
                               <button className="btn btn-ghost btn-icon btn-sm del-btn" title="Delete cash entry"
                                 onClick={() => setCashToDelete(e!.refId)}>
+                                <Icon name="trash" size={14} />
+                              </button>
+                            </div>
+                          )}
+                          {deletableAdj && (
+                            <div className="row" style={{ gap: 2, justifyContent: 'flex-end' }}>
+                              <button className="btn btn-ghost btn-icon btn-sm del-btn" title="Delete receivable/payable entry"
+                                onClick={() => setAdjToDelete(e!.refId)}>
                                 <Icon name="trash" size={14} />
                               </button>
                             </div>
@@ -273,6 +283,14 @@ export function Ledger() {
         confirmLabel="Delete" danger
         onConfirm={() => { if (cashToDelete) store.deleteRecord('cashTransactions', cashToDelete); setCashToDelete(null); }}
         onCancel={() => setCashToDelete(null)}
+      />
+      <ConfirmDialog
+        open={!!adjToDelete}
+        title="Delete this receivable / payable entry?"
+        message="This removes the manual receivable/payable and updates the party balance everywhere."
+        confirmLabel="Delete" danger
+        onConfirm={() => { if (adjToDelete) store.deletePartyAdjustment(adjToDelete); setAdjToDelete(null); }}
+        onCancel={() => setAdjToDelete(null)}
       />
       <PdfPreview
         makeDoc={preview && partyId ? makeStatementDoc : null}
