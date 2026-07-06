@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/store/authStore';
 import { useData } from '@/store/dataStore';
 import { Icon } from '../ui/Icon';
+import { AddTransactionButton } from '../AddTransaction';
 import { MONTHS } from '@/lib/utils';
 import { exportReportPdf, exportReportExcel } from '@/lib/reportBuilder';
 import { useI18n } from '@/lib/i18n';
@@ -63,6 +64,8 @@ export function Topbar({ onMenu, onSearch, onSmart }: Props) {
       </button>
 
       <div className="spacer" />
+
+      <AddTransactionButton />
 
       <div className="segment lang-toggle" title="Language / زبان">
         <button className={lang === 'en' ? 'active' : ''} onClick={() => setLang('en')}>EN</button>

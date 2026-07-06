@@ -38,12 +38,19 @@ export function Ledger() {
     setCashModal(rec.direction);
   };
 
-  // Deep-links from shortcuts (?cash=received / ?cash=paid) open the cash modal.
+  // Deep-links: ?cash=received|paid opens the cash modal; ?add=receivable|payable
+  // opens the manual adjustment modal (used by the global "+ Add Transaction").
   useEffect(() => {
     const c = params.get('cash');
     if (c === 'received' || c === 'paid') {
       setCashModal(c);
       params.delete('cash');
+      setParams(params, { replace: true });
+    }
+    const a = params.get('add');
+    if (a === 'receivable' || a === 'payable') {
+      setAdjModal(a);
+      params.delete('add');
       setParams(params, { replace: true });
     }
     const p = params.get('party');
