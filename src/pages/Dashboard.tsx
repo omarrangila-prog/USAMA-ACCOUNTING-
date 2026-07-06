@@ -53,12 +53,23 @@ export function Dashboard() {
         }
       />
 
-      {/* Cash in Hand — the headline number */}
+      {/* Business Position — Dashboard-only summary. Raw Cash in Hand stays the
+          accounting value used by Cash Book / Ledger / Trial Balance / PDF /
+          Excel / Monthly Closing; here we present the overall money position:
+          rawCash + receivable − payable, with a breakdown so the figure is
+          transparent. No accounting calculation is changed. */}
       <div className="cash-hero card animate-in" onClick={() => nav('/ledger')} role="button" tabIndex={0}>
         <div className="cash-hero-icon"><Icon name="wallet" size={26} strokeWidth={2} /></div>
-        <div className="col">
-          <span className="cash-hero-label">Cash in Hand</span>
-          <span className="cash-hero-value mono">{formatMoney(s.cashInHand, cur)}</span>
+        <div className="col" style={{ flex: 1 }}>
+          <span className="cash-hero-label">Business Position</span>
+          <span className="cash-hero-value mono">
+            {formatMoney(s.cashInHand + s.netReceivable - s.netPayable, cur)}
+          </span>
+          <div className="cash-hero-breakdown">
+            <span><span className="faint">Cash in Hand</span> <span className="mono">{formatMoney(s.cashInHand, cur)}</span></span>
+            <span><span className="faint">+ Receivable</span> <span className="mono pos">{formatMoney(s.netReceivable, cur)}</span></span>
+            <span><span className="faint">− Payable</span> <span className="mono neg">{formatMoney(s.netPayable, cur)}</span></span>
+          </div>
         </div>
       </div>
 

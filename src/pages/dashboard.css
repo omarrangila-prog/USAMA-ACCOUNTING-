@@ -8,6 +8,14 @@
   border: 1px solid rgba(16,185,129,0.25);
   transition: transform 0.15s, box-shadow 0.2s;
 }
+.cash-hero-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+.cash-hero-breakdown > span { display: inline-flex; gap: 6px; align-items: baseline; }
 .cash-hero:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .cash-hero-icon {
   width: 60px; height: 60px; flex-shrink: 0;
