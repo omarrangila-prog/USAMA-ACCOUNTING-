@@ -274,15 +274,10 @@ export function buildExcelMigration(
   else if (parsedBonds.length === 0) warnings.push('No bond denomination sections detected in BALANCE SHEET.');
 
   const cashFig = balGrid ? parseCashFigures(balGrid) : { cashInHand: null, totalHandCash: null };
-  // Default to the labelled "CASH IN HAND" as physical opening cash.
+  // "CASH IN HAND" is the authoritative physical opening cash (client-confirmed).
   const openingCash = cashFig.cashInHand ?? 0;
   if (cashFig.cashInHand === null) {
     warnings.push('No "CASH IN HAND" figure found in BALANCE SHEET — opening cash imported as 0. Set it manually.');
-  } else if (cashFig.totalHandCash !== null && cashFig.totalHandCash !== cashFig.cashInHand) {
-    warnings.push(
-      `Two cash figures found — using "CASH IN HAND" ${cashFig.cashInHand.toLocaleString()}. ` +
-      `("TOTAL HAND CASH" ${cashFig.totalHandCash.toLocaleString()} is different — confirm which is correct.)`
-    );
   }
 
   const bondTypes: BondType[] = parsedBonds.map((b) => ({
