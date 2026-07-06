@@ -29,6 +29,7 @@ export function Ledger() {
   const [cashToDelete, setCashToDelete] = useState<string | null>(null);
   const [adjToDelete, setAdjToDelete] = useState<string | null>(null);
   const [adjModal, setAdjModal] = useState<'receivable' | 'payable' | null>(null);
+  const [adjEditId, setAdjEditId] = useState<string | null>(null);
   const [addTxn, setAddTxn] = useState(false);
   const [preview, setPreview] = useState(false);
   const printConfirm = usePrintConfirm();
@@ -39,6 +40,14 @@ export function Ledger() {
     if (!rec) return;
     setCashEditId(refId);
     setCashModal(rec.direction);
+  };
+
+  // Open the adjustment modal in edit mode for a manual receivable/payable.
+  const editAdj = (refId: string) => {
+    const rec = (store.partyAdjustments ?? []).find((a) => a.id === refId);
+    if (!rec) return;
+    setAdjEditId(refId);
+    setAdjModal(rec.amount >= 0 ? 'receivable' : 'payable');
   };
 
   // Deep-links: ?cash=received|paid opens the cash modal; ?add=receivable|payable
@@ -236,6 +245,10 @@ export function Ledger() {
                           )}
                           {deletableAdj && (
                             <div className="row" style={{ gap: 2, justifyContent: 'flex-end' }}>
+                              <button className="btn btn-ghost btn-icon btn-sm" title="Edit receivable/payable entry"
+                                onClick={() => editAdj(e!.refId)}>
+                                <Icon name="settings" size={14} />
+                              </button>
                               <button className="btn btn-ghost btn-icon btn-sm del-btn" title="Delete receivable/payable entry"
                                 onClick={() => setAdjToDelete(e!.refId)}>
                                 <Icon name="trash" size={14} />
@@ -274,7 +287,8 @@ export function Ledger() {
       <AdjustmentModal
         kind={adjModal}
         defaultParty={partyId && partyId !== CASHBOOK ? partyId : ''}
-        onClose={() => setAdjModal(null)}
+        editId={adjEditId}
+        onClose={() => { setAdjModal(null); setAdjEditId(null); }}
       />
       <ConfirmDialog
         open={!!cashToDelete}
@@ -423,10 +437,11 @@ function CashModal({
  * It appears in the party ledger, nets per-party, and flows to every report.
  */
 function AdjustmentModal({
-  kind, defaultParty, onClose,
-}: { kind: 'receivable' | 'payable' | null; defaultParty: string; onClose: () => void }) {
+  kind, defaultParty, editId, onClose,
+}: { kind: 'receivable' | 'payable' | null; defaultParty: string; editId?: string | null; onClose: () => void }) {
   const store = useData();
   const isRec = kind === 'receivable';
+  const isEdit = !!editId;
   const [partyId, setPartyId] = useState(defaultParty);
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
@@ -437,10 +452,21 @@ function AdjustmentModal({
 
   useEffect(() => {
     if (!kind) return;
-    setPartyId(defaultParty); setAmount(''); setReason('');
-    setDate(defaultDateForPeriod(store.period));
-    setTimeout(() => (defaultParty ? amtRef.current?.focus() : partyRef.current?.focus()), 40);
-  }, [kind, defaultParty]);
+    if (editId) {
+      // Edit mode — prefill from the existing adjustment.
+      const rec = (store.partyAdjustments ?? []).find((a) => a.id === editId);
+      if (rec) {
+        setPartyId(rec.partyId);
+        setAmount(String(Math.abs(rec.amount)));
+        setReason(rec.reason ?? '');
+        setDate(rec.date);
+      }
+    } else {
+      setPartyId(defaultParty); setAmount(''); setReason('');
+      setDate(defaultDateForPeriod(store.period));
+    }
+    setTimeout(() => (partyId || defaultParty ? amtRef.current?.focus() : partyRef.current?.focus()), 40);
+  }, [kind, defaultParty, editId]);
 
   const partyOptions = store.parties.map((p) => ({ id: p.id, label: p.name, sub: p.phone }));
   const amt = Number(amount) || 0;
@@ -452,11 +478,14 @@ function AdjustmentModal({
     try {
       // +amount => receivable, −amount => payable. Same logic as the
       // Receivable/Payable pages — nets per party automatically.
-      const ok = await store.addPartyAdjustment({
+      const input = {
         date, partyId,
         amount: isRec ? Math.abs(amt) : -Math.abs(amt),
         reason: reason.trim() || (isRec ? 'Manual Receivable' : 'Manual Payable'),
-      });
+      };
+      const ok = editId
+        ? await store.updatePartyAdjustment(editId, input)
+        : await store.addPartyAdjustment(input);
       if (ok) onClose();
     } finally { setBusy(false); }
   };
@@ -464,7 +493,7 @@ function AdjustmentModal({
   return (
     <Modal
       open={!!kind}
-      title={isRec ? 'Add Receivable' : 'Add Payable'}
+      title={`${isEdit ? 'Edit ' : 'Add '}${isRec ? 'Receivable' : 'Payable'}`}
       subtitle={isRec ? 'Record that a party owes you (no cash / bond involved)' : 'Record that you owe a party (no cash / bond involved)'}
       onClose={onClose}
       width={440}
@@ -472,7 +501,7 @@ function AdjustmentModal({
         <>
           <button className="btn" onClick={onClose}>Cancel</button>
           <button className={isRec ? 'btn btn-green' : 'btn btn-danger'} onClick={submit} disabled={busy}>
-            <Icon name="save" size={16} /> {isRec ? 'Add Receivable' : 'Add Payable'}
+            <Icon name="save" size={16} /> {isEdit ? 'Save Changes' : (isRec ? 'Add Receivable' : 'Add Payable')}
           </button>
         </>
       }

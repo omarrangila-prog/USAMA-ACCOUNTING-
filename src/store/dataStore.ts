@@ -100,6 +100,7 @@ interface DataStore {
   addStockAdjustment: (input: StockAdjustmentInput) => Promise<boolean>;
   deleteStockAdjustment: (id: string) => Promise<void>;
   addPartyAdjustment: (input: PartyAdjustmentInput) => Promise<boolean>;
+  updatePartyAdjustment: (id: string, input: PartyAdjustmentInput) => Promise<boolean>;
   deletePartyAdjustment: (id: string) => Promise<void>;
   deleteRecord: (
     kind: 'purchases' | 'sales' | 'cashTransactions',
@@ -671,6 +672,32 @@ export const useData = create<DataStore>((set, get) => ({
         ? `Settled · ${Math.abs(rec.amount).toLocaleString()}`
         : `${input.amount > 0 ? 'Receivable' : 'Payable'} recorded · ${Math.abs(rec.amount).toLocaleString()}`
     );
+    return true;
+  },
+
+  updatePartyAdjustment: async (id, input) => {
+    const u = get().uidRef;
+    if (!u) { toast.error('Not ready yet.'); return false; }
+    const cur = get().partyAdjustments.find((a) => a.id === id);
+    if (!cur) return false;
+    if (!input.partyId) { toast.error('Select a party.'); return false; }
+    if (input.amount === 0) { toast.error('Enter an amount.'); return false; }
+    const { month, year } = periodOf(input.date);
+    const rec: PartyAdjustment = {
+      ...cur,
+      date: input.date, month, year,
+      partyId: input.partyId, amount: round2(input.amount),
+      reason: input.reason.trim() || (input.amount > 0 ? 'Receivable' : 'Payable'),
+      settlement: input.settlement ?? cur.settlement ?? false,
+      updatedAt: now(),
+    };
+    await upsertDoc(u, 'partyAdjustments', rec);
+    // Resync the old month too, in case the date moved to a different period.
+    if (cur.month !== month || cur.year !== year) {
+      await get().resyncClosing({ month: cur.month, year: cur.year });
+    }
+    await get().resyncClosing({ month, year });
+    toast.success('Entry updated.');
     return true;
   },
 

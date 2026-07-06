@@ -24,6 +24,7 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
   // Which party we're recording a payment for (null = closed).
   const [payFor, setPayFor] = useState<{ partyId: string; name: string; balance: number } | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [adjToEdit, setAdjToEdit] = useState<string | null>(null);
   const [adjToDelete, setAdjToDelete] = useState<string | null>(null);
 
   const rows = useMemo(
@@ -135,9 +136,14 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
                     <td data-label="Amount" className={cx('num mono', isRec ? 'pos' : 'neg')}>{formatMoney(Math.abs(a.amount), cur)}</td>
                     <td data-label="Reason" className="muted">{a.reason}</td>
                     <td className="no-print actions-cell">
-                      <button className="btn btn-ghost btn-icon btn-sm del-btn" title="Delete" onClick={() => setAdjToDelete(a.id)}>
-                        <Icon name="trash" size={15} />
-                      </button>
+                      <div className="row" style={{ gap: 2, justifyContent: 'flex-end' }}>
+                        <button className="btn btn-ghost btn-icon btn-sm" title="Edit" onClick={() => { setAdjToEdit(a.id); setAddOpen(true); }}>
+                          <Icon name="settings" size={15} />
+                        </button>
+                        <button className="btn btn-ghost btn-icon btn-sm del-btn" title="Delete" onClick={() => setAdjToDelete(a.id)}>
+                          <Icon name="trash" size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -152,7 +158,7 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
         target={payFor}
         onClose={() => setPayFor(null)}
       />
-      <AddBalanceModal kind={kind} open={addOpen} onClose={() => setAddOpen(false)} />
+      <AddBalanceModal kind={kind} open={addOpen} editId={adjToEdit} onClose={() => { setAddOpen(false); setAdjToEdit(null); }} />
       <ConfirmDialog
         open={!!adjToDelete}
         title="Delete entry?"
@@ -167,11 +173,12 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
 
 /** Directly record a receivable (they owe you) or payable (you owe them). */
 function AddBalanceModal({
-  kind, open, onClose,
-}: { kind: 'receivable' | 'payable'; open: boolean; onClose: () => void }) {
+  kind, open, editId, onClose,
+}: { kind: 'receivable' | 'payable'; open: boolean; editId?: string | null; onClose: () => void }) {
   const store = useData();
   const cur = store.settings.currency;
   const isRec = kind === 'receivable';
+  const isEdit = !!editId;
   const [partyId, setPartyId] = useState('');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
@@ -179,8 +186,17 @@ function AddBalanceModal({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (open) { setPartyId(''); setAmount(''); setReason(''); setDate(defaultDateForPeriod(store.period)); }
-  }, [open]);
+    if (!open) return;
+    if (editId) {
+      const rec = (store.partyAdjustments ?? []).find((a) => a.id === editId);
+      if (rec) {
+        setPartyId(rec.partyId); setAmount(String(Math.abs(rec.amount)));
+        setReason(rec.reason ?? ''); setDate(rec.date);
+      }
+    } else {
+      setPartyId(''); setAmount(''); setReason(''); setDate(defaultDateForPeriod(store.period));
+    }
+  }, [open, editId]);
 
   const partyOptions = store.parties.map((p) => ({ id: p.id, label: p.name, sub: p.phone }));
   const amt = Number(amount) || 0;
@@ -191,10 +207,13 @@ function AddBalanceModal({
     setBusy(true);
     try {
       // +ve => receivable, -ve => payable
-      const ok = await store.addPartyAdjustment({
+      const input = {
         date, partyId, amount: isRec ? Math.abs(amt) : -Math.abs(amt),
         reason: reason || (isRec ? 'Receivable' : 'Payable'),
-      });
+      };
+      const ok = editId
+        ? await store.updatePartyAdjustment(editId, input)
+        : await store.addPartyAdjustment(input);
       if (ok) onClose();
     } finally { setBusy(false); }
   };
@@ -202,7 +221,7 @@ function AddBalanceModal({
   return (
     <Modal
       open={open}
-      title={isRec ? 'Add Receivable' : 'Add Payable'}
+      title={`${isEdit ? 'Edit ' : 'Add '}${isRec ? 'Receivable' : 'Payable'}`}
       subtitle={isRec ? 'Record that a party owes you (no cash / bond involved)' : 'Record that you owe a party (no cash / bond involved)'}
       onClose={onClose}
       width={440}
@@ -210,7 +229,7 @@ function AddBalanceModal({
         <>
           <button className="btn" onClick={onClose}>Cancel</button>
           <button className={isRec ? 'btn btn-green' : 'btn btn-danger'} onClick={submit} disabled={busy || !partyId || amt <= 0}>
-            <Icon name="save" size={16} /> {isRec ? 'Add Receivable' : 'Add Payable'}
+            <Icon name="save" size={16} /> {isEdit ? 'Save Changes' : (isRec ? 'Add Receivable' : 'Add Payable')}
           </button>
         </>
       }
