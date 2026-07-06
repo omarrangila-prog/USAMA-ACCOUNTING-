@@ -26,6 +26,7 @@ export function Ledger() {
   const [cashModal, setCashModal] = useState<CashDirection | null>(null);
   const [cashEditId, setCashEditId] = useState<string | null>(null);
   const [cashToDelete, setCashToDelete] = useState<string | null>(null);
+  const [adjModal, setAdjModal] = useState<'receivable' | 'payable' | null>(null);
   const [preview, setPreview] = useState(false);
   const printConfirm = usePrintConfirm();
 
@@ -129,6 +130,12 @@ export function Ledger() {
             </button>
             <button className="btn btn-danger" onClick={() => setCashModal('paid')}>
               <Icon name="arrow-up" size={16} /> Cash Paid <span className="faint" style={{ fontSize: 11 }}>F5</span>
+            </button>
+            <button className="btn" onClick={() => setAdjModal('receivable')}>
+              <Icon name="receivable" size={16} /> Add Receivable
+            </button>
+            <button className="btn" onClick={() => setAdjModal('payable')}>
+              <Icon name="payable" size={16} /> Add Payable
             </button>
             <button className="btn btn-primary" disabled={!partyId} onClick={() => setPreview(true)}>
               <Icon name="search" size={16} /> Preview
@@ -234,6 +241,11 @@ export function Ledger() {
         defaultParty={partyId}
         editId={cashEditId}
         onClose={() => { setCashModal(null); setCashEditId(null); }}
+      />
+      <AdjustmentModal
+        kind={adjModal}
+        defaultParty={partyId && partyId !== CASHBOOK ? partyId : ''}
+        onClose={() => setAdjModal(null)}
       />
       <ConfirmDialog
         open={!!cashToDelete}
@@ -363,6 +375,96 @@ function CashModal({
             )}
           </div>
         )}
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Add a manual Receivable (+amount) or Payable (−amount) straight from the
+ * Ledger. Reuses the existing addPartyAdjustment logic — no accounting changes.
+ * It appears in the party ledger, nets per-party, and flows to every report.
+ */
+function AdjustmentModal({
+  kind, defaultParty, onClose,
+}: { kind: 'receivable' | 'payable' | null; defaultParty: string; onClose: () => void }) {
+  const store = useData();
+  const isRec = kind === 'receivable';
+  const [partyId, setPartyId] = useState(defaultParty);
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [date, setDate] = useState(defaultDateForPeriod(store.period));
+  const [busy, setBusy] = useState(false);
+  const partyRef = useRef<ComboHandle>(null);
+  const amtRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!kind) return;
+    setPartyId(defaultParty); setAmount(''); setReason('');
+    setDate(defaultDateForPeriod(store.period));
+    setTimeout(() => (defaultParty ? amtRef.current?.focus() : partyRef.current?.focus()), 40);
+  }, [kind, defaultParty]);
+
+  const partyOptions = store.parties.map((p) => ({ id: p.id, label: p.name, sub: p.phone }));
+  const amt = Number(amount) || 0;
+
+  const submit = async () => {
+    if (!partyId) { toast.error('Select a party.'); partyRef.current?.focus(); return; }
+    if (amt <= 0) { toast.error('Enter a positive amount.'); amtRef.current?.focus(); return; }
+    setBusy(true);
+    try {
+      // +amount => receivable, −amount => payable. Same logic as the
+      // Receivable/Payable pages — nets per party automatically.
+      const ok = await store.addPartyAdjustment({
+        date, partyId,
+        amount: isRec ? Math.abs(amt) : -Math.abs(amt),
+        reason: reason.trim() || (isRec ? 'Manual Receivable' : 'Manual Payable'),
+      });
+      if (ok) onClose();
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal
+      open={!!kind}
+      title={isRec ? 'Add Receivable' : 'Add Payable'}
+      subtitle={isRec ? 'Record that a party owes you (no cash / bond involved)' : 'Record that you owe a party (no cash / bond involved)'}
+      onClose={onClose}
+      width={440}
+      footer={
+        <>
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className={isRec ? 'btn btn-green' : 'btn btn-danger'} onClick={submit} disabled={busy}>
+            <Icon name="save" size={16} /> {isRec ? 'Add Receivable' : 'Add Payable'}
+          </button>
+        </>
+      }
+    >
+      <div className="form-grid">
+        <div className="field">
+          <label>Date</label>
+          <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Party</label>
+          <Combo
+            ref={partyRef}
+            value={partyId} options={partyOptions} placeholder="Select or create party" allowCreate
+            onChange={setPartyId}
+            onCreate={async (name) => (await store.addParty({ name, openingBalance: 0 })).id}
+            onDone={() => amtRef.current?.focus()}
+          />
+        </div>
+        <div className="field">
+          <label>Amount</label>
+          <input ref={amtRef} type="number" min="0" inputMode="numeric" className="input" placeholder="0" value={amount}
+            onChange={(e) => setAmount(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
+        </div>
+        <div className="field">
+          <label>Description / Reason <span className="faint">(optional)</span></label>
+          <input className="input" placeholder="e.g. Old balance, loan, advance" value={reason}
+            onChange={(e) => setReason(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
+        </div>
       </div>
     </Modal>
   );
