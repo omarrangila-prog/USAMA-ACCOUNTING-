@@ -599,7 +599,7 @@ export function computeLedger(
       entries.push({
         id: 'pa-' + a.id,
         partyId,
-        refType: 'opening',
+        refType: 'adjustment',
         refId: a.id,
         description: describeAdjustment(a),
         debit: a.amount > 0 ? a.amount : 0,

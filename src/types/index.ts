@@ -89,7 +89,7 @@ export interface PartyAdjustment extends BaseRecord {
 /** Double-entry-ish ledger line used to build party statements + trial balance. */
 export interface LedgerEntry extends BaseRecord {
   partyId: string;
-  refType: 'purchase' | 'sale' | 'cash' | 'opening' | 'closing';
+  refType: 'purchase' | 'sale' | 'cash' | 'adjustment' | 'opening' | 'closing';
   refId: string;
   description: string;
   /** Debit increases what the party owes us. */
