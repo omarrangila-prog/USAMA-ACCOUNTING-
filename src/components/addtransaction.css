@@ -1,3 +1,13 @@
+.addtxn-party {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; margin-bottom: 14px;
+  border-radius: var(--radius, 12px);
+  background: var(--blue-soft, #eff6ff);
+  border: 1px solid var(--stroke, #e5e7eb);
+}
+.addtxn-party-label { font-size: 12px; font-weight: 600; color: var(--text-soft, #64748b); }
+.addtxn-party-name { font-size: 15px; }
+
 .addtxn-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -6,30 +16,52 @@
 .addtxn-tile {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 12px 13px;
+  gap: 12px;
+  padding: 13px 14px;
   border-radius: var(--radius, 12px);
   border: 1.5px solid var(--stroke, #e5e7eb);
   background: #fff;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.08s ease;
 }
 .addtxn-tile:hover { border-color: var(--blue, #3b82f6); background: var(--blue-soft, #eff6ff); }
+.addtxn-tile:active { transform: scale(0.985); }
 .addtxn-tile.selected {
   border-color: var(--blue, #3b82f6);
   background: var(--blue-soft, #eff6ff);
   box-shadow: inset 0 0 0 1px var(--blue, #3b82f6);
 }
-.addtxn-icon {
-  width: 36px; height: 36px; border-radius: 10px;
-  display: grid; place-items: center; color: #fff; flex-shrink: 0;
+.addtxn-emoji {
+  font-size: 22px; width: 40px; height: 40px;
+  display: grid; place-items: center; flex-shrink: 0;
+  background: #f1f5f9; border-radius: 11px;
 }
-.addtxn-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.addtxn-text { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: 2px; }
 .addtxn-text strong { font-size: 14px; }
-.addtxn-hint { font-size: 11.5px; color: var(--text-soft, #64748b); }
-.addtxn-radio { color: var(--blue, #3b82f6); font-size: 14px; flex-shrink: 0; }
+.addtxn-hint { font-size: 11.5px; color: var(--text-soft, #64748b); line-height: 1.35; }
+.addtxn-radio { color: var(--blue, #3b82f6); font-size: 15px; flex-shrink: 0; }
 
 @media (max-width: 560px) {
   .addtxn-grid { grid-template-columns: 1fr; }
+  .addtxn-tile { padding: 14px; } /* larger touch targets on mobile */
+}
+
+/* ---- Ledger "Add Transaction" trigger: header button + mobile FAB ---- */
+.ledger-fab {
+  display: none; /* shown only on mobile via media query */
+}
+@media (max-width: 640px) {
+  .ledger-add-btn { display: none; } /* hide the header button on phones */
+  .ledger-fab {
+    display: inline-flex; align-items: center; gap: 8px;
+    position: fixed; right: 18px; bottom: 22px; z-index: 700;
+    padding: 14px 20px; border: none; border-radius: 999px;
+    background: var(--blue, #3b82f6); color: #fff;
+    font-size: 15px; font-weight: 650;
+    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+    cursor: pointer;
+    animation: fadeUp 0.2s ease;
+  }
+  .ledger-fab:active { transform: scale(0.96); }
 }

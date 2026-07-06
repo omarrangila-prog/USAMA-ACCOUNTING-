@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useData } from '@/store/dataStore';
 import { Combo, type ComboHandle } from '@/components/ui/Combo';
 import { Icon } from '@/components/ui/Icon';
@@ -26,8 +27,11 @@ export function TransactionForm({ kind }: Props) {
   const isSale = kind === 'sale';
   const period = store.period;
 
+  // ?party= deep-link (from the Ledger "Add Transaction" chooser) pre-selects
+  // the party so the user isn't asked to pick it again.
+  const [params] = useSearchParams();
   const [date, setDate] = useState(() => defaultDateForPeriod(period));
-  const [partyId, setPartyId] = useState('');
+  const [partyId, setPartyId] = useState(params.get('party') ?? '');
   const [bondTypeId, setBondTypeId] = useState('');
   const [quantity, setQuantity] = useState('');
   const [rate, setRate] = useState('');

@@ -10,6 +10,7 @@ import { buildStatementPdf, type StatementRow } from '@/lib/statementPdf';
 import { PdfPreview } from '@/components/ui/PdfPreview';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
 import { previewCashEntry } from '@/lib/cashSafeguard';
+import { AddTransactionModal, type TxnKind } from '@/components/AddTransaction';
 import { formatMoney, formatNumber, formatDate, defaultDateForPeriod, monthName, cx } from '@/lib/utils';
 import { toast } from '@/store/toast';
 import type { CashDirection } from '@/types';
@@ -27,6 +28,7 @@ export function Ledger() {
   const [cashEditId, setCashEditId] = useState<string | null>(null);
   const [cashToDelete, setCashToDelete] = useState<string | null>(null);
   const [adjModal, setAdjModal] = useState<'receivable' | 'payable' | null>(null);
+  const [addTxn, setAddTxn] = useState(false);
   const [preview, setPreview] = useState(false);
   const printConfirm = usePrintConfirm();
 
@@ -114,6 +116,14 @@ export function Ledger() {
     printConfirm.print({ makeDoc: makeStatementDoc, fileName: stmtFileName });
   };
 
+  /** From the Add-Transaction chooser: open the matching Ledger modal, pre-set
+   *  to the chosen party. (Page-form types are handled by the chooser itself.) */
+  const handleAddTxn = (kind: TxnKind, chosenPartyId: string) => {
+    if (chosenPartyId && chosenPartyId !== partyId) setPartyId(chosenPartyId);
+    if (kind === 'received' || kind === 'paid') setCashModal(kind);
+    else if (kind === 'receivable' || kind === 'payable') setAdjModal(kind);
+  };
+
   // Party dropdown ALWAYS lists every party from the master Parties collection
   // (independent of transactions/month/filters), sorted A→Z case-insensitively,
   // each showing its current net balance + Receivable/Payable status.
@@ -132,19 +142,10 @@ export function Ledger() {
         subtitle="Party statements + full business cash book (with expenses & income)"
         actions={
           <>
-            <button className="btn btn-green" onClick={() => setCashModal('received')}>
-              <Icon name="arrow-down" size={16} /> Cash Received <span className="faint" style={{ fontSize: 11 }}>F4</span>
+            <button className="btn btn-primary ledger-add-btn" onClick={() => setAddTxn(true)}>
+              <Icon name="plus" size={16} /> Add Transaction
             </button>
-            <button className="btn btn-danger" onClick={() => setCashModal('paid')}>
-              <Icon name="arrow-up" size={16} /> Cash Paid <span className="faint" style={{ fontSize: 11 }}>F5</span>
-            </button>
-            <button className="btn" onClick={() => setAdjModal('receivable')}>
-              <Icon name="receivable" size={16} /> Add Receivable
-            </button>
-            <button className="btn" onClick={() => setAdjModal('payable')}>
-              <Icon name="payable" size={16} /> Add Payable
-            </button>
-            <button className="btn btn-primary" disabled={!partyId} onClick={() => setPreview(true)}>
+            <button className="btn" disabled={!partyId} onClick={() => setPreview(true)}>
               <Icon name="search" size={16} /> Preview
             </button>
             <button className="btn" disabled={!partyId} onClick={printStatement}>
@@ -243,6 +244,17 @@ export function Ledger() {
       )}
       {!partyId && <div className="card"><div className="empty">Select a party to view their statement.</div></div>}
 
+      {/* Mobile floating action button — replaces the header button on phones. */}
+      <button className="ledger-fab no-print" onClick={() => setAddTxn(true)} aria-label="Add Transaction">
+        <Icon name="plus" size={18} /> Add
+      </button>
+
+      <AddTransactionModal
+        open={addTxn}
+        partyId={partyId && partyId !== CASHBOOK ? partyId : ''}
+        onClose={() => setAddTxn(false)}
+        onPick={handleAddTxn}
+      />
       <CashModal
         direction={cashModal}
         defaultParty={partyId}
