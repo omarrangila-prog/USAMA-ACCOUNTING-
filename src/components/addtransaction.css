@@ -65,3 +65,13 @@
   }
   .ledger-fab:active { transform: scale(0.96); }
 }
+
+/* Advanced (Cash Received/Paid, Stock, Expense) — collapsed by default. */
+.addtxn-advtoggle {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%; margin-top: 14px; padding: 9px 4px;
+  background: none; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--text-soft, #64748b);
+}
+.addtxn-advtoggle:hover { color: var(--blue, #3b82f6); }
+.addtxn-advtoggle .rot { transform: rotate(180deg); transition: transform 0.15s; }

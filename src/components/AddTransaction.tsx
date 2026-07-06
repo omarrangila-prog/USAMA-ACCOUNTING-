@@ -27,13 +27,20 @@ interface Choice {
   desc: string;
 }
 
-const CHOICES: Choice[] = [
-  { id: 'received', emoji: '💵', label: 'Cash Received', desc: 'Money received from this party.' },
-  { id: 'paid', emoji: '💸', label: 'Cash Paid', desc: 'Money paid to this party.' },
-  { id: 'receivable', emoji: '📈', label: 'Manual Receivable', desc: 'Record an amount the party owes you.' },
-  { id: 'payable', emoji: '📉', label: 'Manual Payable', desc: 'Record an amount you owe the party.' },
-  { id: 'purchase', emoji: '🛒', label: 'Purchase', desc: 'Buy bonds from this party.' },
-  { id: 'sale', emoji: '💰', label: 'Sale', desc: 'Sell bonds to this party.' },
+// Normal trader workflow: a Sale to a party automatically becomes a receivable,
+// a Purchase automatically becomes a payable — no separate cash step needed.
+const PRIMARY: Choice[] = [
+  { id: 'sale', emoji: '💰', label: 'Sale', desc: 'Sell bonds — party owes you (Receivable).' },
+  { id: 'purchase', emoji: '🛒', label: 'Purchase', desc: 'Buy bonds — you owe the party (Payable).' },
+  { id: 'receivable', emoji: '📈', label: 'Manual Receivable', desc: 'Money the party will pay you.' },
+  { id: 'payable', emoji: '📉', label: 'Manual Payable', desc: 'Money you have to pay the party.' },
+];
+
+// Advanced / optional — only when the user actually wants to RECORD a payment
+// or a non-party entry. Hidden behind a toggle so it doesn't clutter the flow.
+const ADVANCED: Choice[] = [
+  { id: 'received', emoji: '💵', label: 'Cash Received', desc: 'Record a payment received from this party.' },
+  { id: 'paid', emoji: '💸', label: 'Cash Paid', desc: 'Record a payment made to this party.' },
   { id: 'stock', emoji: '📦', label: 'Stock Adjustment', desc: 'Opening, correction or damaged stock.' },
   { id: 'expense', emoji: '💼', label: 'Expense / Income', desc: 'Rent, salary, commission, other income.' },
 ];
@@ -50,6 +57,7 @@ interface Props {
 export function AddTransactionModal({ open, partyId, onClose, onPick }: Props) {
   const store = useData();
   const [sel, setSel] = useState<TxnKind | null>(null);
+  const [advOpen, setAdvOpen] = useState(false);
   // If the Ledger had no party selected, let the user pick one here.
   const [chosenParty, setChosenParty] = useState(partyId);
   const nav = useNavigate();
@@ -58,7 +66,24 @@ export function AddTransactionModal({ open, partyId, onClose, onPick }: Props) {
   const partyName = store.parties.find((p) => p.id === activeParty)?.name ?? '';
   const partyKnown = !!partyId;
 
-  const reset = () => { setSel(null); setChosenParty(partyId); };
+  const reset = () => { setSel(null); setAdvOpen(false); setChosenParty(partyId); };
+
+  const Tile = (c: Choice) => (
+    <button
+      key={c.id}
+      type="button"
+      className={`addtxn-tile${sel === c.id ? ' selected' : ''}`}
+      onClick={() => setSel(c.id)}
+      onDoubleClick={() => proceed(c.id)}
+    >
+      <span className="addtxn-emoji" aria-hidden>{c.emoji}</span>
+      <span className="addtxn-text">
+        <strong>{c.label}</strong>
+        <span className="addtxn-hint">{c.desc}</span>
+      </span>
+      <span className="addtxn-radio" aria-hidden>{sel === c.id ? '●' : '○'}</span>
+    </button>
+  );
 
   const proceed = (kind?: TxnKind) => {
     const k = kind ?? sel;
@@ -108,23 +133,25 @@ export function AddTransactionModal({ open, partyId, onClose, onPick }: Props) {
       </div>
 
       <div className="addtxn-grid">
-        {CHOICES.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            className={`addtxn-tile${sel === c.id ? ' selected' : ''}`}
-            onClick={() => setSel(c.id)}
-            onDoubleClick={() => proceed(c.id)}
-          >
-            <span className="addtxn-emoji" aria-hidden>{c.emoji}</span>
-            <span className="addtxn-text">
-              <strong>{c.label}</strong>
-              <span className="addtxn-hint">{c.desc}</span>
-            </span>
-            <span className="addtxn-radio" aria-hidden>{sel === c.id ? '●' : '○'}</span>
-          </button>
-        ))}
+        {PRIMARY.map((c) => Tile(c))}
       </div>
+
+      {/* Cash Received / Paid live here — optional, only when the user actually
+          wants to record a payment. Normal sale/purchase entries never need it. */}
+      <button
+        type="button"
+        className="addtxn-advtoggle"
+        onClick={() => setAdvOpen((v) => !v)}
+        aria-expanded={advOpen}
+      >
+        <Icon name="chevron" size={14} className={advOpen ? 'rot' : ''} />
+        {advOpen ? 'Hide advanced' : 'Record a payment / other (advanced)'}
+      </button>
+      {advOpen && (
+        <div className="addtxn-grid" style={{ marginTop: 8 }}>
+          {ADVANCED.map((c) => Tile(c))}
+        </div>
+      )}
     </Modal>
   );
 }

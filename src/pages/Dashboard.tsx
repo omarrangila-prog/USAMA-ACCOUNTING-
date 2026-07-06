@@ -61,14 +61,14 @@ export function Dashboard() {
       <div className="cash-hero card animate-in" onClick={() => nav('/ledger')} role="button" tabIndex={0}>
         <div className="cash-hero-icon"><Icon name="wallet" size={26} strokeWidth={2} /></div>
         <div className="col" style={{ flex: 1 }}>
-          <span className="cash-hero-label">Business Position</span>
+          <span className="cash-hero-label">Business Position · Mere paas kitne paise hain?</span>
           <span className="cash-hero-value mono">
             {formatMoney(s.cashInHand + s.netReceivable - s.netPayable, cur)}
           </span>
           <div className="cash-hero-breakdown">
             <span><span className="faint">Cash in Hand</span> <span className="mono">{formatMoney(s.cashInHand, cur)}</span></span>
-            <span><span className="faint">+ Receivable</span> <span className="mono pos">{formatMoney(s.netReceivable, cur)}</span></span>
-            <span><span className="faint">− Payable</span> <span className="mono neg">{formatMoney(s.netPayable, cur)}</span></span>
+            <span><span className="faint">+ Receivable (aane wale)</span> <span className="mono pos">{formatMoney(s.netReceivable, cur)}</span></span>
+            <span><span className="faint">− Payable (dene wale)</span> <span className="mono neg">{formatMoney(s.netPayable, cur)}</span></span>
           </div>
         </div>
       </div>
@@ -81,6 +81,7 @@ export function Dashboard() {
           icon="trial"
           accent={s.totalProfitLoss >= 0 ? 'green' : 'red'}
           trend={s.totalProfitLoss > 0 ? 'up' : s.totalProfitLoss < 0 ? 'down' : null}
+          hint={s.totalProfitLoss >= 0 ? 'Business profit mein hai' : 'Business loss mein hai'}
           onClick={() => nav('/reports')}
         />
         <StatCard label="Sale Profit" value={formatMoney(s.saleProfit, cur)} icon="sale" accent={s.saleProfit >= 0 ? 'green' : 'red'} onClick={() => nav('/sale')} />
@@ -89,10 +90,10 @@ export function Dashboard() {
             A card is hidden when its total is 0. If both are 0, show a single
             "all settled" card. */}
         {s.netReceivable > 0 && (
-          <StatCard label="Cash Receivable" value={formatMoney(s.netReceivable, cur)} icon="receivable" accent="green" hint="Net money owed to you" onClick={() => nav('/receivable')} />
+          <StatCard label="Receivable" value={formatMoney(s.netReceivable, cur)} icon="receivable" accent="green" hint="Paise jo aap ne lene hain" onClick={() => nav('/receivable')} />
         )}
         {s.netPayable > 0 && (
-          <StatCard label="Cash Payable" value={formatMoney(s.netPayable, cur)} icon="payable" accent="red" hint="Net money you owe" onClick={() => nav('/payable')} />
+          <StatCard label="Payable" value={formatMoney(s.netPayable, cur)} icon="payable" accent="red" hint="Paise jo aap ne dene hain" onClick={() => nav('/payable')} />
         )}
         {s.netReceivable === 0 && s.netPayable === 0 && (
           <StatCard label="Net Party Balance" value={formatMoney(0, cur)} icon="receivable" accent="green" hint="All settled" onClick={() => nav('/receivable')} />
