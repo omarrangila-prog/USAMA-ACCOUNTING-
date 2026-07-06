@@ -31,12 +31,19 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
   );
 
   const partyLabel = (id: string) => data.parties.find((p) => p.id === id)?.name ?? '—';
-  // Manual receivable/payable entries added this month for THIS side. Skip any
-  // orphan whose party has been deleted — otherwise it renders as a blank row.
+  // Manual receivable/payable ENTRIES added this month for THIS side.
+  //  - Exclude settlement records (auto-created by Receive/Pay). A receive
+  //    settlement is negative and would otherwise leak onto the Payable log
+  //    (and a pay settlement, positive, onto the Receivable log).
+  //  - Skip orphans whose party was deleted (would render a blank row).
   const partyExists = (id: string) => data.parties.some((p) => p.id === id);
   const manualAdjustments = useMemo(
     () => (data.partyAdjustments ?? [])
-      .filter((a) => partyExists(a.partyId) && a.month === period.month && a.year === period.year && (isRec ? a.amount > 0 : a.amount < 0))
+      .filter((a) =>
+        !a.settlement &&                       // genuine manual entries only
+        partyExists(a.partyId) &&
+        a.month === period.month && a.year === period.year &&
+        (isRec ? a.amount > 0 : a.amount < 0))  // receivable=+, payable=-
       .sort((a, b) => (a.date < b.date ? 1 : -1)),
     [data.partyAdjustments, data.parties, period, isRec]
   );
