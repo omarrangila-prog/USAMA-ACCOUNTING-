@@ -168,6 +168,32 @@ export function parseBalanceSheet(grid: Grid): ParsedBond[] {
 export interface ParsedBalanceRow { name: string; amount: number; }
 
 /**
+ * Scan the BALANCE SHEET for cash figures. The workbook labels physical cash as
+ * "CASH IN HAND"; a separate "TOTAL HAND CASH" (a different, smaller figure) is
+ * returned too so the UI can ask the client which is correct.
+ */
+export function parseCashFigures(grid: Grid): { cashInHand: number | null; totalHandCash: number | null } {
+  let cashInHand: number | null = null;
+  let totalHandCash: number | null = null;
+  const numOnRow = (row: any[]): number | null => {
+    for (const c of row) {
+      const s = str(c);
+      if (s !== '' && /^-?[\d,]+(\.\d+)?$/.test(s.replace(/\s/g, ''))) return num(c);
+    }
+    return null;
+  };
+  for (const row of grid) {
+    const label = row.map(str).find((c) => /CASH\s*IN\s*HAND|TOTAL\s*HAND\s*CASH/i.test(c));
+    if (!label) continue;
+    const v = numOnRow(row);
+    if (v === null) continue;
+    if (/TOTAL\s*HAND\s*CASH/i.test(label)) totalHandCash = v;
+    else if (/CASH\s*IN\s*HAND/i.test(label)) cashInHand = v;
+  }
+  return { cashInHand, totalHandCash };
+}
+
+/**
  * Read a two-column-ish "name | amount" list. Tolerates label columns, totals
  * rows and blank rows. Takes the first non-empty text as the name and the
  * last numeric on the row as the amount.
@@ -178,13 +204,21 @@ export function parseNameAmountSheet(grid: Grid): ParsedBalanceRow[] {
     const cells = row.map(str);
     const name = cells.find((c) => c && !/^[\d,.\s-]+$/.test(c));
     if (!name) continue;
-    if (/^(TOTAL|GRAND TOTAL|REC|PAY|FILE|NAME|PARTY|BALANCE|S\.?NO|SR)/i.test(name)) continue;
+    const upper = name.trim().toUpperCase();
+    // Always skip TOTAL / summary rows.
+    if (/^(TOTAL|GRAND TOTAL|G\.?\s*TOTAL|SUB\s*TOTAL)/i.test(upper)) continue;
     // last numeric in the row
     let amount = 0;
     for (let k = row.length - 1; k >= 0; k--) {
       const s = str(row[k]);
       if (s !== '' && /^-?[\d,]+(\.\d+)?$/.test(s.replace(/\s/g, ''))) { amount = num(row[k]); break; }
     }
+    // Column/sheet header words (REC/PAY/FILE/NAME/PARTY/BALANCE/S.NO/SR) are
+    // skipped ONLY when the row has no real amount — so a genuine party literally
+    // named "FILE" (with a balance) is NOT dropped. This fixes the payable that
+    // was silently lost (3,541,352 in the sample workbook).
+    const isHeaderWord = /^(REC|PAY|FILE|NAME|PARTY|BALANCE|S\.?NO|SR|RECEIVABLE|PAYABLE)$/i.test(upper);
+    if (isHeaderWord && amount === 0) continue;
     if (amount === 0 && !cells.some((c) => c === '0')) continue;
     rows.push({ name: name.trim(), amount });
   }
@@ -214,10 +248,13 @@ export interface MigrationPreview {
     receivable: number;
     payable: number;
     fileBalance: number;
+    cashInHand: number;
     profit: number;
     partyCount: number;
     bondCount: number;
   };
+  /** Both cash candidates from the sheet, so the UI can confirm which is real. */
+  cash: { cashInHand: number | null; totalHandCash: number | null };
   warnings: string[];
   sheetsFound: string[];
 }
@@ -230,11 +267,23 @@ export function buildExcelMigration(
   const warnings: string[] = [];
   const sheetsFound = wb.SheetNames.slice();
 
-  // --- BALANCE SHEET -> bonds + opening stock ---
+  // --- BALANCE SHEET -> bonds + opening stock + cash ---
   const balGrid = sheetGrid(wb, 'BALANCE SHEET') ?? sheetGrid(wb, 'BALANCESHEET');
   const parsedBonds = balGrid ? parseBalanceSheet(balGrid) : [];
   if (!balGrid) warnings.push('Sheet "BALANCE SHEET" not found — no opening stock imported.');
   else if (parsedBonds.length === 0) warnings.push('No bond denomination sections detected in BALANCE SHEET.');
+
+  const cashFig = balGrid ? parseCashFigures(balGrid) : { cashInHand: null, totalHandCash: null };
+  // Default to the labelled "CASH IN HAND" as physical opening cash.
+  const openingCash = cashFig.cashInHand ?? 0;
+  if (cashFig.cashInHand === null) {
+    warnings.push('No "CASH IN HAND" figure found in BALANCE SHEET — opening cash imported as 0. Set it manually.');
+  } else if (cashFig.totalHandCash !== null && cashFig.totalHandCash !== cashFig.cashInHand) {
+    warnings.push(
+      `Two cash figures found — using "CASH IN HAND" ${cashFig.cashInHand.toLocaleString()}. ` +
+      `("TOTAL HAND CASH" ${cashFig.totalHandCash.toLocaleString()} is different — confirm which is correct.)`
+    );
+  }
 
   const bondTypes: BondType[] = parsedBonds.map((b) => ({
     id: uid(), name: b.denomination, faceValue: num(b.denomination),
@@ -252,16 +301,25 @@ export function buildExcelMigration(
   }));
 
   // --- Parties from REC / PAY ---
-  const partyByName = new Map<string, Party>();
-  const ensureParty = (name: string, opening = 0): Party => {
-    const key = name.toLowerCase();
-    let p = partyByName.get(key);
-    if (!p) {
-      p = { id: uid(), name, phone: '', openingBalance: opening, createdAt: t, updatedAt: t };
-      partyByName.set(key, p);
-    } else if (opening) {
-      p.openingBalance += opening;
-    }
+  // IMPORTANT: never silently MERGE two rows that share a name — different
+  // people/accounts can have the same name and merging corrupts balances. Each
+  // row becomes its own party; a repeated name is auto-suffixed "(2)", "(3)"…
+  // and reported so the client can rename/confirm before approving.
+  const parties: Party[] = [];
+  const nameSeen = new Map<string, number>();
+  const dupNames = new Set<string>();
+  const addParty = (rawName: string, opening: number): Party => {
+    const base = rawName.trim();
+    const key = base.toLowerCase();
+    const n = (nameSeen.get(key) ?? 0) + 1;
+    nameSeen.set(key, n);
+    if (n > 1) dupNames.add(base);
+    const p: Party = {
+      id: uid(),
+      name: n === 1 ? base : `${base} (${n})`, // keep distinct
+      phone: '', openingBalance: opening, createdAt: t, updatedAt: t,
+    };
+    parties.push(p);
     return p;
   };
 
@@ -272,8 +330,13 @@ export function buildExcelMigration(
   if (!recGrid) warnings.push('Sheet "REC" not found — no opening receivables imported.');
   if (!payGrid) warnings.push('Sheet "PAY" not found — no opening payables imported.');
 
-  receivables.forEach((r) => ensureParty(r.name, Math.abs(r.amount)));   // +ve = receivable
-  payables.forEach((r) => ensureParty(r.name, -Math.abs(r.amount)));     // -ve = payable
+  receivables.forEach((r) => addParty(r.name, Math.abs(r.amount)));   // +ve = receivable
+  payables.forEach((r) => addParty(r.name, -Math.abs(r.amount)));     // -ve = payable
+  if (dupNames.size) {
+    warnings.push(
+      `Duplicate party names kept SEPARATE (auto-suffixed) — please confirm/rename: ${[...dupNames].join(', ')}.`
+    );
+  }
 
   // --- FILE accounts ---
   const fileGrid = sheetGrid(wb, 'FILE');
@@ -288,14 +351,13 @@ export function buildExcelMigration(
     warnings.push('Sheet1 detected — historical day-book kept as reference (opening balances take precedence).');
   }
 
-  const parties = [...partyByName.values()];
-
   const opening: OpeningBalances = {
     id: 'opening',
     asOf,
     stock: openingStock,
     parties: parties.map((p) => ({ partyId: p.id, balance: p.openingBalance })),
     files: files.map((f) => ({ fileAccountId: f.id, balance: f.balance })),
+    openingCash: round2(openingCash),
     importedProfit: round2(parsedBonds.reduce((a, b) => a + b.profit, 0)),
     source: MIGRATION_SOURCE,
     createdAt: t,
@@ -312,10 +374,12 @@ export function buildExcelMigration(
       receivable: round2(receivables.reduce((a, r) => a + Math.abs(r.amount), 0)),
       payable: round2(payables.reduce((a, r) => a + Math.abs(r.amount), 0)),
       fileBalance: round2(files.reduce((a, f) => a + f.balance, 0)),
+      cashInHand: round2(openingCash),
       profit: opening.importedProfit,
       partyCount: parties.length,
       bondCount: bondTypes.length,
     },
+    cash: cashFig,
     warnings,
     sheetsFound,
   };
