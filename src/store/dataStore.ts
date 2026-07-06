@@ -129,6 +129,7 @@ interface DataStore {
   // migration
   importBulk: (payload: ImportPayload) => Promise<void>;
   importOpeningMigration: (bundle: MigrationImport) => Promise<boolean>;
+  saveOpeningWizard: (input: OpeningWizardInput) => Promise<boolean>;
   clearOpeningMigration: () => Promise<void>;
 }
 
@@ -184,6 +185,16 @@ export interface PartyAdjustmentInput {
   amount: number;   // +receivable / -payable
   reason: string;
   settlement?: boolean;
+}
+
+/** Input from the Opening Balance Import Wizard. */
+export interface OpeningWizardInput {
+  asOf: Period;
+  openingCash: number;
+  stock: { bondTypeName: string; qty: number; value: number }[];
+  receivables: { name: string; amount: number }[]; // amount owed TO us (+)
+  payables: { name: string; amount: number }[];     // amount we owe (+, stored −)
+  banks: { name: string; balance: number }[];
 }
 
 export interface ImportPayload {
@@ -995,6 +1006,64 @@ export const useData = create<DataStore>((set, get) => ({
     // Jump the app to the opening period so the imported figures are visible.
     set({ period: bundle.opening.asOf });
     toast.success('Old Excel data imported as opening balances.');
+    return true;
+  },
+
+  saveOpeningWizard: async (input) => {
+    const u = get().uidRef;
+    if (!u) { toast.error('Not ready yet.'); return false; }
+    if (get().opening) {
+      toast.error('Opening balances already exist. Reset data first to re-import.');
+      return false;
+    }
+    const nowTs = now();
+
+    // 1. Ensure every party (receivable + payable) exists, get its id.
+    const partyLines: { partyId: string; balance: number }[] = [];
+    for (const r of input.receivables) {
+      if (!r.name.trim() || !r.amount) continue;
+      const p = await get().ensureParty(r.name.trim());
+      partyLines.push({ partyId: p.id, balance: round2(Math.abs(r.amount)) });   // +receivable
+    }
+    for (const p0 of input.payables) {
+      if (!p0.name.trim() || !p0.amount) continue;
+      const p = await get().ensureParty(p0.name.trim());
+      partyLines.push({ partyId: p.id, balance: -round2(Math.abs(p0.amount)) });  // −payable
+    }
+
+    // 2. Ensure bond types + build opening stock lines.
+    const stockLines = [] as OpeningBalances['stock'];
+    for (const s of input.stock) {
+      if (!s.bondTypeName.trim() || (s.qty === 0 && s.value === 0)) continue;
+      const bt = await get().ensureBondType(s.bondTypeName.trim());
+      const qty = round2(s.qty);
+      const value = round2(s.value);
+      stockLines.push({
+        bondTypeId: bt.id, bondTypeName: bt.name,
+        qty, value, avgCost: qty ? round2(value / qty) : 0,
+      });
+    }
+
+    // 3. Bank / file accounts.
+    const fileLines: { fileAccountId: string; balance: number }[] = [];
+    for (const b of input.banks) {
+      if (!b.name.trim()) continue;
+      const acc: FileAccount = { id: uid(), name: b.name.trim(), balance: round2(b.balance), createdAt: nowTs, updatedAt: nowTs };
+      await upsertDoc(u, 'fileAccounts', acc);
+      fileLines.push({ fileAccountId: acc.id, balance: acc.balance });
+    }
+
+    // 4. ONE opening snapshot — no historical transactions. importedProfit = 0
+    //    so profit starts fresh from the migration date.
+    const opening: OpeningBalances = {
+      id: 'opening', asOf: input.asOf,
+      stock: stockLines, parties: partyLines, files: fileLines,
+      openingCash: round2(input.openingCash),
+      importedProfit: 0, source: 'opening_wizard', createdAt: nowTs,
+    };
+    await upsertDoc(u, 'openingBalances', opening as any);
+    set({ period: input.asOf });
+    toast.success('Opening balances saved. You can start recording from today.');
     return true;
   },
 

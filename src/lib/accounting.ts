@@ -291,7 +291,11 @@ function openingPartyBalance(
   // imported opening; later un-closed months start from zero (they should have
   // been closed to carry forward). Without a migration, use the raw opening.
   if (opening) {
-    return isOpeningPeriod(opening, period) ? party.openingBalance ?? 0 : 0;
+    if (!isOpeningPeriod(opening, period)) return 0;
+    // The opening snapshot's per-party balances are the source of truth (the
+    // Opening Wizard writes them here); fall back to the party record's field.
+    const snap = opening.parties?.find((p) => p.partyId === party.id);
+    return snap ? snap.balance : party.openingBalance ?? 0;
   }
   return party.openingBalance ?? 0;
 }
@@ -407,6 +411,11 @@ export function partyDropdownOptions(data: DataSet, period: Period): PartyOption
 /** Net cash position from cash transactions in the period. */
 export function computeCashInHand(data: DataSet, period: Period): number {
   let cash = 0;
+  // Opening cash from the migration snapshot, applied from the opening period on
+  // (it's a carried-in balance, not a transaction, so it never affects profit).
+  if (data.opening?.openingCash && isOpeningPeriod(data.opening, period)) {
+    cash += data.opening.openingCash;
+  }
   data.purchases
     .filter((p) => inPeriod(p, period) && p.payment === 'cash')
     .forEach((p) => (cash -= p.amount));

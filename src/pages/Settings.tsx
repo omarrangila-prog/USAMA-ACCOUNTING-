@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import { ExcelMigration } from './ExcelMigration';
+import { OpeningWizard } from './OpeningWizard';
 import { MoveMonth } from './MoveMonth';
 import { buildSeed } from '@/lib/seed';
 import { useT } from '@/lib/i18n';
@@ -166,6 +167,9 @@ export function Settings() {
           </div>
         </div>
       </div>
+
+      {/* Migrate a running business: import today's position as opening balances */}
+      <OpeningWizard />
 
       {/* Move records between months (e.g. fix wrong-month entries) */}
       <MoveMonth />

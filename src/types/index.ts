@@ -237,6 +237,8 @@ export interface OpeningBalances {
   /** Party opening: +ve receivable, -ve payable. */
   parties: { partyId: string; balance: number }[];
   files: { fileAccountId: string; balance: number }[];
+  /** Opening cash in hand on the migration date (physical cash carried in). */
+  openingCash?: number;
   importedProfit: number;
   source: string;
   createdAt: number;
