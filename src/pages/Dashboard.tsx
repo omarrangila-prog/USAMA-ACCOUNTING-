@@ -23,6 +23,8 @@ export function Dashboard() {
 
   const s = useMemo(() => computeBusinessSummary(data, period), [data, period]);
   const movement = useMemo(() => computeBondMovement(data, period), [data, period]);
+  // The exact numeric value shown in the Cash in Hand hero (used for its colour).
+  const heroCash = s.cashInHand + s.netReceivable - s.netPayable;
 
   const recent = useMemo(() => {
     const items = [
@@ -59,10 +61,16 @@ export function Dashboard() {
         <div className="cash-hero-icon"><Icon name="wallet" size={26} strokeWidth={2} /></div>
         <div className="col" style={{ flex: 1 }}>
           <span className="cash-hero-label">Cash in Hand · Mere paas kitne paise hain?</span>
-          {/* Amount is coloured by overall Profit/Loss (visual only — the value
-              itself is unchanged): green in profit, red in loss, neutral at 0. */}
-          <span className={cx('cash-hero-value mono', s.totalProfitLoss > 0 && 'pos', s.totalProfitLoss < 0 && 'neg')}>
-            {formatMoney(s.cashInHand + s.netReceivable - s.netPayable, cur)}
+          {/* Colour rules (visual only — the value itself is unchanged):
+              - RED   if the displayed Cash in Hand < 0, OR Profit/Loss < 0
+              - GREEN only if displayed Cash in Hand > 0 AND Profit/Loss > 0
+              - NEUTRAL when either is exactly 0 (and not otherwise red)
+              A negative amount is never shown in green. */}
+          <span className={cx('cash-hero-value mono',
+            (heroCash < 0 || s.totalProfitLoss < 0) ? 'neg'
+              : (heroCash > 0 && s.totalProfitLoss > 0) ? 'pos'
+              : '')}>
+            {formatMoney(heroCash, cur)}
           </span>
           <div className="cash-hero-breakdown">
             <span><span className="faint">Cash</span> <span className="mono">{formatMoney(s.cashInHand, cur)}</span></span>
