@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
+import { CashInHandCard } from '@/components/ui/CashInHandCard';
 import { Icon } from '@/components/ui/Icon';
 import { computeBusinessSummary, computeBondMovement } from '@/lib/accounting';
 import { formatMoney, formatNumber, formatDate, monthName, cx } from '@/lib/utils';
@@ -23,8 +24,6 @@ export function Dashboard() {
 
   const s = useMemo(() => computeBusinessSummary(data, period), [data, period]);
   const movement = useMemo(() => computeBondMovement(data, period), [data, period]);
-  // The exact numeric value shown in the Cash in Hand hero (used for its colour).
-  const heroCash = s.cashInHand + s.netReceivable - s.netPayable;
 
   const recent = useMemo(() => {
     const items = [
@@ -55,30 +54,9 @@ export function Dashboard() {
         }
       />
 
-      {/* Cash in Hand — headline money position (cash + receivable − payable),
-          with a transparent breakdown. This replaces the old separate cards. */}
-      <div className="cash-hero card animate-in" onClick={() => nav('/cashbook')} role="button" tabIndex={0}>
-        <div className="cash-hero-icon"><Icon name="wallet" size={26} strokeWidth={2} /></div>
-        <div className="col" style={{ flex: 1 }}>
-          <span className="cash-hero-label">Cash in Hand · Mere paas kitne paise hain?</span>
-          {/* Colour rules (visual only — the value itself is unchanged):
-              - RED   if the displayed Cash in Hand < 0, OR Profit/Loss < 0
-              - GREEN only if displayed Cash in Hand > 0 AND Profit/Loss > 0
-              - NEUTRAL when either is exactly 0 (and not otherwise red)
-              A negative amount is never shown in green. */}
-          <span className={cx('cash-hero-value mono',
-            (heroCash < 0 || s.totalProfitLoss < 0) ? 'neg'
-              : (heroCash > 0 && s.totalProfitLoss > 0) ? 'pos'
-              : '')}>
-            {formatMoney(heroCash, cur)}
-          </span>
-          <div className="cash-hero-breakdown">
-            <span><span className="faint">Cash</span> <span className="mono">{formatMoney(s.cashInHand, cur)}</span></span>
-            <span><span className="faint">+ Receivable (aane wale)</span> <span className="mono pos">{formatMoney(s.netReceivable, cur)}</span></span>
-            <span><span className="faint">− Payable (dene wale)</span> <span className="mono neg">{formatMoney(s.netPayable, cur)}</span></span>
-          </div>
-        </div>
-      </div>
+      {/* Cash in Hand — shared summary card (same value + look everywhere). */}
+      <CashInHandCard />
+      <div style={{ height: 16 }} />
 
       {/* The 6 KPIs the owner monitors */}
       <div className="dash-grid">

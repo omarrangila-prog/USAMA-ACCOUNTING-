@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
+import { CashInHandCard } from '@/components/ui/CashInHandCard';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import {
@@ -73,6 +74,9 @@ export function Reports() {
           </>
         }
       />
+
+      <CashInHandCard />
+      <div style={{ height: 16 }} />
 
       <div className="summary-cards">
         <StatCard label="Total Purchase" value={formatMoney(stats.totalPurchase, cur)} icon="purchase" accent="blue" />

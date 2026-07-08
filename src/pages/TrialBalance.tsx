@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { CashInHandCard } from '@/components/ui/CashInHandCard';
 import { Icon } from '@/components/ui/Icon';
 import { PdfPreview } from '@/components/ui/PdfPreview';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
@@ -22,8 +23,9 @@ export function TrialBalance() {
   const s = useMemo(() => computeBusinessSummary(data, period), [data, period]);
   const byBond = useMemo(() => computeProfitByBond(data, period).filter((b) => b.profit !== 0), [data, period]);
 
+  // Cash in Hand is shown via the shared CashInHandCard (same value everywhere),
+  // so it's not repeated in this tile list.
   const items: { label: string; value: string; accent?: 'pos' | 'neg' }[] = [
-    { label: 'Cash in Hand', value: formatMoney(s.cashInHand, cur), accent: s.cashInHand >= 0 ? 'pos' : 'neg' },
     { label: 'Total Profit / Loss', value: formatMoney(s.totalProfitLoss, cur), accent: s.totalProfitLoss >= 0 ? 'pos' : 'neg' },
     { label: 'Sale Profit', value: formatMoney(s.saleProfit, cur), accent: s.saleProfit >= 0 ? 'pos' : 'neg' },
     { label: 'Purchase Profit', value: formatMoney(s.purchaseProfit, cur), accent: s.purchaseProfit >= 0 ? 'pos' : 'neg' },
@@ -53,6 +55,9 @@ export function TrialBalance() {
           </>
         }
       />
+
+      <CashInHandCard />
+      <div style={{ height: 16 }} />
 
       <div className="dash-grid" style={{ marginBottom: 18 }}>
         {items.map((it) => (
