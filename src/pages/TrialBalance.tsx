@@ -27,8 +27,8 @@ export function TrialBalance() {
   // so it's not repeated in this tile list.
   const items: { label: string; value: string; accent?: 'pos' | 'neg' }[] = [
     { label: 'Total Profit / Loss', value: formatMoney(s.totalProfitLoss, cur), accent: s.totalProfitLoss >= 0 ? 'pos' : 'neg' },
-    { label: 'Sale Profit', value: formatMoney(s.saleProfit, cur), accent: s.saleProfit >= 0 ? 'pos' : 'neg' },
-    { label: 'Purchase Profit', value: formatMoney(s.purchaseProfit, cur), accent: s.purchaseProfit >= 0 ? 'pos' : 'neg' },
+    { label: 'Total Sale', value: formatMoney(s.saleProfit, cur), accent: s.saleProfit >= 0 ? 'pos' : 'neg' },
+    { label: 'Total Purchase', value: formatMoney(s.purchaseProfit, cur), accent: s.purchaseProfit >= 0 ? 'pos' : 'neg' },
     { label: 'Net Receivable', value: formatMoney(s.netReceivable, cur), accent: 'pos' },
     { label: 'Net Payable', value: formatMoney(s.netPayable, cur), accent: 'neg' },
   ];
