@@ -233,6 +233,8 @@ export interface BusinessSummary {
   netPayable: number;       // sum of negative party net balances (abs)
   totalPurchased: number;   // total bonds bought (qty)
   totalSold: number;        // total bonds sold (qty)
+  totalSaleAmount: number;  // total sales value (Rs)
+  totalPurchaseAmount: number; // total purchases value (Rs)
   netBonds: number;         // purchased - sold
 }
 
@@ -250,6 +252,8 @@ export function computeBusinessSummary(data: DataSet, period: Period): BusinessS
   // reflect this realised margin; Total P/L folds in income/expenses.
   const purchaseProfit = saleProfit;
   const totalProfitLoss = round2(saleProfit + income - expense);
+  const totalSaleAmount = round2(data.sales.filter((s) => inPeriod(s, period)).reduce((a, s) => a + s.amount, 0));
+  const totalPurchaseAmount = round2(data.purchases.filter((p) => inPeriod(p, period)).reduce((a, p) => a + p.amount, 0));
 
   return {
     cashInHand: fin.cashInHand,
@@ -260,6 +264,8 @@ export function computeBusinessSummary(data: DataSet, period: Period): BusinessS
     netPayable: fin.netPayable,
     totalPurchased,
     totalSold,
+    totalSaleAmount,
+    totalPurchaseAmount,
     netBonds: totalPurchased - totalSold,
   };
 }

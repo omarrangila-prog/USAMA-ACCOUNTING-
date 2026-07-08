@@ -84,7 +84,7 @@ function BondsPanel() {
             />
           </div>
           <div className="field">
-            <label>Face Value (optional)</label>
+            <label>Price (optional)</label>
             <input className="input" placeholder="Auto from denomination" value={face} inputMode="numeric"
               onChange={(e) => setFace(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
           </div>
@@ -110,7 +110,7 @@ function BondsPanel() {
           <div className="table-wrap">
             <table className="grid">
               <thead>
-                <tr><th>Denomination</th><th className="num">Face Value</th><th className="num">In Stock</th><th className="no-print"></th></tr>
+                <tr><th>Denomination</th><th className="num">Price</th><th className="num">In Stock</th><th className="no-print"></th></tr>
               </thead>
               <tbody>
                 {bondTypes.map((b) => {

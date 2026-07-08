@@ -30,7 +30,6 @@ import {
   computeStock,
   computePartyBalances,
   computeFinancials,
-  availableStock,
   avgCostFor,
   computeProfitLoss,
 } from '@/lib/accounting';
@@ -130,6 +129,8 @@ interface DataStore {
   importBulk: (payload: ImportPayload) => Promise<void>;
   importOpeningMigration: (bundle: MigrationImport) => Promise<boolean>;
   saveOpeningWizard: (input: OpeningWizardInput) => Promise<boolean>;
+  /** Set the Cash Book opening cash for the current period (start-of-day cash). */
+  setOpeningCash: (amount: number) => Promise<void>;
   clearOpeningMigration: () => Promise<void>;
 }
 
@@ -461,16 +462,8 @@ export const useData = create<DataStore>((set, get) => ({
       toast.error('Quantity and rate must be positive.');
       return false;
     }
-    // Prize-bond model: stock is UNLIMITED, so we never BLOCK a sale — but we do
-    // WARN if it drives the bond's stock negative (usually a data-entry slip).
-    const avail = availableStock(get().dataset(), input.bondTypeId, period);
-    if (input.quantity > avail) {
-      const ok = window.confirm(
-        `Only ${avail.toLocaleString()} in stock for this bond but you're selling ` +
-        `${input.quantity.toLocaleString()}. Stock will go negative. Continue?`
-      );
-      if (!ok) return false;
-    }
+    // UNLIMITED STOCK: a sale is NEVER blocked or interrupted by stock. The app
+    // just records the quantity sold; net stock may go negative and that's fine.
     // Reconciliation model: a NAMED party => credit (builds that party's
     // outstanding receivable, no immediate cash effect). No party => cash
     // (flows straight into Cash in Hand).
@@ -1065,6 +1058,22 @@ export const useData = create<DataStore>((set, get) => ({
     set({ period: input.asOf });
     toast.success('Opening balances saved. You can start recording from today.');
     return true;
+  },
+
+  setOpeningCash: async (amount) => {
+    const u = get().uidRef;
+    if (!u) { toast.error('Not ready yet.'); return; }
+    const cur = get().opening;
+    const opening: OpeningBalances = cur
+      ? { ...cur, openingCash: round2(amount) }
+      : {
+          id: 'opening', asOf: get().period,
+          stock: [], parties: [], files: [],
+          openingCash: round2(amount), importedProfit: 0,
+          source: 'cashbook_opening', createdAt: now(),
+        };
+    await upsertDoc(u, 'openingBalances', opening as any);
+    await get().resyncClosing(get().period);
   },
 
   clearOpeningMigration: async () => {

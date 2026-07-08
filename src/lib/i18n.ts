@@ -16,6 +16,7 @@ const DICT: Dict = {
   'nav.dashboard': ['Dashboard', 'ڈیش بورڈ'],
   'nav.purchase': ['Purchase', 'خرید'],
   'nav.sale': ['Sale', 'فروخت'],
+  'nav.cashbook': ['Cash Book', 'کیش بک'],
   'nav.expenses': ['Expenses', 'اخراجات'],
   'nav.stock': ['Stock', 'اسٹاک'],
   'nav.parties': ['Parties', 'پارٹیاں'],

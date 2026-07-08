@@ -53,20 +53,17 @@ export function Dashboard() {
         }
       />
 
-      {/* Business Position — Dashboard-only summary. Raw Cash in Hand stays the
-          accounting value used by Cash Book / Ledger / Trial Balance / PDF /
-          Excel / Monthly Closing; here we present the overall money position:
-          rawCash + receivable − payable, with a breakdown so the figure is
-          transparent. No accounting calculation is changed. */}
-      <div className="cash-hero card animate-in" onClick={() => nav('/ledger')} role="button" tabIndex={0}>
+      {/* Cash in Hand — headline money position (cash + receivable − payable),
+          with a transparent breakdown. This replaces the old separate cards. */}
+      <div className="cash-hero card animate-in" onClick={() => nav('/cashbook')} role="button" tabIndex={0}>
         <div className="cash-hero-icon"><Icon name="wallet" size={26} strokeWidth={2} /></div>
         <div className="col" style={{ flex: 1 }}>
-          <span className="cash-hero-label">Business Position · Mere paas kitne paise hain?</span>
+          <span className="cash-hero-label">Cash in Hand · Mere paas kitne paise hain?</span>
           <span className="cash-hero-value mono">
             {formatMoney(s.cashInHand + s.netReceivable - s.netPayable, cur)}
           </span>
           <div className="cash-hero-breakdown">
-            <span><span className="faint">Cash in Hand</span> <span className="mono">{formatMoney(s.cashInHand, cur)}</span></span>
+            <span><span className="faint">Cash</span> <span className="mono">{formatMoney(s.cashInHand, cur)}</span></span>
             <span><span className="faint">+ Receivable (aane wale)</span> <span className="mono pos">{formatMoney(s.netReceivable, cur)}</span></span>
             <span><span className="faint">− Payable (dene wale)</span> <span className="mono neg">{formatMoney(s.netPayable, cur)}</span></span>
           </div>
@@ -76,27 +73,27 @@ export function Dashboard() {
       {/* The 6 KPIs the owner monitors */}
       <div className="dash-grid">
         <StatCard
-          label="Total Profit / Loss"
-          value={formatMoney(s.totalProfitLoss, cur)}
+          label={s.totalProfitLoss >= 0 ? 'Profit' : 'Loss'}
+          value={formatMoney(Math.abs(s.totalProfitLoss), cur)}
           icon="trial"
           accent={s.totalProfitLoss >= 0 ? 'green' : 'red'}
           trend={s.totalProfitLoss > 0 ? 'up' : s.totalProfitLoss < 0 ? 'down' : null}
           hint={s.totalProfitLoss >= 0 ? 'Business profit mein hai' : 'Business loss mein hai'}
           onClick={() => nav('/reports')}
         />
-        <StatCard label="Sale Profit" value={formatMoney(s.saleProfit, cur)} icon="sale" accent={s.saleProfit >= 0 ? 'green' : 'red'} onClick={() => nav('/sale')} />
-        <StatCard label="Purchase Profit" value={formatMoney(s.purchaseProfit, cur)} icon="purchase" accent={s.purchaseProfit >= 0 ? 'green' : 'red'} onClick={() => nav('/purchase')} />
+        <StatCard label="Total Sales" value={formatMoney(s.totalSaleAmount, cur)} icon="sale" accent="green" onClick={() => nav('/sale')} />
+        <StatCard label="Total Purchases" value={formatMoney(s.totalPurchaseAmount, cur)} icon="purchase" accent="blue" onClick={() => nav('/purchase')} />
         {/* Per-party netting: each card sums only the party nets on its side.
             A card is hidden when its total is 0. If both are 0, show a single
             "all settled" card. */}
         {s.netReceivable > 0 && (
-          <StatCard label="Receivable" value={formatMoney(s.netReceivable, cur)} icon="receivable" accent="green" hint="Paise jo aap ne lene hain" onClick={() => nav('/receivable')} />
+          <StatCard label="Money to Receive" value={formatMoney(s.netReceivable, cur)} icon="receivable" accent="green" hint="Paise jo aap ne lene hain" onClick={() => nav('/receivable')} />
         )}
         {s.netPayable > 0 && (
-          <StatCard label="Payable" value={formatMoney(s.netPayable, cur)} icon="payable" accent="red" hint="Paise jo aap ne dene hain" onClick={() => nav('/payable')} />
+          <StatCard label="Money to Pay" value={formatMoney(s.netPayable, cur)} icon="payable" accent="red" hint="Paise jo aap ne dene hain" onClick={() => nav('/payable')} />
         )}
         {s.netReceivable === 0 && s.netPayable === 0 && (
-          <StatCard label="Net Party Balance" value={formatMoney(0, cur)} icon="receivable" accent="green" hint="All settled" onClick={() => nav('/receivable')} />
+          <StatCard label="Money to Receive" value={formatMoney(0, cur)} icon="receivable" accent="green" hint="All settled" onClick={() => nav('/receivable')} />
         )}
         <StatCard label="Net Bonds" value={formatNumber(s.netBonds)} icon="stock" accent="purple" hint={`${formatNumber(s.totalPurchased)} bought · ${formatNumber(s.totalSold)} sold`} onClick={() => nav('/stock')} />
       </div>
