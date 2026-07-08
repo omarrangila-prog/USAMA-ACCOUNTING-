@@ -59,7 +59,9 @@ export function Dashboard() {
         <div className="cash-hero-icon"><Icon name="wallet" size={26} strokeWidth={2} /></div>
         <div className="col" style={{ flex: 1 }}>
           <span className="cash-hero-label">Cash in Hand · Mere paas kitne paise hain?</span>
-          <span className="cash-hero-value mono">
+          {/* Amount is coloured by overall Profit/Loss (visual only — the value
+              itself is unchanged): green in profit, red in loss, neutral at 0. */}
+          <span className={cx('cash-hero-value mono', s.totalProfitLoss > 0 && 'pos', s.totalProfitLoss < 0 && 'neg')}>
             {formatMoney(s.cashInHand + s.netReceivable - s.netPayable, cur)}
           </span>
           <div className="cash-hero-breakdown">
