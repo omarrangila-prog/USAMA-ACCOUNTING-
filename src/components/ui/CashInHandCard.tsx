@@ -32,12 +32,11 @@ export function CashInHandCard({
   const nav = useNavigate();
 
   const s = useMemo(() => computeBusinessSummary(data, period), [data, period]);
-  const value = s.cashInHand + s.netReceivable - s.netPayable;
+  // Cash Flow = Total Receivable − Total Payable (display only; profit/loss and
+  // physical cash are NOT part of this figure). Always a number → 0 when equal.
+  const value = (s.netReceivable || 0) - (s.netPayable || 0);
 
-  const colour =
-    value < 0 || s.totalProfitLoss < 0 ? 'neg'
-      : value > 0 && s.totalProfitLoss > 0 ? 'pos'
-        : '';
+  const colour = value > 0 ? 'pos' : value < 0 ? 'neg' : '';
 
   const go = clickable ? () => nav('/cashbook') : undefined;
 
