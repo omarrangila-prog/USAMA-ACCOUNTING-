@@ -156,6 +156,38 @@ export function buildSections(
       foot: ['Net Position (Assets − Liabilities)', money(netPosition), ''],
       numericCols: [1, 2],
     });
+
+    // Merged detail: party-wise receivables, party-wise payables, and sale /
+    // purchase totals — all inside the Trial Balance report.
+    const rec = azSort(computeReceivables(data, period));
+    sections.push({
+      title: 'Receivables (party-wise)',
+      head: ['Party', 'Amount Receivable'],
+      rows: rec.length ? rec.map((r) => [r.name, money(r.balance)]) : [['No receivables', money(0)]],
+      foot: ['Total Receivable', money(rec.reduce((a, r) => a + r.balance, 0))],
+      numericCols: [1],
+    });
+
+    const pay = azSort(computePayables(data, period));
+    sections.push({
+      title: 'Payables (party-wise)',
+      head: ['Party', 'Amount Payable'],
+      rows: pay.length ? pay.map((r) => [r.name, money(r.balance)]) : [['No payables', money(0)]],
+      foot: ['Total Payable', money(pay.reduce((a, r) => a + r.balance, 0))],
+      numericCols: [1],
+    });
+
+    const totalSale = data.sales.filter((s) => s.month === period.month && s.year === period.year).reduce((a, s) => a + s.amount, 0);
+    const totalPurchase = data.purchases.filter((p) => p.month === period.month && p.year === period.year).reduce((a, p) => a + p.amount, 0);
+    sections.push({
+      title: 'Sale & Purchase',
+      head: ['Type', 'Amount'],
+      rows: [
+        ['Total Sale', money(totalSale)],
+        ['Total Purchase', money(totalPurchase)],
+      ],
+      numericCols: [1],
+    });
   }
 
   if (want('balance')) {
