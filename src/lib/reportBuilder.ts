@@ -152,8 +152,15 @@ export function buildSections(
     sections.push({
       title: 'Business Summary',
       head: ['Account', 'Debit', 'Credit'],
-      rows: tb.rows.map((r) => [r.name, r.debit ? money(r.debit) : '', r.credit ? money(r.credit) : '']),
-      foot: ['Net Position (Assets − Liabilities)', money(netPosition), ''],
+      // Cash in Hand always shows its value (even Rs 0) so it never appears blank
+      // in the report. Other zero rows stay empty to keep the table clean.
+      rows: tb.rows.map((r) => {
+        const alwaysShow = r.name === 'Cash in Hand';
+        const debit = r.debit || (alwaysShow && r.credit === 0) ? money(r.debit) : '';
+        const credit = r.credit ? money(r.credit) : '';
+        return [r.name, debit, credit];
+      }),
+      foot: ['Net Position (Assets - Liabilities)', money(netPosition), ''],
       numericCols: [1, 2],
     });
 
