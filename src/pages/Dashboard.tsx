@@ -71,18 +71,23 @@ export function Dashboard() {
         />
         <StatCard label="Total Sales" value={formatMoney(s.totalSaleAmount, cur)} icon="sale" accent="green" onClick={() => nav('/sale')} />
         <StatCard label="Total Purchases" value={formatMoney(s.totalPurchaseAmount, cur)} icon="purchase" accent="blue" onClick={() => nav('/purchase')} />
-        {/* Per-party netting: each card sums only the party nets on its side.
-            A card is hidden when its total is 0. If both are 0, show a single
-            "all settled" card. */}
-        {s.netReceivable > 0 && (
-          <StatCard label="Money to Receive" value={formatMoney(s.netReceivable, cur)} icon="receivable" accent="green" hint="Paise jo aap ne lene hain" onClick={() => nav('/receivable')} />
-        )}
-        {s.netPayable > 0 && (
-          <StatCard label="Money to Pay" value={formatMoney(s.netPayable, cur)} icon="payable" accent="red" hint="Paise jo aap ne dene hain" onClick={() => nav('/payable')} />
-        )}
-        {s.netReceivable === 0 && s.netPayable === 0 && (
-          <StatCard label="Money to Receive" value={formatMoney(0, cur)} icon="receivable" accent="green" hint="All settled" onClick={() => nav('/receivable')} />
-        )}
+        {/* ONE net party card = Receivable − Payable. Positive => net money to
+            receive (green); negative => net money to pay (red); zero => settled. */}
+        {(() => {
+          const net = s.netReceivable - s.netPayable;
+          const toReceive = net > 0;
+          const toPay = net < 0;
+          return (
+            <StatCard
+              label={toPay ? 'Net Money to Pay' : 'Net Money to Receive'}
+              value={formatMoney(Math.abs(net), cur)}
+              icon={toPay ? 'payable' : 'receivable'}
+              accent={toPay ? 'red' : 'green'}
+              hint={toPay ? 'Paise jo aap ne dene hain' : toReceive ? 'Paise jo aap ne lene hain' : 'All settled'}
+              onClick={() => nav(toPay ? '/payable' : '/receivable')}
+            />
+          );
+        })()}
         <StatCard label="Net Bonds" value={formatNumber(s.netBonds)} icon="stock" accent="purple" hint={`${formatNumber(s.totalPurchased)} bought · ${formatNumber(s.totalSold)} sold`} onClick={() => nav('/stock')} />
       </div>
 

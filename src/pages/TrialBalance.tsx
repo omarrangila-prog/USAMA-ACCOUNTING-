@@ -25,12 +25,18 @@ export function TrialBalance() {
 
   // Cash in Hand is shown via the shared CashInHandCard (same value everywhere),
   // so it's not repeated in this tile list.
+  // Net party position: receivable − payable, shown as ONE figure. Positive =>
+  // net money to receive; negative => net money to pay.
+  const netParty = s.netReceivable - s.netPayable;
   const items: { label: string; value: string; accent?: 'pos' | 'neg' }[] = [
     { label: 'Total Profit / Loss', value: formatMoney(s.totalProfitLoss, cur), accent: s.totalProfitLoss >= 0 ? 'pos' : 'neg' },
-    { label: 'Total Sale', value: formatMoney(s.saleProfit, cur), accent: s.saleProfit >= 0 ? 'pos' : 'neg' },
-    { label: 'Total Purchase', value: formatMoney(s.purchaseProfit, cur), accent: s.purchaseProfit >= 0 ? 'pos' : 'neg' },
-    { label: 'Net Receivable', value: formatMoney(s.netReceivable, cur), accent: 'pos' },
-    { label: 'Net Payable', value: formatMoney(s.netPayable, cur), accent: 'neg' },
+    { label: 'Total Sale', value: formatMoney(s.totalSaleAmount, cur), accent: 'pos' },
+    { label: 'Total Purchase', value: formatMoney(s.totalPurchaseAmount, cur), accent: undefined },
+    {
+      label: netParty >= 0 ? 'Net Money to Receive' : 'Net Money to Pay',
+      value: formatMoney(Math.abs(netParty), cur),
+      accent: netParty > 0 ? 'pos' : netParty < 0 ? 'neg' : undefined,
+    },
   ];
 
   return (
