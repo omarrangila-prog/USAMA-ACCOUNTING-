@@ -71,24 +71,17 @@ export function Dashboard() {
         />
         <StatCard label="Total Sales" value={formatMoney(s.totalSaleAmount, cur)} icon="sale" accent="green" onClick={() => nav('/sale')} />
         <StatCard label="Total Purchases" value={formatMoney(s.totalPurchaseAmount, cur)} icon="purchase" accent="blue" onClick={() => nav('/purchase')} />
-        {/* ONE net party card = Receivable − Payable. Positive => net money to
-            receive (green); negative => net money to pay (red); zero => settled. */}
-        {(() => {
-          const net = s.netReceivable - s.netPayable;
-          const toReceive = net > 0;
-          const toPay = net < 0;
-          return (
-            <StatCard
-              label={toPay ? 'Net Money to Pay' : 'Net Money to Receive'}
-              value={formatMoney(Math.abs(net), cur)}
-              icon={toPay ? 'payable' : 'receivable'}
-              accent={toPay ? 'red' : 'green'}
-              hint={toPay ? 'Paise jo aap ne dene hain' : toReceive ? 'Paise jo aap ne lene hain' : 'All settled'}
-              onClick={() => nav(toPay ? '/payable' : '/receivable')}
-            />
-          );
-        })()}
-        <StatCard label="Net Bonds" value={formatNumber(s.netBonds)} icon="stock" accent="purple" hint={`${formatNumber(s.totalPurchased)} bought · ${formatNumber(s.totalSold)} sold`} onClick={() => nav('/stock')} />
+        {/* Total Receivable and Total Payable — shown as separate cards. */}
+        <StatCard label="Total Receivable" value={formatMoney(s.netReceivable, cur)} icon="receivable" accent="green" hint="Paise jo aap ne lene hain" onClick={() => nav('/receivable')} />
+        <StatCard label="Total Payable" value={formatMoney(s.netPayable, cur)} icon="payable" accent="red" hint="Paise jo aap ne dene hain" onClick={() => nav('/payable')} />
+        <StatCard
+          label="Bonds"
+          value={`${formatNumber(s.totalPurchased)} bought`}
+          icon="stock"
+          accent="purple"
+          hint={`${formatNumber(s.totalSold)} sold · ${formatNumber(s.netBonds)} net`}
+          onClick={() => nav('/stock')}
+        />
       </div>
 
       <div className="dash-lower">

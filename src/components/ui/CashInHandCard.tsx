@@ -56,11 +56,6 @@ export function CashInHandCard({
       <div className="col" style={{ flex: 1 }}>
         <span className="cash-hero-label">Cash in Hand · Mere paas kitne paise hain?</span>
         <span className={cx('cash-hero-value mono', colour)}>{formatMoney(value, cur)}</span>
-        <div className="cash-hero-breakdown">
-          <span><span className="faint">Cash</span> <span className="mono">{formatMoney(s.cashInHand, cur)}</span></span>
-          <span><span className="faint">+ Receivable (aane wale)</span> <span className="mono pos">{formatMoney(s.netReceivable, cur)}</span></span>
-          <span><span className="faint">− Payable (dene wale)</span> <span className="mono neg">{formatMoney(s.netPayable, cur)}</span></span>
-        </div>
       </div>
     </div>
   );
