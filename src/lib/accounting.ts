@@ -186,7 +186,18 @@ export interface BondMovement {
   avgBuyRate: number;  // for reference
 }
 
-/** Realised profit per bond denomination (Σ sale.profit grouped by bond). */
+/**
+ * LIVE profit for one sale = amount − (current average purchase cost × qty).
+ * Computed from the CURRENT data, not the cost frozen on the sale record — so
+ * profit is correct regardless of the order purchases/sales were entered
+ * (e.g. a sale saved before its purchase no longer over-reports profit).
+ */
+function saleProfitLive(data: DataSet, sale: Sale, period: Period): number {
+  const avg = avgCostFor(data, sale.bondTypeId, period);
+  return round2(sale.amount - avg * sale.quantity);
+}
+
+/** Realised profit per bond denomination (live). */
 export function computeProfitByBond(data: DataSet, period: Period): { bondTypeId: string; bondTypeName: string; profit: number }[] {
   return data.bondTypes.map((bt) => ({
     bondTypeId: bt.id,
@@ -194,7 +205,7 @@ export function computeProfitByBond(data: DataSet, period: Period): { bondTypeId
     profit: round2(
       data.sales
         .filter((s) => s.bondTypeId === bt.id && inPeriod(s, period))
-        .reduce((a, s) => a + s.profit, 0)
+        .reduce((a, s) => a + saleProfitLive(data, s, period), 0)
     ),
   }));
 }
@@ -731,7 +742,7 @@ export function computeTrialBalance(data: DataSet, period: Period): TrialBalance
 export function computeProfitLoss(data: DataSet, period: Period): number {
   const trading = data.sales
     .filter((s) => inPeriod(s, period))
-    .reduce((a, s) => a + s.profit, 0);
+    .reduce((a, s) => a + saleProfitLive(data, s, period), 0);
   const { net } = computeExpenseNet(data, period);
   return round2(trading + net);
 }
@@ -739,7 +750,7 @@ export function computeProfitLoss(data: DataSet, period: Period): number {
 /** Trading-only profit (before expenses/income), for reporting clarity. */
 export function computeTradingProfit(data: DataSet, period: Period): number {
   return round2(
-    data.sales.filter((s) => inPeriod(s, period)).reduce((a, s) => a + s.profit, 0)
+    data.sales.filter((s) => inPeriod(s, period)).reduce((a, s) => a + saleProfitLive(data, s, period), 0)
   );
 }
 
