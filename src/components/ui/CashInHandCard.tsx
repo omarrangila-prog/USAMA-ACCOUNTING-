@@ -11,12 +11,11 @@ import { Icon } from './Icon';
  * (Dashboard, Business Summary, Trial Balance, Reports, …) shows an identical
  * card that updates automatically with the data.
  *
- * Value + colour reuse the existing engine (computeBusinessSummary); nothing is
- * duplicated or recalculated differently.
+ * Values come straight from the engine (computeBusinessSummary → computeFinancials);
+ * nothing is duplicated or recalculated here.
  *
- *   displayed value = cashInHand + netReceivable − netPayable
- *   colour: RED if value < 0 OR profit/loss < 0; GREEN only if value > 0 AND
- *   profit/loss > 0; NEUTRAL when either is exactly 0.
+ *   displayed value (Cash Flow) = netReceivable − netPayable  (NO cash, NO profit)
+ *   colour: GREEN if > 0, RED if < 0, NEUTRAL at 0. Always a number (0 when equal).
  */
 export function CashInHandCard({
   variant = 'full',
