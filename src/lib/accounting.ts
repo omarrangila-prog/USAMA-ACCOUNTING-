@@ -443,13 +443,11 @@ export function computeCashInHand(data: DataSet, period: Period): number {
     if (c.direction === 'received') cash += c.amount;
     else cash -= c.amount;
   });
-  // Expenses reduce cash; income increases it.
-  const { net } = computeExpenseNet(data, period);
-  cash += net;
-  // NOTE: manual receivable/payable adjustments are NOT applied here. They are
-  // not cash yet — they only move real cash when settled via Receive/Pay (which
-  // are recorded as cash transactions above). The Financial Engine folds the
-  // outstanding net receivable/payable into the displayed "Cash in Hand".
+  // NOTE: Expenses & income do NOT touch Cash in Hand — they affect Profit/Loss
+  // only (they post to the Expense / Income account, not the cash account). So
+  // recording an expense with no cash movement leaves Cash in Hand unchanged.
+  // Manual receivable/payable adjustments are also NOT cash here — they move
+  // real cash only when settled via Receive/Pay (recorded as cash above).
   return round2(cash);
 }
 
@@ -707,12 +705,17 @@ export function computeTrialBalance(data: DataSet, period: Period): TrialBalance
   const bank = computeFileBalance(data.opening);
   const stock = computeStock(data, period).reduce((a, s) => a + s.closingValue, 0);
   const profit = computeProfitLoss(data, period);
+  const { expense, income } = computeExpenseNet(data, period);
 
   rows.push({ name: 'Cash in Hand', debit: Math.max(cash, 0), credit: Math.max(-cash, 0) });
   if (bank !== 0) rows.push({ name: 'Bank / File Accounts', debit: Math.max(bank, 0), credit: Math.max(-bank, 0) });
   rows.push({ name: 'Accounts Receivable', debit: receivable, credit: 0 });
   rows.push({ name: 'Closing Stock', debit: stock, credit: 0 });
   rows.push({ name: 'Accounts Payable', debit: 0, credit: payable });
+  // Expenses post to their own account (debit), income to its own (credit) —
+  // NOT to Cash in Hand. They flow into Profit/Loss below.
+  if (expense !== 0) rows.push({ name: 'Expenses', debit: expense, credit: 0 });
+  if (income !== 0) rows.push({ name: 'Other Income', debit: 0, credit: income });
   rows.push({
     name: 'Profit / (Loss)',
     debit: profit < 0 ? Math.abs(profit) : 0,
