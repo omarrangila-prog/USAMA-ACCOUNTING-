@@ -30,7 +30,11 @@ describe('Ledger party dropdown', () => {
       party('P1', 'Yameen'), party('P2', 'Ali'), party('P3', 'Ahmed'),
       party('P4', 'Bilal'), party('P5', 'Mustafa'),
     ],
-    sales: [creditSale('s1', 'P2', 250000), creditSale('s2', 'P5', 50000)],
+    // Balances come from manual receivable entries (sales don't move balance now).
+    partyAdjustments: [
+      { id: 'a1', partyId: 'P2', amount: 250000, reason: 'r', date: '2026-07-03', month: 7, year: 2026, createdAt: now, updatedAt: now },
+      { id: 'a2', partyId: 'P5', amount: 50000, reason: 'r', date: '2026-07-03', month: 7, year: 2026, createdAt: now, updatedAt: now },
+    ],
   });
 
   it('lists ALL parties A→Z even when only some have transactions', () => {
@@ -60,8 +64,8 @@ describe('Ledger party dropdown', () => {
   });
 
   it('selecting Ali / Mustafa loads their ledger immediately', () => {
-    const aliLedger = computeLedger(data, 'P2', P).filter((e) => e.refType === 'sale');
-    const mustafaLedger = computeLedger(data, 'P5', P).filter((e) => e.refType === 'sale');
+    const aliLedger = computeLedger(data, 'P2', P).filter((e) => e.refType === 'adjustment');
+    const mustafaLedger = computeLedger(data, 'P5', P).filter((e) => e.refType === 'adjustment');
     expect(aliLedger.length).toBe(1);
     expect(mustafaLedger.length).toBe(1);
   });

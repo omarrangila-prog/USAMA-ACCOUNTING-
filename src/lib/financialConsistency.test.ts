@@ -107,8 +107,8 @@ describe('Test 9 — Dashboard vs Reports: Cash in Hand identical everywhere', (
 
 describe('Test 10 — Monthly closing carries June balances into July opening', () => {
   it("July opening = June closing; editing stays allowed by design", () => {
-    // June: Ali becomes receivable 300000 via a credit sale.
-    const juneData = dataset({ parties: [party('A', 'Ali')], sales: [creditSale('js', 'A', 300000, 6)] });
+    // June: Ali becomes receivable 300000 via a manual receivable.
+    const juneData = dataset({ parties: [party('A', 'Ali')], partyAdjustments: [adjustment('js', 'A', 300000, 6)] });
     const juneBalances = computePartyBalances(juneData, JUNE);
     expect(juneBalances.find((b) => b.partyId === 'A')!.balance).toBe(300000);
 
@@ -172,14 +172,10 @@ describe('Test 12 — Party ledger running balance is correct after every line',
     const entries = computeLedger(data, 'A', P);
     const running = ledgerRunningBalance(entries);
 
-    // Entries are date-sorted: opening(0), adj(none), then by date:
-    //   02 none, 03 purchase & sale, 05 received.
-    // running balance = Σ(debit - credit) cumulatively.
-    // opening 0 -> 0
-    // purchase 500k credit -> -500000
-    // sale 300k debit -> -200000
-    // received 100k credit -> -300000
-    expect(running[running.length - 1]).toBe(-300000);
+    // New rule: sales & purchases are NOT in the party ledger. Only opening,
+    // cash and manual adjustments. So the ledger here = opening(0) + received
+    // 100k (credit → −100,000). The 500k purchase & 300k sale are excluded.
+    expect(running[running.length - 1]).toBe(-100000);
     // Never NaN / undefined at any step.
     running.forEach((v) => expect(Number.isFinite(v)).toBe(true));
 
@@ -190,14 +186,14 @@ describe('Test 12 — Party ledger running balance is correct after every line',
 });
 
 describe('Test 13 & 14 — Delete / Edit chains recompute everything', () => {
-  it('deleting a purchase updates dashboard, ledger, summary, party balance & PDF together', () => {
-    const withPurchase = dataset({
+  it('deleting a manual payable updates dashboard, summary, party balance & PDF together', () => {
+    const withPayable = dataset({
       parties: [party('A', 'Ali')],
       sales: [cashSale('cs', 400000)],
-      purchases: [creditPurchase('p', 'A', 500000)],
+      partyAdjustments: [adjustment('p', 'A', -500000)],
     });
-    // With the credit purchase, Ali is a payable of 500k.
-    expect(computeFinancials(withPurchase, P).netPayable).toBe(500000);
+    // The manual payable makes Ali a payable of 500k.
+    expect(computeFinancials(withPayable, P).netPayable).toBe(500000);
 
     // Delete it (records are the source of truth).
     const afterDelete = dataset({ parties: [party('A', 'Ali')], sales: [cashSale('cs', 400000)] });
@@ -208,7 +204,7 @@ describe('Test 13 & 14 — Delete / Edit chains recompute everything', () => {
     expect(computeDashboard(afterDelete, P).cashPayable).toBe(0);
     expect(computeBusinessSummary(afterDelete, P).netPayable).toBe(0);
     expect(computePartyBalances(afterDelete, P).find((b) => b.partyId === 'A')!.balance).toBe(0);
-    expect(computeLedger(afterDelete, 'A', P).some((e) => e.refType === 'purchase')).toBe(false);
+    expect(computeLedger(afterDelete, 'A', P).some((e) => e.refType === 'adjustment')).toBe(false);
     expect(monthlyRow(afterDelete, 'Cash Payable')).toBe(money(0));
   });
 

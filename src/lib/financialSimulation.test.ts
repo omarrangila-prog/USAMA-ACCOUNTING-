@@ -153,22 +153,19 @@ describe('Test 21 — 10,000 random operations stay consistent', () => {
 });
 
 describe('Test 22 — Duplicate prevention (upsert-by-id contract)', () => {
-  it('re-saving the same record id yields ONE record, one ledger line', () => {
-    const rec: Sale = { id: 'SALE-1', partyId: 'A', bondTypeId: 'b1', quantity: 1, rate: 500000, amount: 500000, receipt: 'credit', costOfGoods: 0, profit: 0, date: '2026-07-03', month: 7, year: 2026, createdAt: now, updatedAt: now };
+  it('re-saving the same record id yields ONE record (not three)', () => {
+    const rec = { id: 'ADJ-1', partyId: 'A', amount: 500000, reason: 'Receivable', date: '2026-07-03', month: 7, year: 2026, createdAt: now, updatedAt: now };
 
     // Simulate the store's upsert: a Map keyed by id (exactly what setDoc(id) does).
-    const store = new Map<string, Sale>();
-    const save = (r: Sale) => store.set(r.id, r); // {merge:true} on same id = overwrite
+    const store = new Map<string, typeof rec>();
+    const save = (r: typeof rec) => store.set(r.id, r); // {merge:true} on same id = overwrite
     save(rec);
     save({ ...rec });          // user clicks Save twice
     save({ ...rec });          // and a third time
     expect(store.size).toBe(1); // one document, never three
 
-    const data = baseDataset({ parties: [party('A', 'Ali')], sales: [...store.values()] });
-    // Ledger has exactly one line for this sale (not three).
-    const saleLines = computeLedger(data, 'A', { month: 7, year: 2026 }).filter((e) => e.refType === 'sale');
-    expect(saleLines.length).toBe(1);
-    // Reports/dashboard count it once.
+    const data = baseDataset({ parties: [party('A', 'Ali')], partyAdjustments: [...store.values()] });
+    // Balance counts it exactly once (500k), not three times.
     expect(computePartyBalances(data, { month: 7, year: 2026 }).find((b) => b.partyId === 'A')!.balance).toBe(500000);
   });
 });
@@ -220,14 +217,15 @@ describe('Test 24 — Crash / offline recovery', () => {
 describe('Test 25 — 12-month simulation with monthly closing & carry-forward', () => {
   it('opening = prior closing for every month; balances stay correct all year', () => {
     const parties = [party('A', 'Ali'), party('B', 'Bilal')];
-    // One credit sale to A and one credit purchase from B each month → A grows
-    // as a receivable, B grows as a payable, cumulatively across the year.
-    const sales: Sale[] = [];
-    const purchases: Purchase[] = [];
+    // A grows as a receivable, B as a payable, cumulatively across the year —
+    // via monthly manual adjustments (built below).
+    // Build monthly receivable/payable via MANUAL adjustments (the only thing
+    // that moves a party balance now). A: +100k receivable/month, B: −50k/month.
+    const adjustments: import('@/types').PartyAdjustment[] = [];
     for (let m = 1; m <= 12; m++) {
       const mm = String(m).padStart(2, '0');
-      sales.push({ id: 'S' + m, partyId: 'A', bondTypeId: 'b1', quantity: 1, rate: 100000, amount: 100000, receipt: 'credit', costOfGoods: 0, profit: 0, date: `2026-${mm}-10`, month: m, year: 2026, createdAt: now, updatedAt: now });
-      purchases.push({ id: 'U' + m, partyId: 'B', bondTypeId: 'b1', quantity: 1, rate: 50000, amount: 50000, payment: 'credit', date: `2026-${mm}-10`, month: m, year: 2026, createdAt: now, updatedAt: now });
+      adjustments.push({ id: 'A' + m, partyId: 'A', amount: 100000, reason: 'r', date: `2026-${mm}-10`, month: m, year: 2026, createdAt: now, updatedAt: now });
+      adjustments.push({ id: 'B' + m, partyId: 'B', amount: -50000, reason: 'p', date: `2026-${mm}-10`, month: m, year: 2026, createdAt: now, updatedAt: now });
     }
 
     const closings: MonthlyClosing[] = [];
@@ -236,7 +234,7 @@ describe('Test 25 — 12-month simulation with monthly closing & carry-forward',
 
     for (let m = 1; m <= 12; m++) {
       const period = { month: m, year: 2026 };
-      const data = baseDataset({ parties, sales, purchases, closings: [...closings] });
+      const data = baseDataset({ parties, partyAdjustments: adjustments, closings: [...closings] });
       const bals = computePartyBalances(data, period);
       const a = bals.find((b) => b.partyId === 'A')!;
       const b = bals.find((x) => x.partyId === 'B')!;

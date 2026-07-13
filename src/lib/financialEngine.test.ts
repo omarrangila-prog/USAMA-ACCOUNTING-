@@ -177,23 +177,25 @@ describe('Financial Engine — per-party netting', () => {
     expect(computeFinancials(data, P).cashInHand).toBe(600000);
   });
 
-  it('7. same party credit purchase > credit sale → net payable 600000', () => {
+  it('7. sales/purchases do NOT affect party balance (only manual + cash do)', () => {
     const data = dataset({
       parties: [party('A', 'Ali')],
       purchases: [creditPurchase('p1', 'A', 1000000)],
       sales: [creditSale('s1', 'A', 400000)],
     });
-    expect(partyNet(data, 'A')).toBe(-600000);
+    // New rule: a credit sale/purchase never touches receivable/payable.
+    expect(partyNet(data, 'A')).toBe(0);
     const fin = computeFinancials(data, P);
     expect(fin.netReceivable).toBe(0);
-    expect(fin.netPayable).toBe(600000);
+    expect(fin.netPayable).toBe(0);
   });
 
-  it('8. same party credit sale > credit purchase → net receivable 600000', () => {
+  it('8. only a manual adjustment builds receivable/payable', () => {
     const data = dataset({
       parties: [party('A', 'Ali')],
-      purchases: [creditPurchase('p1', 'A', 400000)],
-      sales: [creditSale('s1', 'A', 1000000)],
+      purchases: [creditPurchase('p1', 'A', 400000)], // ignored for balance
+      sales: [creditSale('s1', 'A', 1000000)],        // ignored for balance
+      partyAdjustments: [adjustment('m', 'A', 600000)], // THIS builds the receivable
     });
     expect(partyNet(data, 'A')).toBe(600000);
     const fin = computeFinancials(data, P);

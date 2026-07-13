@@ -324,18 +324,23 @@ export interface PartyBalance {
   balance: number; // opening + movements within period
 }
 
-/** Party running balances for a period, including carried opening. */
+/**
+ * Party running balances for a period.
+ *
+ * Receivable / Payable come ONLY from:
+ *   - the carried opening balance
+ *   - manual Receivable / Payable entries (partyAdjustments)
+ *   - cash Received / Paid against a party (settlements)
+ *
+ * Sales & Purchases do NOT affect a party's Receivable/Payable — they belong to
+ * the Total Sales / Total Purchases figures only. So a credit sale never makes a
+ * customer "owe" here; only a manual Receivable does.
+ */
 export function computePartyBalances(data: DataSet, period: Period): PartyBalance[] {
   return data.parties.map((party) => {
     const opening = openingPartyBalance(party, period, data.closings, data.opening);
     let balance = opening;
 
-    data.purchases
-      .filter((p) => p.partyId === party.id && inPeriod(p, period) && p.payment === 'credit')
-      .forEach((p) => (balance -= p.amount));
-    data.sales
-      .filter((s) => s.partyId === party.id && inPeriod(s, period) && s.receipt === 'credit')
-      .forEach((s) => (balance += s.amount));
     data.cash
       .filter((c) => c.partyId === party.id && inPeriod(c, period))
       .forEach((c) => {
@@ -594,43 +599,10 @@ export function computeLedger(
     updatedAt: 0,
   });
 
-  data.purchases
-    .filter((p) => p.partyId === partyId && inPeriod(p, period))
-    .forEach((p) =>
-      entries.push({
-        id: 'p-' + p.id,
-        partyId,
-        refType: 'purchase',
-        refId: p.id,
-        description: describePurchase(data, p),
-        debit: 0,
-        credit: p.payment === 'credit' ? p.amount : 0,
-        date: p.date,
-        month: p.month,
-        year: p.year,
-        createdAt: p.createdAt,
-        updatedAt: p.updatedAt,
-      })
-    );
-
-  data.sales
-    .filter((s) => s.partyId === partyId && inPeriod(s, period))
-    .forEach((s) =>
-      entries.push({
-        id: 's-' + s.id,
-        partyId,
-        refType: 'sale',
-        refId: s.id,
-        description: describeSale(data, s),
-        debit: s.receipt === 'credit' ? s.amount : 0,
-        credit: 0,
-        date: s.date,
-        month: s.month,
-        year: s.year,
-        createdAt: s.createdAt,
-        updatedAt: s.updatedAt,
-      })
-    );
+  // Sales & Purchases are intentionally NOT in the party ledger — they do not
+  // affect a party's receivable/payable (new rule). Only opening balance, cash
+  // received/paid, and manual receivable/payable entries appear here, so the
+  // ledger's running balance always matches computePartyBalances.
 
   data.cash
     .filter((c) => c.partyId === partyId && inPeriod(c, period))
