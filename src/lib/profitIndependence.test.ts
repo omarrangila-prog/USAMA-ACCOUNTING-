@@ -7,7 +7,7 @@ import type { Party, PartyAdjustment, Sale, Purchase, Expense } from '@/types';
  *   Receivable / Payable  = party balances only  (NEVER include profit)
  *   Cash Flow             = Receivable − Payable
  *   Cash in Hand          = physical cash only    (NEVER affected by profit)
- *   Total Profit          = sales profit + income − expenses  (its own figure)
+ *   Total Profit          = sales profit only (trading; expenses NOT deducted)
  */
 const now = Date.now();
 const P = { month: 7, year: 2026 };
@@ -59,7 +59,7 @@ describe('Profit independence from Receivable / Payable / Cash', () => {
     });
     // cash = +700k sale − 200k purchase = 500k (profit & expense NOT in cash)
     expect(computeCashInHand(data, P)).toBe(500000);
-    // profit = (700k − 200k) − 50k expense = 450k
-    expect(computeProfitLoss(data, P)).toBe(450000);
+    // profit = trading only = 700k − 200k cost = 500k (expense NOT deducted)
+    expect(computeProfitLoss(data, P)).toBe(500000);
   });
 });

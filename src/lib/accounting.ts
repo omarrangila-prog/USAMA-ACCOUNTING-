@@ -251,18 +251,16 @@ export interface BusinessSummary {
 
 export function computeBusinessSummary(data: DataSet, period: Period): BusinessSummary {
   const saleProfit = computeTradingProfit(data, period);
-  const { expense, income } = computeExpenseNet(data, period);
   // All party/cash totals come from the one Financial Engine.
   const fin = computeFinancials(data, period);
   const mv = computeBondMovement(data, period);
   const totalPurchased = mv.reduce((a, m) => a + m.purchasedQty, 0);
   const totalSold = mv.reduce((a, m) => a + m.soldQty, 0);
 
-  // Realised trading profit = Σ (sell rate − avg buy rate) × qty sold. The owner
-  // wants it visible per denomination (see computeProfitByBond). Both KPI cards
-  // reflect this realised margin; Total P/L folds in income/expenses.
+  // Realised trading profit = Σ (sell rate − avg buy rate) × qty sold.
+  // Profit is trading ONLY — expenses/income are NOT included here.
   const purchaseProfit = saleProfit;
-  const totalProfitLoss = round2(saleProfit + income - expense);
+  const totalProfitLoss = round2(saleProfit);
   const totalSaleAmount = round2(data.sales.filter((s) => inPeriod(s, period)).reduce((a, s) => a + s.amount, 0));
   const totalPurchaseAmount = round2(data.purchases.filter((p) => inPeriod(p, period)).reduce((a, p) => a + p.amount, 0));
 
@@ -715,11 +713,12 @@ export function computeTrialBalance(data: DataSet, period: Period): TrialBalance
  * plus other income minus expenses.
  */
 export function computeProfitLoss(data: DataSet, period: Period): number {
+  // Profit = trading profit ONLY (sale price − purchase cost). Expenses and
+  // income are NOT part of Profit — expenses live in the Expense account/report.
   const trading = data.sales
     .filter((s) => inPeriod(s, period))
     .reduce((a, s) => a + saleProfitLive(data, s, period), 0);
-  const { net } = computeExpenseNet(data, period);
-  return round2(trading + net);
+  return round2(trading);
 }
 
 /** Trading-only profit (before expenses/income), for reporting clarity. */
