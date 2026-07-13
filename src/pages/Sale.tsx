@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/Modal';
 import { TransactionForm } from './TransactionForm';
 import { EditTransactionModal } from './EditTransactionModal';
 import { formatMoney, formatNumber, formatDate, cx } from '@/lib/utils';
+import { saleProfitLive } from '@/lib/accounting';
 import type { Sale as SaleRec } from '@/types';
 import './entry.css';
 
@@ -27,8 +28,11 @@ export function Sale() {
 
   const partyName = (id: string) => (id ? (data.parties.find((p) => p.id === id)?.name ?? '—') : 'Cash (no party)');
   const bondName = (id: string) => data.bondTypes.find((b) => b.id === id)?.name ?? '—';
+  // LIVE profit per sale (amount − current avg cost × qty) — same logic as the
+  // dashboard/engine, so the Sale page never shows a stale frozen profit.
+  const profitOf = (s: SaleRec) => saleProfitLive(data, s, period);
   const total = rows.reduce((a, r) => a + r.amount, 0);
-  const profit = rows.reduce((a, r) => a + r.profit, 0);
+  const profit = rows.reduce((a, r) => a + profitOf(r), 0);
   const locked = isMonthLocked();
 
   return (
@@ -65,7 +69,7 @@ export function Sale() {
                       <td data-label="Qty" className="num mono">{formatNumber(r.quantity)}</td>
                       <td data-label="Rate" className="num mono">{formatNumber(r.rate)}</td>
                       <td data-label="Amount" className="num mono">{formatMoney(r.amount, cur)}</td>
-                      <td data-label="Profit" className={cx('num mono', r.profit >= 0 ? 'pos' : 'neg')}>{formatMoney(r.profit, cur)}</td>
+                      <td data-label="Profit" className={cx('num mono', profitOf(r) >= 0 ? 'pos' : 'neg')}>{formatMoney(profitOf(r), cur)}</td>
                       <td data-label="Note" className="muted">{r.note || '—'}</td>
                       <td className="no-print actions-cell">
                         {!locked && (

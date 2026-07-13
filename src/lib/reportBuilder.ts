@@ -14,6 +14,7 @@ import {
   computeLedger,
   describePurchase,
   describeSale,
+  saleProfitLive,
   describeCash,
 } from './accounting';
 import { buildReportPdf, money, type PdfSection, type PdfSummaryCard } from './exportPdf';
@@ -110,9 +111,9 @@ export function buildSections(
       head: ['Date', 'Party', 'Bond', 'Qty', 'Rate', 'Amount', 'Profit', 'Description'],
       rows: rows.map((s) => [
         formatDate(s.date), partyName(data, s.partyId), bondName(data, s.bondTypeId),
-        formatNumber(s.quantity), formatNumber(s.rate), money(s.amount), money(s.profit), describeSale(data, s),
+        formatNumber(s.quantity), formatNumber(s.rate), money(s.amount), money(saleProfitLive(data, s, period)), describeSale(data, s),
       ]),
-      foot: ['', '', 'Total', formatNumber(rows.reduce((a, s) => a + s.quantity, 0)), '', money(rows.reduce((a, s) => a + s.amount, 0)), money(rows.reduce((a, s) => a + s.profit, 0)), ''],
+      foot: ['', '', 'Total', formatNumber(rows.reduce((a, s) => a + s.quantity, 0)), '', money(rows.reduce((a, s) => a + s.amount, 0)), money(rows.reduce((a, s) => a + saleProfitLive(data, s, period), 0)), ''],
       numericCols: [3, 4, 5, 6],
     });
   }
@@ -380,7 +381,7 @@ export function exportReportExcel(data: DataSet, period: Period): void {
     rows: [
       ['Date', 'Party', 'Bond', 'Qty', 'Rate', 'Amount', 'Profit', 'Mode', 'Description'],
       ...data.sales.filter((s) => s.month === period.month && s.year === period.year)
-        .map((s) => [s.date, partyName(data, s.partyId), bondName(data, s.bondTypeId), s.quantity, s.rate, s.amount, s.profit, s.receipt, describeSale(data, s)]),
+        .map((s) => [s.date, partyName(data, s.partyId), bondName(data, s.bondTypeId), s.quantity, s.rate, s.amount, saleProfitLive(data, s, period), s.receipt, describeSale(data, s)]),
     ],
   });
   sheets.push({

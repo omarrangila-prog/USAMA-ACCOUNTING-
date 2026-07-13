@@ -192,7 +192,7 @@ export interface BondMovement {
  * profit is correct regardless of the order purchases/sales were entered
  * (e.g. a sale saved before its purchase no longer over-reports profit).
  */
-function saleProfitLive(data: DataSet, sale: Sale, period: Period): number {
+export function saleProfitLive(data: DataSet, sale: Sale, period: Period): number {
   const avg = avgCostFor(data, sale.bondTypeId, period);
   return round2(sale.amount - avg * sale.quantity);
 }
