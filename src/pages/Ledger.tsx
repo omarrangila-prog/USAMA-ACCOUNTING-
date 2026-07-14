@@ -97,7 +97,12 @@ export function Ledger() {
     }
     return entries.map((e) => {
       run += e.debit - e.credit;
-      return { date: e.date, tafseel: e.description, debit: e.debit, credit: e.credit, balance: run };
+      // Sale/Purchase are reference rows (memo): show the amount in the
+      // description; they do NOT change the running balance.
+      const tafseel = e.memo
+        ? `${e.description} — ${formatMoney(e.memo, cur)}`
+        : e.description;
+      return { date: e.date, tafseel, debit: e.debit, credit: e.credit, balance: run };
     });
   }, [entries, isCashBook, data, period]);
 

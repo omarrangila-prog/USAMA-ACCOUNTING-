@@ -597,10 +597,31 @@ export function computeLedger(
     updatedAt: 0,
   });
 
-  // Sales & Purchases are intentionally NOT in the party ledger — they do not
-  // affect a party's receivable/payable (new rule). Only opening balance, cash
-  // received/paid, and manual receivable/payable entries appear here, so the
-  // ledger's running balance always matches computePartyBalances.
+  // Sales & Purchases appear in the party ledger for REFERENCE (memo), but do
+  // NOT affect the running balance — debit/credit stay 0, so receivable/payable
+  // still comes only from opening + cash + manual adjustments.
+  data.purchases
+    .filter((p) => p.partyId === partyId && inPeriod(p, period))
+    .forEach((p) =>
+      entries.push({
+        id: 'p-' + p.id, partyId, refType: 'purchase', refId: p.id,
+        description: describePurchase(data, p),
+        debit: 0, credit: 0, memo: p.amount,
+        date: p.date, month: p.month, year: p.year,
+        createdAt: p.createdAt, updatedAt: p.updatedAt,
+      })
+    );
+  data.sales
+    .filter((s) => s.partyId === partyId && inPeriod(s, period))
+    .forEach((s) =>
+      entries.push({
+        id: 's-' + s.id, partyId, refType: 'sale', refId: s.id,
+        description: describeSale(data, s),
+        debit: 0, credit: 0, memo: s.amount,
+        date: s.date, month: s.month, year: s.year,
+        createdAt: s.createdAt, updatedAt: s.updatedAt,
+      })
+    );
 
   data.cash
     .filter((c) => c.partyId === partyId && inPeriod(c, period))

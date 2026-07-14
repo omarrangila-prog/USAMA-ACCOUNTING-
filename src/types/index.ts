@@ -96,6 +96,11 @@ export interface LedgerEntry extends BaseRecord {
   debit: number;
   /** Credit increases what we owe the party. */
   credit: number;
+  /**
+   * Reference-only amount (e.g. a sale/purchase shown in the party's ledger for
+   * information). It does NOT affect the running balance — debit/credit stay 0.
+   */
+  memo?: number;
 }
 
 export interface MonthlyClosing {

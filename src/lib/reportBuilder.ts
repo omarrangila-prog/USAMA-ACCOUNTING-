@@ -265,8 +265,10 @@ export function buildSections(
         head: ['Date', 'Tafseel', 'Debit (-)', 'Credit (+)', 'Balance'],
         rows: entries.map((e) => {
           running += e.debit - e.credit;
+          // Sale/Purchase are memo rows: show the amount in Tafseel; balance flat.
+          const tafseel = e.memo ? `${e.description} — ${money(e.memo)}` : e.description;
           return [
-            formatDate(e.date), e.description,
+            formatDate(e.date), tafseel,
             e.debit ? formatNumber(e.debit) : '-',
             e.credit ? formatNumber(e.credit) : '-',
             `${formatNumber(Math.abs(running))} ${running >= 0 ? '(+)' : '(-)'}`,
