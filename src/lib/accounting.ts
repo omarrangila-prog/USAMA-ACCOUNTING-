@@ -682,17 +682,15 @@ export function computeCashBookSummary(data: DataSet, period: Period): CashBookS
   const totalPaid = round2(cashRows.filter((c) => c.direction === 'paid').reduce((a, c) => a + c.amount, 0));
 
   const fin = computeFinancials(data, period);
-  const { expense } = computeExpenseNet(data, period);
 
   return {
     totalSales,
     totalPurchases,
     totalReceived,
     totalPaid,
-    // Client formula: (Sales − Purchases) + (Received − Paid) − Expenses.
-    // Expenses reduce cash; sales are already counted so net profit is NOT
-    // re-added (that would double-count sales).
-    cashInHand: round2((totalSales - totalPurchases) + (totalReceived - totalPaid) - expense),
+    // Client formula: (Sales − Purchases) + (Received − Paid). Expenses are NOT
+    // part of Cash in Hand — they only reduce Profit.
+    cashInHand: round2((totalSales - totalPurchases) + (totalReceived - totalPaid)),
     receivable: fin.netReceivable,
     payable: fin.netPayable,
     // Net Profit = trading − expenses (same single source of truth everywhere).
