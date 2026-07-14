@@ -9,13 +9,11 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Toasts } from '@/components/ui/Toasts';
 import { Dashboard } from '@/pages/Dashboard';
 import { Masters } from '@/pages/Masters';
-import { Expenses } from '@/pages/Expenses';
 import { Purchase } from '@/pages/Purchase';
 import { Sale } from '@/pages/Sale';
 import { Stock } from '@/pages/Stock';
 import { Balances } from '@/pages/Balances';
 import { Ledger } from '@/pages/Ledger';
-import { CashBook } from '@/pages/CashBook';
 import { TrialBalance } from '@/pages/TrialBalance';
 import { Reports } from '@/pages/Reports';
 import { Settings } from '@/pages/Settings';
@@ -67,8 +65,6 @@ export default function App() {
           <Route path="/bond-types" element={<Masters initialTab="bonds" />} />
           <Route path="/purchase" element={<Purchase />} />
           <Route path="/sale" element={<Sale />} />
-          <Route path="/cashbook" element={<CashBook />} />
-          <Route path="/expenses" element={<Expenses />} />
           <Route path="/stock" element={<Stock />} />
           <Route path="/receivable" element={<Balances kind="receivable" />} />
           <Route path="/payable" element={<Balances kind="payable" />} />

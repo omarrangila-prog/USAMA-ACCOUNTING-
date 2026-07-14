@@ -14,11 +14,11 @@ import './addtransaction.css';
  * `kind` results:
  *   'received' | 'paid'                → open the Ledger cash modal
  *   'receivable' | 'payable'           → open the Ledger adjustment modal
- *   'purchase' | 'sale' | 'stock' | 'expense' → navigate to that page's form
+ *   'purchase' | 'sale' | 'stock'      → navigate to that page's form
  */
 export type TxnKind =
   | 'received' | 'paid' | 'receivable' | 'payable'
-  | 'purchase' | 'sale' | 'stock' | 'expense';
+  | 'purchase' | 'sale' | 'stock';
 
 interface Choice {
   id: TxnKind;
@@ -42,7 +42,6 @@ const ADVANCED: Choice[] = [
   { id: 'received', emoji: '💵', label: 'Cash Received', desc: 'Record a payment received from this party.' },
   { id: 'paid', emoji: '💸', label: 'Cash Paid', desc: 'Record a payment made to this party.' },
   { id: 'stock', emoji: '📦', label: 'Stock Adjustment', desc: 'Opening, correction or damaged stock.' },
-  { id: 'expense', emoji: '💼', label: 'Expense / Income', desc: 'Rent, salary, commission, other income.' },
 ];
 
 interface Props {
@@ -94,7 +93,6 @@ export function AddTransactionModal({ open, partyId, onClose, onPick }: Props) {
       purchase: `/purchase${activeParty ? `?party=${activeParty}` : ''}`,
       sale: `/sale${activeParty ? `?party=${activeParty}` : ''}`,
       stock: '/stock',
-      expense: '/expenses',
     };
     onClose();
     reset();

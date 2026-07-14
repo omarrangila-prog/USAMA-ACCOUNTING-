@@ -10,8 +10,6 @@ const items: NavItem[] = [
   { to: '/', tkey: 'nav.dashboard', icon: 'dashboard' },
   { to: '/purchase', tkey: 'nav.purchase', icon: 'purchase', shortcut: 'F2' },
   { to: '/sale', tkey: 'nav.sale', icon: 'sale', shortcut: 'F3' },
-  { to: '/cashbook', tkey: 'nav.cashbook', icon: 'wallet' },
-  { to: '/expenses', tkey: 'nav.expenses', icon: 'wallet' },
   { to: '/stock', tkey: 'nav.stock', icon: 'stock' },
   { to: '/parties', tkey: 'nav.parties', icon: 'user' },
   { to: '/bond-types', tkey: 'nav.bondTypes', icon: 'wallet' },
