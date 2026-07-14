@@ -63,7 +63,7 @@ export function CashBook() {
   const [tradeModal, setTradeModal] = useState<'purchase' | 'sale' | null>(null);
   const [cashModal, setCashModal] = useState<CashDirection | null>(null);
   const [selParty, setSelParty] = useState('');   // person selector for the 4 buttons
-  const [viewParty, setViewParty] = useState(''); // dropdown to view ONE party's ledger
+  const [viewParty, setViewParty] = useState(params.get('party') ?? ''); // view ONE party's ledger
   const [filter, setFilter] = useState<TxnBookType | 'all'>('all');
   // Edit / delete a single transaction row.
   const [editCashId, setEditCashId] = useState<string | null>(null);
@@ -256,10 +256,17 @@ export function CashBook() {
                 <span className="stmt-sum-label">Total Sold</span>
                 <span className="stmt-sum-value">{formatMoney(partyLedger.trade.sold, cur)}</span>
               </div>
+              {/* Sign is applied automatically: Receivable is +, Payable is −. */}
               <div className="stmt-sum-item">
-                <span className="stmt-sum-label">Balance</span>
-                <span className={cx('stmt-sum-value', partyLedger.balance > 0 ? 'pos' : partyLedger.balance < 0 ? 'neg' : '')}>
-                  {formatMoney(Math.abs(partyLedger.balance), cur)} {partyLedger.balance > 0 ? 'Dr' : partyLedger.balance < 0 ? 'Cr' : ''}
+                <span className="stmt-sum-label">Receivable</span>
+                <span className="stmt-sum-value pos">
+                  {partyLedger.balance > 0 ? `+${formatMoney(partyLedger.balance, cur)}` : formatMoney(0, cur)}
+                </span>
+              </div>
+              <div className="stmt-sum-item">
+                <span className="stmt-sum-label">Payable</span>
+                <span className="stmt-sum-value neg">
+                  {partyLedger.balance < 0 ? `−${formatMoney(Math.abs(partyLedger.balance), cur)}` : formatMoney(0, cur)}
                 </span>
               </div>
               <div className="stmt-sum-item">
@@ -277,7 +284,7 @@ export function CashBook() {
                   <thead>
                     <tr>
                       <th>Date</th><th>Details</th>
-                      <th className="num">Debit (+)</th><th className="num">Credit (−)</th><th className="num">Balance</th>
+                      <th className="num">Debit (+)</th><th className="num">Credit (−)</th><th className="num">Receivable / Payable</th>
                       <th className="no-print"></th>
                     </tr>
                   </thead>
@@ -292,8 +299,10 @@ export function CashBook() {
                         </td>
                         <td data-label="Debit (+)" className="num mono">{e.debit ? formatMoney(e.debit, cur) : '—'}</td>
                         <td data-label="Credit (−)" className="num mono">{e.credit ? formatMoney(e.credit, cur) : '—'}</td>
-                        <td data-label="Balance" className={cx('num mono stmt-bal', running >= 0 ? 'pos' : 'neg')}>
-                          {formatMoney(Math.abs(running), cur)} {running > 0 ? 'Dr' : running < 0 ? 'Cr' : ''}
+                        <td data-label="Receivable / Payable" className={cx('num mono stmt-bal', running > 0 ? 'pos' : running < 0 ? 'neg' : '')}>
+                          {running === 0 ? formatMoney(0, cur)
+                            : running > 0 ? `+${formatMoney(running, cur)} Receivable`
+                            : `−${formatMoney(Math.abs(running), cur)} Payable`}
                         </td>
                         <td className="no-print actions-cell">
                           {row && (
