@@ -322,6 +322,17 @@ export interface PartyBalance {
   balance: number; // opening + movements within period
 }
 
+/** How much a party has purchased (from us) and sold (to us) this period, in Rs. */
+export function partyTradeTotals(data: DataSet, partyId: string, period: Period): { purchased: number; sold: number } {
+  const purchased = round2(
+    data.purchases.filter((p) => p.partyId === partyId && inPeriod(p, period)).reduce((a, p) => a + p.amount, 0)
+  );
+  const sold = round2(
+    data.sales.filter((s) => s.partyId === partyId && inPeriod(s, period)).reduce((a, s) => a + s.amount, 0)
+  );
+  return { purchased, sold };
+}
+
 /**
  * Party running balances for a period.
  *

@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
 import { Combo, type ComboHandle } from '@/components/ui/Combo';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
-import { computeLedger, computePartyBalances, computeCashBook, partyDropdownOptions } from '@/lib/accounting';
+import { computeLedger, computePartyBalances, computeCashBook, partyDropdownOptions, partyTradeTotals } from '@/lib/accounting';
 import { buildStatementPdf, type StatementRow } from '@/lib/statementPdf';
 import { PdfPreview } from '@/components/ui/PdfPreview';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
@@ -109,6 +109,8 @@ export function Ledger() {
   const totalDebit = statementRows.reduce((a, r) => a + r.debit, 0);
   const totalCredit = statementRows.reduce((a, r) => a + r.credit, 0);
   const netBal = statementRows.length ? statementRows[statementRows.length - 1].balance : 0;
+  // How much this party purchased / sold this period (Rs).
+  const trade = partyId && !isCashBook ? partyTradeTotals(data, partyId, period) : { purchased: 0, sold: 0 };
 
   const makeStatementDoc = () => buildStatementPdf({
     settings,
@@ -185,6 +187,18 @@ export function Ledger() {
           {/* Easy-Khata style header: name + summary strip */}
           <div className="stmt-title">{partyLabel} Statement</div>
           <div className="stmt-summary">
+            {!isCashBook && (
+              <>
+                <div className="stmt-sum-item">
+                  <span className="stmt-sum-label">Total Purchased</span>
+                  <span className="stmt-sum-value">{formatMoney(trade.purchased, cur)}</span>
+                </div>
+                <div className="stmt-sum-item">
+                  <span className="stmt-sum-label">Total Sold</span>
+                  <span className="stmt-sum-value">{formatMoney(trade.sold, cur)}</span>
+                </div>
+              </>
+            )}
             <div className="stmt-sum-item">
               <span className="stmt-sum-label">Total Debit</span>
               <span className="stmt-sum-value">{formatMoney(totalDebit, cur)}</span>
