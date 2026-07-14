@@ -172,10 +172,11 @@ describe('Test 12 — Party ledger running balance is correct after every line',
     const entries = computeLedger(data, 'A', P);
     const running = ledgerRunningBalance(entries);
 
-    // New rule: sales & purchases are NOT in the party ledger. Only opening,
-    // cash and manual adjustments. So the ledger here = opening(0) + received
-    // 100k (credit → −100,000). The 500k purchase & 300k sale are excluded.
-    expect(running[running.length - 1]).toBe(-100000);
+    // New rule: sales, purchases AND cash are reference-only in the party
+    // ledger — only opening + manual adjustments move the running balance.
+    // Here there are no manual adjustments, so the ledger ends at opening(0).
+    // (The 500k purchase, 300k sale and 100k receipt are all reference/memo.)
+    expect(running[running.length - 1]).toBe(0);
     // Never NaN / undefined at any step.
     running.forEach((v) => expect(Number.isFinite(v)).toBe(true));
 

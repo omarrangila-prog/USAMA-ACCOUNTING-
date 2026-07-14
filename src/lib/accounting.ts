@@ -346,25 +346,22 @@ export function partyCashTotals(data: DataSet, partyId: string, period: Period):
  *
  * Receivable / Payable come ONLY from:
  *   - the carried opening balance
- *   - manual Receivable / Payable entries (partyAdjustments)
- *   - cash Received / Paid against a party (settlements)
+ *   - manual Receivable / Payable entries (partyAdjustments), including the
+ *     Receive/Pay SETTLEMENT adjustments recorded on the Balances pages.
  *
- * Sales & Purchases do NOT affect a party's Receivable/Payable — they belong to
- * the Total Sales / Total Purchases figures only. So a credit sale never makes a
- * customer "owe" here; only a manual Receivable does.
+ * Sales & Purchases do NOT affect Receivable/Payable (they belong to the Total
+ * Sales / Purchases figures only). Plain cash Received / Paid (the Cash Book
+ * buttons) also do NOT affect Receivable/Payable — a receipt/payment only moves
+ * Cash in Hand, so it never makes a party show as Receivable or Payable. Only a
+ * manual Receivable/Payable entry (or its settlement) changes this balance.
  */
 export function computePartyBalances(data: DataSet, period: Period): PartyBalance[] {
   return data.parties.map((party) => {
     const opening = openingPartyBalance(party, period, data.closings, data.opening);
     let balance = opening;
 
-    data.cash
-      .filter((c) => c.partyId === party.id && inPeriod(c, period))
-      .forEach((c) => {
-        if (c.direction === 'received') balance -= c.amount;
-        else balance += c.amount;
-      });
-    // Manual party adjustments: +receivable / -payable (no cash effect).
+    // Manual party adjustments only: +receivable / -payable (no cash effect).
+    // (Plain cash Received/Paid is intentionally excluded — see doc above.)
     (data.partyAdjustments ?? [])
       .filter((a) => a.partyId === party.id && inPeriod(a, period))
       .forEach((a) => (balance += a.amount));
@@ -790,6 +787,8 @@ export function computeLedger(
       })
     );
 
+  // Cash Received / Paid appear in the ledger for REFERENCE (memo) only — they
+  // move Cash in Hand, NOT the party's Receivable/Payable running balance.
   data.cash
     .filter((c) => c.partyId === partyId && inPeriod(c, period))
     .forEach((c) =>
@@ -799,8 +798,9 @@ export function computeLedger(
         refType: 'cash',
         refId: c.id,
         description: describeCash(data, c),
-        debit: c.direction === 'paid' ? c.amount : 0,
-        credit: c.direction === 'received' ? c.amount : 0,
+        debit: 0,
+        credit: 0,
+        memo: c.amount,
         date: c.date,
         month: c.month,
         year: c.year,

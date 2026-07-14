@@ -218,10 +218,10 @@ export function CashBook() {
               <Icon name="purchase" size={16} /> Purchase
             </button>
             <button className="btn btn-green" onClick={() => setCashModal('received')}>
-              <Icon name="arrow-down" size={16} /> Received
+              <Icon name="arrow-down" size={16} /> Cash Receivable
             </button>
             <button className="btn btn-danger" onClick={() => setCashModal('paid')}>
-              <Icon name="arrow-up" size={16} /> Paid
+              <Icon name="arrow-up" size={16} /> Cash Payable
             </button>
           </div>
         </div>
