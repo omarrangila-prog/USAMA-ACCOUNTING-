@@ -71,9 +71,9 @@ export function Dashboard() {
         />
         <StatCard label="Total Sales" value={formatMoney(s.totalSaleAmount, cur)} icon="sale" accent="green" onClick={() => nav('/sale')} />
         <StatCard label="Total Purchases" value={formatMoney(s.totalPurchaseAmount, cur)} icon="purchase" accent="blue" onClick={() => nav('/purchase')} />
-        {/* Total Receivable = manual receivable + Profit (profit folded into the
-            amount to receive). Total Payable = manual payable. */}
-        <StatCard label="Total Receivable" value={formatMoney(s.netReceivable + s.totalProfitLoss, cur)} icon="receivable" accent="green" hint="Paise jo aap ne lene hain (profit included)" onClick={() => nav('/receivable')} />
+        {/* Total Receivable = manual/opening/cash receivable ONLY. Profit is a
+            separate figure and is NEVER folded into receivable. */}
+        <StatCard label="Total Receivable" value={formatMoney(s.netReceivable, cur)} icon="receivable" accent="green" hint="Paise jo aap ne lene hain" onClick={() => nav('/receivable')} />
         <StatCard label="Total Payable" value={formatMoney(s.netPayable, cur)} icon="payable" accent="red" hint="Paise jo aap ne dene hain" onClick={() => nav('/payable')} />
         <StatCard
           label="Bonds"

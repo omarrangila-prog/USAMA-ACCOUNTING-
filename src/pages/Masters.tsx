@@ -3,7 +3,7 @@ import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
-import { computePartyBalances, computeStock, partyTradeTotals, type DataSet } from '@/lib/accounting';
+import { computePartyBalances, computeStock, partyTradeTotals, partyCashTotals, type DataSet } from '@/lib/accounting';
 import { formatMoney, cx, normalizeDenomination } from '@/lib/utils';
 import { toast } from '@/store/toast';
 import './masters.css';
@@ -181,6 +181,7 @@ function PartiesPanel() {
   const balances = computePartyBalances(dataset(), period);
   const balOf = (id: string) => balances.find((b) => b.partyId === id)?.balance ?? 0;
   const tradeOf = (id: string) => partyTradeTotals(dataset(), id, period);
+  const cashOf = (id: string) => partyCashTotals(dataset(), id, period);
 
   const add = async () => {
     if (!name.trim()) { toast.error('Enter a party name.'); return; }
@@ -229,7 +230,12 @@ function PartiesPanel() {
           <div className="table-wrap">
             <table className="grid">
               <thead>
-                <tr><th>Name</th><th>Phone</th><th className="num">Purchased</th><th className="num">Sold</th><th className="num">Balance</th><th className="no-print"></th></tr>
+                <tr>
+                  <th>Name</th><th>Phone</th>
+                  <th className="num">Total Purchase</th><th className="num">Total Sale</th>
+                  <th className="num">Paid</th><th className="num">Received</th>
+                  <th className="num">Balance</th><th>Status</th><th className="no-print"></th>
+                </tr>
               </thead>
               <tbody>
                 {parties.map((p) => {
@@ -250,8 +256,13 @@ function PartiesPanel() {
                       </td>
                       <td className="num mono">{formatMoney(tradeOf(p.id).purchased, cur)}</td>
                       <td className="num mono">{formatMoney(tradeOf(p.id).sold, cur)}</td>
+                      <td className="num mono">{formatMoney(cashOf(p.id).paid, cur)}</td>
+                      <td className="num mono">{formatMoney(cashOf(p.id).received, cur)}</td>
                       <td className={cx('num mono', bal > 0 ? 'pos' : bal < 0 ? 'neg' : '')}>
                         {formatMoney(Math.abs(bal), cur)} {bal > 0 ? 'Dr' : bal < 0 ? 'Cr' : ''}
+                      </td>
+                      <td className={cx(bal > 0 ? 'pos' : bal < 0 ? 'neg' : '')}>
+                        {bal > 0 ? 'Receivable' : bal < 0 ? 'Payable' : 'Settled'}
                       </td>
                       <td className="no-print">
                         <div className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>

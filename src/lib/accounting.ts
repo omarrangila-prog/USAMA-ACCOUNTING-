@@ -333,6 +333,14 @@ export function partyTradeTotals(data: DataSet, partyId: string, period: Period)
   return { purchased, sold };
 }
 
+/** Total cash Received from / Paid to a party this period, in Rs. */
+export function partyCashTotals(data: DataSet, partyId: string, period: Period): { received: number; paid: number } {
+  const rows = data.cash.filter((c) => c.partyId === partyId && inPeriod(c, period));
+  const received = round2(rows.filter((c) => c.direction === 'received').reduce((a, c) => a + c.amount, 0));
+  const paid = round2(rows.filter((c) => c.direction === 'paid').reduce((a, c) => a + c.amount, 0));
+  return { received, paid };
+}
+
 /**
  * Party running balances for a period.
  *
@@ -741,17 +749,15 @@ export function computeTrialBalance(data: DataSet, period: Period): TrialBalance
 }
 
 /**
- * Period profit = trading profit (sale revenue - weighted-avg COGS)
- * plus other income minus expenses.
+ * Period profit = trading profit ONLY (sale revenue − weighted-avg cost of
+ * sales). Expenses and other income are NOT included (client rule), and profit
+ * is never folded into Receivable/Payable.
  */
 export function computeProfitLoss(data: DataSet, period: Period): number {
-  // Net Profit = trading profit (sale − purchase cost) + other income − expenses.
+  // Profit = trading profit ONLY = Σ (sale amount − weighted-avg cost of sales).
+  // Expenses / other income do NOT reduce or increase this figure (client rule).
   // Single source of truth for the Profit figure across every screen/report.
-  const trading = data.sales
-    .filter((s) => inPeriod(s, period))
-    .reduce((a, s) => a + saleProfitLive(data, s, period), 0);
-  const { net } = computeExpenseNet(data, period); // net = income − expense
-  return round2(trading + net);
+  return computeTradingProfit(data, period);
 }
 
 /** Trading-only profit (before expenses/income), for reporting clarity. */
