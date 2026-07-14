@@ -98,9 +98,6 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
                         <button className={`btn btn-sm ${isRec ? 'btn-green' : 'btn-danger'}`} onClick={() => setPayFor(r)}>
                           <Icon name={isRec ? 'arrow-down' : 'arrow-up'} size={14} /> {isRec ? 'Receive' : 'Pay'}
                         </button>
-                        <button className="btn btn-ghost btn-sm" onClick={() => nav(`/ledger?party=${r.partyId}`)}>
-                          <Icon name="ledger" size={14} /> Ledger
-                        </button>
                       </div>
                     </td>
                   </tr>

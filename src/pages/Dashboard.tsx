@@ -67,7 +67,7 @@ export function Dashboard() {
           accent={s.totalProfitLoss >= 0 ? 'green' : 'red'}
           trend={s.totalProfitLoss > 0 ? 'up' : s.totalProfitLoss < 0 ? 'down' : null}
           hint={s.totalProfitLoss >= 0 ? 'Business profit mein hai' : 'Business loss mein hai'}
-          onClick={() => nav('/reports')}
+          onClick={() => nav('/')}
         />
         <StatCard label="Total Sales" value={formatMoney(s.totalSaleAmount, cur)} icon="sale" accent="green" onClick={() => nav('/sale')} />
         <StatCard label="Total Purchases" value={formatMoney(s.totalPurchaseAmount, cur)} icon="purchase" accent="blue" onClick={() => nav('/purchase')} />

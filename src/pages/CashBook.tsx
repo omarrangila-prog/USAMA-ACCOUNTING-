@@ -5,6 +5,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
 import { AddTransactionModal, type TxnKind } from '@/components/AddTransaction';
+import { TradeModal, CashModal, AdjustmentModal } from '@/components/TransactionModals';
+import type { CashDirection } from '@/types';
 import {
   computeTransactionBook,
   computeCashInHand,
@@ -32,13 +34,25 @@ export function CashBook() {
 
   const [addTxn, setAddTxn] = useState(false);
   const [expenseModal, setExpenseModal] = useState(false);
+  const [tradeModal, setTradeModal] = useState<'purchase' | 'sale' | null>(null);
+  const [cashModal, setCashModal] = useState<CashDirection | null>(null);
+  const [adjModal, setAdjModal] = useState<'receivable' | 'payable' | null>(null);
+  const [modalParty, setModalParty] = useState('');
   const [filter, setFilter] = useState<TxnBookType | 'all'>('all');
 
-  // "?new=1" opens the chooser straight away (used by the global + button / nav).
+  // Deep-links: "?new=1" opens the chooser; "?cash=received|paid" opens the cash
+  // modal directly (used by keyboard shortcuts / the global + button).
   useEffect(() => {
     if (params.get('new') === '1') {
       setAddTxn(true);
       params.delete('new');
+      setParams(params, { replace: true });
+    }
+    const c = params.get('cash');
+    if (c === 'received' || c === 'paid') {
+      setModalParty('');
+      setCashModal(c);
+      params.delete('cash');
       setParams(params, { replace: true });
     }
   }, [params]);
@@ -61,18 +75,17 @@ export function CashBook() {
   const totalIn = rows.reduce((a, r) => a + (r.cashDelta > 0 ? r.cashDelta : 0), 0);
   const totalOut = rows.reduce((a, r) => a + (r.cashDelta < 0 ? -r.cashDelta : 0), 0);
 
-  /** Route each chosen transaction type to the EXISTING form/modal. */
+  /** Open the matching entry modal (all reuse the EXISTING write logic). */
   const handleAddTxn = (kind: TxnKind, partyId: string) => {
-    const q = partyId ? `?party=${partyId}` : '';
+    setModalParty(partyId);
     switch (kind) {
-      case 'purchase': nav(`/purchase${q}`); break;
-      case 'sale': nav(`/sale${q}`); break;
-      case 'stock': nav('/stock'); break;
-      // Cash + adjustment reuse the Ledger's existing modals via deep-link.
-      case 'received': nav(`/ledger?party=${partyId}&cash=received`); break;
-      case 'paid': nav(`/ledger?party=${partyId}&cash=paid`); break;
-      case 'receivable': nav(`/ledger?party=${partyId}&add=receivable`); break;
-      case 'payable': nav(`/ledger?party=${partyId}&add=payable`); break;
+      case 'purchase': setTradeModal('purchase'); break;
+      case 'sale': setTradeModal('sale'); break;
+      case 'stock': nav('/stock'); break;   // Stock page kept
+      case 'received': setCashModal('received'); break;
+      case 'paid': setCashModal('paid'); break;
+      case 'receivable': setAdjModal('receivable'); break;
+      case 'payable': setAdjModal('payable'); break;
     }
   };
 
@@ -148,7 +161,6 @@ export function CashBook() {
                   <th>Date</th><th>Voucher #</th><th>Type</th><th>Party</th><th>Details</th>
                   <th className="num">Qty</th><th className="num">Rate</th>
                   <th className="num">Amount</th><th className="num">Cash Balance</th>
-                  <th className="no-print"></th>
                 </tr>
               </thead>
               <tbody>
@@ -166,16 +178,6 @@ export function CashBook() {
                     </td>
                     <td data-label="Cash Balance" className={cx('num mono stmt-bal', running >= 0 ? 'pos' : 'neg')}>
                       {r.cashDelta === 0 ? '—' : formatMoney(running, cur)}
-                    </td>
-                    <td className="no-print actions-cell">
-                      <button
-                        className="btn btn-ghost btn-icon btn-sm"
-                        title="Open in ledger"
-                        onClick={() => r.partyId && nav(`/ledger?party=${r.partyId}`)}
-                        disabled={!r.partyId}
-                      >
-                        <Icon name="ledger" size={14} />
-                      </button>
                     </td>
                   </tr>
                 ))}
@@ -196,6 +198,9 @@ export function CashBook() {
         onClose={() => setAddTxn(false)}
         onPick={handleAddTxn}
       />
+      <TradeModal kind={tradeModal} onClose={() => setTradeModal(null)} />
+      <CashModal direction={cashModal} defaultParty={modalParty} onClose={() => setCashModal(null)} />
+      <AdjustmentModal kind={adjModal} defaultParty={modalParty} onClose={() => setAdjModal(null)} />
       <ExpenseModal open={expenseModal} onClose={() => setExpenseModal(false)} />
     </div>
   );

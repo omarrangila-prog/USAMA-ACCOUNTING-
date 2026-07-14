@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useData } from '@/store/dataStore';
 import { Icon, type IconName } from './ui/Icon';
 import './command.css';
 
@@ -10,7 +9,6 @@ export function CommandPalette({
   open, onClose, onSmart,
 }: { open: boolean; onClose: () => void; onSmart: () => void }) {
   const nav = useNavigate();
-  const { parties } = useData();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -24,25 +22,13 @@ export function CommandPalette({
       { id: 'sal', label: 'New Sale', sub: 'F3', icon: 'sale', run: go('/sale') },
       { id: 'exp', label: 'Expense / Income', sub: 'In Cash Book', icon: 'wallet', run: go('/cashbook') },
       { id: 'stk', label: 'Stock', icon: 'stock', run: go('/stock') },
-      { id: 'parties', label: 'Parties', sub: 'Add / edit parties', icon: 'user', run: go('/parties') },
-      { id: 'bonds', label: 'Bond Types', sub: 'Add / edit bonds', icon: 'wallet', run: go('/bond-types') },
       { id: 'rec', label: 'Receivable', icon: 'receivable', run: go('/receivable') },
       { id: 'pay', label: 'Payable', icon: 'payable', run: go('/payable') },
-      { id: 'led', label: 'Ledger', sub: 'F6', icon: 'ledger', run: go('/ledger') },
       { id: 'tb', label: 'Trial Balance', icon: 'trial', run: go('/trial-balance') },
-      { id: 'rep', label: 'Reports', sub: 'F7', icon: 'reports', run: go('/reports') },
-      { id: 'set', label: 'Settings', icon: 'settings', run: go('/settings') },
       { id: 'smart', label: 'Smart Entry', sub: 'Type naturally', icon: 'sparkles', run: () => { onClose(); onSmart(); } },
     ];
-    const partyCmds: Cmd[] = parties.map((p) => ({
-      id: 'party-' + p.id,
-      label: p.name,
-      sub: 'Open ledger',
-      icon: 'ledger',
-      run: () => { nav(`/ledger?party=${p.id}`); onClose(); },
-    }));
-    return [...pages, ...partyCmds];
-  }, [parties, nav, onClose, onSmart]);
+    return pages;
+  }, [nav, onClose, onSmart]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();

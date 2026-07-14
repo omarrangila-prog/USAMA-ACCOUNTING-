@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/store/authStore';
 import { useData } from '@/store/dataStore';
 import { Icon } from '../ui/Icon';
@@ -16,7 +15,6 @@ interface Props {
 }
 
 export function Topbar({ onMenu, onSearch, onSmart }: Props) {
-  const nav = useNavigate();
   const { mockMode } = useAuth();
   const { period, setPeriod, online, dataset, settings } = useData();
   const { lang, setLang } = useI18n();
@@ -121,10 +119,10 @@ export function Topbar({ onMenu, onSearch, onSmart }: Props) {
       </div>
 
       <div className="user-menu">
-        <button className="user-btn" onClick={() => nav('/settings')} title="Business settings">
+        <div className="user-btn" title={settings.businessName || 'Owner'}>
           <span className="avatar">{(settings.businessName || 'B')[0].toUpperCase()}</span>
           <span className="user-name">{settings.businessName || 'Owner'}</span>
-        </button>
+        </div>
       </div>
     </header>
   );

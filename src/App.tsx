@@ -9,15 +9,11 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Toasts } from '@/components/ui/Toasts';
 import { Dashboard } from '@/pages/Dashboard';
 import { CashBook } from '@/pages/CashBook';
-import { Masters } from '@/pages/Masters';
 import { Purchase } from '@/pages/Purchase';
 import { Sale } from '@/pages/Sale';
 import { Stock } from '@/pages/Stock';
 import { Balances } from '@/pages/Balances';
-import { Ledger } from '@/pages/Ledger';
 import { TrialBalance } from '@/pages/TrialBalance';
-import { Reports } from '@/pages/Reports';
-import { Settings } from '@/pages/Settings';
 
 function Splash() {
   return (
@@ -65,17 +61,12 @@ export default function App() {
           <Route path="/" element={<CashBook />} />
           <Route path="/cashbook" element={<CashBook />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/parties" element={<Masters initialTab="parties" />} />
-          <Route path="/bond-types" element={<Masters initialTab="bonds" />} />
           <Route path="/purchase" element={<Purchase />} />
           <Route path="/sale" element={<Sale />} />
           <Route path="/stock" element={<Stock />} />
           <Route path="/receivable" element={<Balances kind="receivable" />} />
           <Route path="/payable" element={<Balances kind="payable" />} />
-          <Route path="/ledger" element={<Ledger />} />
           <Route path="/trial-balance" element={<TrialBalance />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

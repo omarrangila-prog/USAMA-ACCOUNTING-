@@ -9,6 +9,10 @@ import type { PaymentMode } from '@/types';
 
 interface Props {
   kind: 'purchase' | 'sale';
+  /** Render without the outer card chrome (used inside a modal). */
+  embedded?: boolean;
+  /** Fired after a successful save (e.g. to close a wrapping modal). */
+  onSaved?: () => void;
 }
 
 /**
@@ -21,7 +25,7 @@ interface Props {
  * New entries default their date to the month currently selected in the top bar
  * (not today), so working "inside a month" needs no date changes.
  */
-export function TransactionForm({ kind }: Props) {
+export function TransactionForm({ kind, embedded = false, onSaved }: Props) {
   const store = useData();
   const t = useT();
   const isSale = kind === 'sale';
@@ -95,6 +99,7 @@ export function TransactionForm({ kind }: Props) {
         setNote('');
         setTouched(false);
         setTimeout(() => bondRef.current?.focus(), 20);
+        onSaved?.();
       }
     } finally {
       setSubmitting(false);
@@ -119,13 +124,15 @@ export function TransactionForm({ kind }: Props) {
   };
 
   return (
-    <div className="card entry-form">
-      <div className="section-title">
-        <Icon name={isSale ? 'sale' : 'purchase'} size={16} />
-        {isSale ? t('b.newSale') : t('b.newPurchase')}
-        <span className="spacer" />
-        <span className="faint kbd-hint">Enter · ⌘S</span>
-      </div>
+    <div className={cx(!embedded && 'card', 'entry-form')}>
+      {!embedded && (
+        <div className="section-title">
+          <Icon name={isSale ? 'sale' : 'purchase'} size={16} />
+          {isSale ? t('b.newSale') : t('b.newPurchase')}
+          <span className="spacer" />
+          <span className="faint kbd-hint">Enter · ⌘S</span>
+        </div>
+      )}
 
       <div className="form-grid">
         <div className="field">
