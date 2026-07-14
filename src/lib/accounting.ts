@@ -682,17 +682,21 @@ export function computeCashBookSummary(data: DataSet, period: Period): CashBookS
   const totalPaid = round2(cashRows.filter((c) => c.direction === 'paid').reduce((a, c) => a + c.amount, 0));
 
   const fin = computeFinancials(data, period);
+  const { expense } = computeExpenseNet(data, period);
 
   return {
     totalSales,
     totalPurchases,
     totalReceived,
     totalPaid,
-    // Client formula: (Sales − Purchases) + (Received − Paid).
-    cashInHand: round2((totalSales - totalPurchases) + (totalReceived - totalPaid)),
+    // Client formula: (Sales − Purchases) + (Received − Paid) − Expenses.
+    // Expenses reduce cash; sales are already counted so net profit is NOT
+    // re-added (that would double-count sales).
+    cashInHand: round2((totalSales - totalPurchases) + (totalReceived - totalPaid) - expense),
     receivable: fin.netReceivable,
     payable: fin.netPayable,
-    profit: computeTradingProfit(data, period),
+    // Net Profit = trading − expenses (same single source of truth everywhere).
+    profit: computeProfitLoss(data, period),
     txnCount: computeTransactionBook(data, period).length,
   };
 }
@@ -882,10 +886,12 @@ export function computeTrialBalance(data: DataSet, period: Period): TrialBalance
   // NOT to Cash in Hand. They flow into Profit/Loss below.
   if (expense !== 0) rows.push({ name: 'Expenses', debit: expense, credit: 0 });
   if (income !== 0) rows.push({ name: 'Other Income', debit: 0, credit: income });
+  // Profit / (Loss) shown on the DEBIT side (client preference): a positive
+  // profit sits in the debit column, a loss in the credit column.
   rows.push({
     name: 'Profit / (Loss)',
-    debit: profit < 0 ? Math.abs(profit) : 0,
-    credit: profit > 0 ? profit : 0,
+    debit: profit > 0 ? profit : 0,
+    credit: profit < 0 ? Math.abs(profit) : 0,
   });
 
   // NOTE: We intentionally DO NOT add an auto-calculated "Opening Capital /
@@ -910,10 +916,11 @@ export function computeTrialBalance(data: DataSet, period: Period): TrialBalance
  * is never folded into Receivable/Payable.
  */
 export function computeProfitLoss(data: DataSet, period: Period): number {
-  // Profit = trading profit ONLY = Σ (sale amount − weighted-avg cost of sales).
-  // Expenses / other income do NOT reduce or increase this figure (client rule).
-  // Single source of truth for the Profit figure across every screen/report.
-  return computeTradingProfit(data, period);
+  // Net Profit = trading profit (Sales − Cost of Sales) − Expenses.
+  // (Other income is NOT added — client rule.) Single source of truth for the
+  // Profit figure across every screen/report.
+  const { expense } = computeExpenseNet(data, period);
+  return round2(computeTradingProfit(data, period) - expense);
 }
 
 /** Trading-only profit (before expenses/income), for reporting clarity. */

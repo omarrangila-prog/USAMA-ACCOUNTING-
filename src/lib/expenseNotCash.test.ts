@@ -19,25 +19,26 @@ const dataset = (over: Partial<DataSet>): DataSet => ({
 } as DataSet);
 
 describe('Expense treatment', () => {
-  it('example: expense 2,000, no cash → Cash in Hand 0, Profit 0 (trading only)', () => {
+  it('example: expense 2,000 → physical cash unchanged, but Profit −2,000', () => {
     const data = dataset({ expenses: [expense('e', 2000)] });
-    expect(computeCashInHand(data, P)).toBe(0);         // no CASH movement
+    // Physical cash (computeCashInHand) is NOT touched by expenses.
+    expect(computeCashInHand(data, P)).toBe(0);
     expect(computeFinancials(data, P).cashInHand).toBe(0);
-    expect(computeProfitLoss(data, P)).toBe(0);         // expense does NOT reduce profit
+    // Net Profit = trading(0) − expense(2000) = −2000.
+    expect(computeProfitLoss(data, P)).toBe(-2000);
   });
 
-  it('expense affects neither CASH nor PROFIT (trading-only profit)', () => {
-    // Cash sale 700k (no matching purchase → cost 0 → trading profit 700k).
-    // Expense 100k leaves BOTH cash (700k) and profit (700k) unchanged.
+  it('expense reduces PROFIT (Sales−Cost−Expenses); physical cash unchanged', () => {
+    // Cash sale 700k (cost 0 → trading 700k). Expense 100k → profit 600k.
     const data = dataset({ sales: [cashSale('s', 700000)], expenses: [expense('e', 100000)] });
-    expect(computeCashInHand(data, P)).toBe(700000);    // expense not deducted from cash
-    expect(computeProfitLoss(data, P)).toBe(700000);    // expense does NOT reduce profit
+    expect(computeCashInHand(data, P)).toBe(700000);       // physical cash unaffected
+    expect(computeProfitLoss(data, P)).toBe(600000);       // 700k − 100k expense
   });
 
-  it('income affects neither CASH nor PROFIT', () => {
+  it('income does NOT raise profit (only expenses subtract)', () => {
     const data = dataset({ expenses: [income('i', 50000)] });
     expect(computeCashInHand(data, P)).toBe(0);
-    expect(computeProfitLoss(data, P)).toBe(0);         // income does NOT raise profit
+    expect(computeProfitLoss(data, P)).toBe(0);            // income excluded from profit
   });
 
   it('Trial Balance shows an Expenses account (not inside Cash in Hand)', () => {
