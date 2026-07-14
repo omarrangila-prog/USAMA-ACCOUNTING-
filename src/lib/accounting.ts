@@ -544,6 +544,103 @@ export function computeCashBook(data: DataSet, period: Period): CashBookLine[] {
   return lines.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
+/**
+ * Unified Cash Book / transaction view. ONE reactive list over the existing
+ * collections — every Purchase, Sale, Cash Receipt, Cash Payment, Expense and
+ * Adjustment written to Firebase appears here as a typed row. This is a pure
+ * projection: it adds NO writes and changes NO existing calculation.
+ *
+ * `cashDelta` is the row's effect on physical Cash in Hand (signed): cash
+ * sales/receipts/income are +, cash purchases/payments/expenses are −, and
+ * credit trades / manual adjustments are 0 (they show but don't move cash). The
+ * running total of cashDelta therefore reconciles with computeCashInHand.
+ */
+export type TxnBookType =
+  | 'Purchase' | 'Sale' | 'Receipt' | 'Payment' | 'Expense' | 'Income' | 'Adjustment';
+
+export interface TxnBookRow {
+  id: string;          // stable, collection-qualified (e.g. "sale:<docId>")
+  refId: string;       // raw Firestore document id
+  collection: 'purchases' | 'sales' | 'cashTransactions' | 'expenses' | 'partyAdjustments';
+  date: string;
+  createdAt: number;
+  voucher: string;     // human voucher no (PUR-01, SAL-02, …)
+  type: TxnBookType;
+  partyId?: string;
+  partyName: string;
+  description: string;
+  qty?: number;        // bond trades only
+  rate?: number;       // bond trades only
+  amount: number;      // gross transaction value (always positive)
+  cashDelta: number;   // signed effect on physical cash (0 = non-cash row)
+}
+
+export function computeTransactionBook(data: DataSet, period: Period): TxnBookRow[] {
+  const rows: TxnBookRow[] = [];
+  const seq: Record<string, number> = {};
+  const voucher = (prefix: string) => {
+    seq[prefix] = (seq[prefix] ?? 0) + 1;
+    return `${prefix}-${String(seq[prefix]).padStart(2, '0')}`;
+  };
+
+  data.purchases.filter((p) => inPeriod(p, period)).forEach((p) =>
+    rows.push({
+      id: 'purchase:' + p.id, refId: p.id, collection: 'purchases',
+      date: p.date, createdAt: p.createdAt, voucher: voucher('PUR'), type: 'Purchase',
+      partyId: p.partyId, partyName: nameOfParty(data, p.partyId),
+      description: describePurchase(data, p), qty: p.quantity, rate: p.rate,
+      amount: p.amount, cashDelta: p.payment === 'cash' ? -p.amount : 0,
+    })
+  );
+  data.sales.filter((s) => inPeriod(s, period)).forEach((s) =>
+    rows.push({
+      id: 'sale:' + s.id, refId: s.id, collection: 'sales',
+      date: s.date, createdAt: s.createdAt, voucher: voucher('SAL'), type: 'Sale',
+      partyId: s.partyId, partyName: nameOfParty(data, s.partyId),
+      description: describeSale(data, s), qty: s.quantity, rate: s.rate,
+      amount: s.amount, cashDelta: s.receipt === 'cash' ? s.amount : 0,
+    })
+  );
+  data.cash.filter((c) => inPeriod(c, period)).forEach((c) => {
+    const received = c.direction === 'received';
+    rows.push({
+      id: 'cash:' + c.id, refId: c.id, collection: 'cashTransactions',
+      date: c.date, createdAt: c.createdAt,
+      voucher: voucher(received ? 'RCV' : 'PAY'), type: received ? 'Receipt' : 'Payment',
+      partyId: c.partyId, partyName: nameOfParty(data, c.partyId),
+      description: describeCash(data, c),
+      amount: c.amount, cashDelta: received ? c.amount : -c.amount,
+    });
+  });
+  (data.expenses ?? []).filter((e) => inPeriod(e, period)).forEach((e) => {
+    const income = e.kind === 'income';
+    rows.push({
+      id: 'expense:' + e.id, refId: e.id, collection: 'expenses',
+      date: e.date, createdAt: e.createdAt,
+      voucher: voucher(income ? 'INC' : 'EXP'), type: income ? 'Income' : 'Expense',
+      partyName: income ? `Income · ${e.category}` : `Expense · ${e.category}`,
+      description: e.description?.trim() || (income ? `Income · ${e.category}` : `Expense · ${e.category}`),
+      // Expenses/income are NON-cash in this engine (see computeCashInHand) —
+      // they post to their own account, so they do NOT move Cash in Hand.
+      amount: e.amount, cashDelta: 0,
+    });
+  });
+  (data.partyAdjustments ?? []).filter((a) => inPeriod(a, period)).forEach((a) =>
+    rows.push({
+      id: 'adjustment:' + a.id, refId: a.id, collection: 'partyAdjustments',
+      date: a.date, createdAt: a.createdAt, voucher: voucher('ADJ'), type: 'Adjustment',
+      partyId: a.partyId, partyName: nameOfParty(data, a.partyId),
+      description: describeAdjustment(a),
+      amount: Math.abs(a.amount), cashDelta: 0,
+    })
+  );
+
+  // Chronological, stable by creation order for same-day rows.
+  return rows.sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : a.createdAt - b.createdAt
+  );
+}
+
 /** Total imported bank/"file" account balances (assets), shown from opening on. */
 export function computeFileBalance(opening: OpeningBalances | null | undefined): number {
   if (!opening) return 0;

@@ -7,7 +7,8 @@ import './sidebar.css';
 interface NavItem { to: string; tkey: string; icon: IconName; shortcut?: string; }
 
 const items: NavItem[] = [
-  { to: '/', tkey: 'nav.dashboard', icon: 'dashboard' },
+  { to: '/', tkey: 'nav.cashbook', icon: 'wallet', shortcut: 'F1' },
+  { to: '/dashboard', tkey: 'nav.dashboard', icon: 'dashboard' },
   { to: '/purchase', tkey: 'nav.purchase', icon: 'purchase', shortcut: 'F2' },
   { to: '/sale', tkey: 'nav.sale', icon: 'sale', shortcut: 'F3' },
   { to: '/stock', tkey: 'nav.stock', icon: 'stock' },

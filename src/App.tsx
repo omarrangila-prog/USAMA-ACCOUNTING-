@@ -8,6 +8,7 @@ import { PinLock, isUnlocked } from '@/components/PinLock';
 import { AppShell } from '@/components/layout/AppShell';
 import { Toasts } from '@/components/ui/Toasts';
 import { Dashboard } from '@/pages/Dashboard';
+import { CashBook } from '@/pages/CashBook';
 import { Masters } from '@/pages/Masters';
 import { Purchase } from '@/pages/Purchase';
 import { Sale } from '@/pages/Sale';
@@ -60,7 +61,10 @@ export default function App() {
       <Toasts />
       <Routes>
         <Route element={<AppShell />}>
-          <Route path="/" element={<Dashboard />} />
+          {/* Cash Book is the primary working screen. */}
+          <Route path="/" element={<CashBook />} />
+          <Route path="/cashbook" element={<CashBook />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/parties" element={<Masters initialTab="parties" />} />
           <Route path="/bond-types" element={<Masters initialTab="bonds" />} />
           <Route path="/purchase" element={<Purchase />} />

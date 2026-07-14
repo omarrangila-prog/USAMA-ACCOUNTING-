@@ -18,10 +18,11 @@ export function CommandPalette({
   const commands = useMemo<Cmd[]>(() => {
     const go = (to: string) => () => { nav(to); onClose(); };
     const pages: Cmd[] = [
-      { id: 'dash', label: 'Dashboard', icon: 'dashboard', run: go('/') },
+      { id: 'cash', label: 'Cash Book', sub: 'All transactions', icon: 'wallet', run: go('/') },
+      { id: 'dash', label: 'Dashboard', icon: 'dashboard', run: go('/dashboard') },
       { id: 'pur', label: 'New Purchase', sub: 'F2', icon: 'purchase', run: go('/purchase') },
       { id: 'sal', label: 'New Sale', sub: 'F3', icon: 'sale', run: go('/sale') },
-      { id: 'exp', label: 'Expenses & Income', icon: 'wallet', run: go('/expenses') },
+      { id: 'exp', label: 'Expense / Income', sub: 'In Cash Book', icon: 'wallet', run: go('/cashbook') },
       { id: 'stk', label: 'Stock', icon: 'stock', run: go('/stock') },
       { id: 'parties', label: 'Parties', sub: 'Add / edit parties', icon: 'user', run: go('/parties') },
       { id: 'bonds', label: 'Bond Types', sub: 'Add / edit bonds', icon: 'wallet', run: go('/bond-types') },
