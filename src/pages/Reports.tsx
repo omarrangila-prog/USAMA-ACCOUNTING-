@@ -101,7 +101,7 @@ export function Reports() {
                 <tr>
                   <th>Party</th>
                   <th className="num">Total Purchased</th><th className="num">Total Sold</th>
-                  <th className="num">Paid</th><th className="num">Received</th>
+                  <th className="num">Payable</th><th className="num">Receivable</th>
                   <th className="num">Balance</th><th>Status</th>
                 </tr>
               </thead>
@@ -111,8 +111,8 @@ export function Reports() {
                     <td data-label="Party"><strong>{r.name}</strong></td>
                     <td data-label="Total Purchased" className="num mono">{formatMoney(r.purchased, cur)}</td>
                     <td data-label="Total Sold" className="num mono">{formatMoney(r.sold, cur)}</td>
-                    <td data-label="Paid" className="num mono">{formatMoney(r.paid, cur)}</td>
-                    <td data-label="Received" className="num mono">{formatMoney(r.received, cur)}</td>
+                    <td data-label="Payable" className="num mono">{formatMoney(r.paid, cur)}</td>
+                    <td data-label="Receivable" className="num mono">{formatMoney(r.received, cur)}</td>
                     <td data-label="Balance" className={cx('num mono', r.balance > 0 ? 'pos' : r.balance < 0 ? 'neg' : '')}>
                       {formatMoney(Math.abs(r.balance), cur)} {r.balance > 0 ? 'Dr' : r.balance < 0 ? 'Cr' : ''}
                     </td>
