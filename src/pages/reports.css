@@ -3,23 +3,32 @@
 .tb-status.ok .tb-status-icon { background: var(--green); }
 .tb-status.bad .tb-status-icon { background: var(--orange); }
 
-.report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+/* Column layout: title row on top, action icons row below — so the text and
+   the 4 action icons never overlap regardless of tile width. */
 .report-tile {
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 12px 10px 16px; border-radius: var(--radius);
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 14px; border-radius: var(--radius);
   border: 1px solid var(--stroke); background: rgba(255,255,255,0.6);
   transition: all 0.15s;
 }
 .report-tile:hover { background: #fff; box-shadow: var(--shadow); border-color: var(--blue); }
 .report-tile .rt-main {
-  display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;
-  border: none; background: transparent; cursor: pointer; text-align: left; padding: 6px 0;
+  display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0;
+  border: none; background: transparent; cursor: pointer; text-align: left; padding: 0;
 }
+.report-tile .rt-main .col { min-width: 0; }
 .report-tile .rt-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff; flex-shrink: 0; }
 .report-tile strong { font-size: 14px; }
-.report-tile .rt-desc { font-size: 12px; color: var(--text-soft); }
-.rt-actions { display: flex; gap: 2px; flex-shrink: 0; }
-@media (max-width: 480px) { .rt-actions { flex-direction: column; } }
+.report-tile .rt-desc {
+  font-size: 12px; color: var(--text-soft);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Actions sit on their own row, right-aligned, separated by a hairline. */
+.rt-actions {
+  display: flex; gap: 4px; justify-content: flex-end;
+  border-top: 1px solid var(--stroke); padding-top: 8px;
+}
 
 .close-panel {
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
