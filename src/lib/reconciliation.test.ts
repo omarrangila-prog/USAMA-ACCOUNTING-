@@ -107,29 +107,28 @@ describe('Reconciliation — receivable/payable come from manual entries only', 
     assertReconciled(data, 'A');
   });
 
-  it('CASH RECEIVED moves cash only; it does NOT change receivable/payable', () => {
-    // Manual receivable 500k → receivable 500k, cash 0.
-    let data = dataset({ parties: [party('A', 'Ali')], partyAdjustments: [adj('r', 'A', 500000)] });
-    expect(computePartyBalances(data, P).find((b) => b.partyId === 'A')!.balance).toBe(500000);
+  it('Cash Receivable (received) increases receivable; Cash Payable (paid) increases payable', () => {
+    // Name-matches-card: received => +receivable, paid => -payable.
+    const rec = dataset({ parties: [party('A', 'Ali')], cash: [cash('c1', 'A', 'received', 500000)] });
+    expect(computePartyBalances(rec, P).find((b) => b.partyId === 'A')!.balance).toBe(500000); // receivable
+    expect(computeFinancials(rec, P).netReceivable).toBe(500000);
+    expect(computeCashInHand(rec, P)).toBe(500000);
 
-    // Cash received 500k → cash +500k, but the RECEIVABLE is UNCHANGED (plain
-    // cash never settles or moves receivable/payable — only manual entries do).
-    data = { ...data, cash: [cash('c1', 'A', 'received', 500000)] };
-    expect(computePartyBalances(data, P).find((b) => b.partyId === 'A')!.balance).toBe(500000);
-    expect(computeCashInHand(data, P)).toBe(500000);
+    const pay = dataset({ parties: [party('A', 'Ali')], cash: [cash('c2', 'A', 'paid', 500000)] });
+    expect(computePartyBalances(pay, P).find((b) => b.partyId === 'A')!.balance).toBe(-500000); // payable
+    expect(computeFinancials(pay, P).netPayable).toBe(500000);
+    expect(computeCashInHand(pay, P)).toBe(-500000);
   });
 
-  it('cash received/paid on a settled party keeps it Settled (no phantom payable)', () => {
-    // The exact user scenario: Received 5k + Paid 3k on a settled party →
-    // balance stays 0 (Settled), only Cash in Hand moves.
+  it('Cash Receivable 5k then Cash Payable 3k on one party nets to Receivable 2k', () => {
     const data = dataset({
       parties: [party('A', 'Ali')],
       cash: [cash('c1', 'A', 'received', 5000), cash('c2', 'A', 'paid', 3000)],
     });
-    expect(computePartyBalances(data, P).find((b) => b.partyId === 'A')!.balance).toBe(0);
-    expect(computeFinancials(data, P).netReceivable).toBe(0);
+    expect(computePartyBalances(data, P).find((b) => b.partyId === 'A')!.balance).toBe(2000); // +5000 −3000
+    expect(computeFinancials(data, P).netReceivable).toBe(2000);
     expect(computeFinancials(data, P).netPayable).toBe(0);
-    expect(computeCashInHand(data, P)).toBe(2000); // +5000 − 3000
+    expect(computeCashInHand(data, P)).toBe(2000);
   });
 
   it('NO-party sale stays cash: hits Cash in Hand, no party balance', () => {

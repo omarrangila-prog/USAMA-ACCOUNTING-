@@ -346,22 +346,30 @@ export function partyCashTotals(data: DataSet, partyId: string, period: Period):
  *
  * Receivable / Payable come ONLY from:
  *   - the carried opening balance
- *   - manual Receivable / Payable entries (partyAdjustments), including the
- *     Receive/Pay SETTLEMENT adjustments recorded on the Balances pages.
+ *   - manual Receivable / Payable entries (partyAdjustments)
+ *   - cash Cash Receivable / Cash Payable against a party
  *
- * Sales & Purchases do NOT affect Receivable/Payable (they belong to the Total
- * Sales / Purchases figures only). Plain cash Received / Paid (the Cash Book
- * buttons) also do NOT affect Receivable/Payable — a receipt/payment only moves
- * Cash in Hand, so it never makes a party show as Receivable or Payable. Only a
- * manual Receivable/Payable entry (or its settlement) changes this balance.
+ * Sign (name-matches-card): a "Cash Receivable" entry (direction 'received')
+ * increases the party's RECEIVABLE (balance +); a "Cash Payable" entry
+ * (direction 'paid') increases the PAYABLE (balance −). So the amount always
+ * shows under the card whose name matches the button pressed.
+ *
+ * Sales & Purchases do NOT affect Receivable/Payable — they belong to the Total
+ * Sales / Purchases figures only.
  */
 export function computePartyBalances(data: DataSet, period: Period): PartyBalance[] {
   return data.parties.map((party) => {
     const opening = openingPartyBalance(party, period, data.closings, data.opening);
     let balance = opening;
 
-    // Manual party adjustments only: +receivable / -payable (no cash effect).
-    // (Plain cash Received/Paid is intentionally excluded — see doc above.)
+    // Cash Receivable (received) => +receivable; Cash Payable (paid) => -payable.
+    data.cash
+      .filter((c) => c.partyId === party.id && inPeriod(c, period))
+      .forEach((c) => {
+        if (c.direction === 'received') balance += c.amount;
+        else balance -= c.amount;
+      });
+    // Manual party adjustments: +receivable / -payable.
     (data.partyAdjustments ?? [])
       .filter((a) => a.partyId === party.id && inPeriod(a, period))
       .forEach((a) => (balance += a.amount));
@@ -553,7 +561,7 @@ export function computeCashBook(data: DataSet, period: Period): CashBookLine[] {
  * running total of cashDelta therefore reconciles with computeCashInHand.
  */
 export type TxnBookType =
-  | 'Purchase' | 'Sale' | 'Receipt' | 'Payment' | 'Expense' | 'Income' | 'Adjustment';
+  | 'Purchase' | 'Sale' | 'Receivable' | 'Payable' | 'Expense' | 'Income' | 'Adjustment';
 
 export interface TxnBookRow {
   id: string;          // stable, collection-qualified (e.g. "sale:<docId>")
@@ -603,7 +611,7 @@ export function computeTransactionBook(data: DataSet, period: Period): TxnBookRo
     rows.push({
       id: 'cash:' + c.id, refId: c.id, collection: 'cashTransactions',
       date: c.date, createdAt: c.createdAt,
-      voucher: voucher(received ? 'RCV' : 'PAY'), type: received ? 'Receipt' : 'Payment',
+      voucher: voucher(received ? 'RCV' : 'PAY'), type: received ? 'Receivable' : 'Payable',
       partyId: c.partyId, partyName: nameOfParty(data, c.partyId),
       description: describeCash(data, c),
       amount: c.amount, cashDelta: received ? c.amount : -c.amount,
@@ -787,8 +795,9 @@ export function computeLedger(
       })
     );
 
-  // Cash Received / Paid appear in the ledger for REFERENCE (memo) only — they
-  // move Cash in Hand, NOT the party's Receivable/Payable running balance.
+  // Cash Receivable (received) => debit (+receivable); Cash Payable (paid) =>
+  // credit (-payable). Matches computePartyBalances so the amount lands under
+  // the card whose name matches the button.
   data.cash
     .filter((c) => c.partyId === partyId && inPeriod(c, period))
     .forEach((c) =>
@@ -798,9 +807,8 @@ export function computeLedger(
         refType: 'cash',
         refId: c.id,
         description: describeCash(data, c),
-        debit: 0,
-        credit: 0,
-        memo: c.amount,
+        debit: c.direction === 'received' ? c.amount : 0,
+        credit: c.direction === 'paid' ? c.amount : 0,
         date: c.date,
         month: c.month,
         year: c.year,

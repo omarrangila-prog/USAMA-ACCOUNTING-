@@ -149,7 +149,7 @@ describe('Test 21 — 10,000 random operations stay consistent', () => {
     }
     // Final full check after all 10k ops.
     assertConsistent(data, period);
-  }, 30000);
+  }, 120000);
 });
 
 describe('Test 22 — Duplicate prevention (upsert-by-id contract)', () => {

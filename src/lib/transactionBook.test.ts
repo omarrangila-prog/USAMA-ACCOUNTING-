@@ -40,7 +40,7 @@ describe('Cash Book — unified transaction view', () => {
     const rows = computeTransactionBook(data, P);
     expect(rows).toHaveLength(5);
     expect(rows.map((r) => r.type).sort()).toEqual(
-      ['Adjustment', 'Expense', 'Purchase', 'Receipt', 'Sale'].sort()
+      ['Adjustment', 'Expense', 'Purchase', 'Receivable', 'Sale'].sort()
     );
   });
 

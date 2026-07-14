@@ -55,9 +55,8 @@ describe('Cash-event rules (QA A–F) + closing snapshot (G, M)', () => {
   it('G/M. combined: closing cash = engine cash (single source of truth)', () => {
     // Cash events (no party): cash sale 700k − cash purchase 500k = +200k.
     // Party cash events (Ali): received 300k − paid 200k → rawCash 300k.
-    // New rule: sales/purchases AND cash do NOT affect a party's balance — only
-    // manual adjustments do. There are none here, so Ali's balance = 0 and both
-    // netReceivable and netPayable are 0. Cash still moves rawCash.
+    // Cash affects Ali's balance (received=+receivable, paid=-payable):
+    //   +300k − 200k = +100k → receivable 100k. Sales/purchases don't affect it.
     const data = dataset({
       sales: [sale('cs', '', 700000), sale('cr', 'A', 400000)],
       purchases: [purchase('cp', '', 500000)],
@@ -65,8 +64,8 @@ describe('Cash-event rules (QA A–F) + closing snapshot (G, M)', () => {
     });
     const fin = computeFinancials(data, P);
     expect(fin.rawCash).toBe(300000);            // 700k -500k +300k -200k
-    expect(fin.netReceivable).toBe(0);
-    expect(fin.netPayable).toBe(0);              // cash no longer creates payable
+    expect(fin.netReceivable).toBe(100000);      // Ali: +300k received −200k paid
+    expect(fin.netPayable).toBe(0);
     // Cash in Hand = PHYSICAL CASH ONLY = rawCash. Receivable/payable NOT folded
     // in. The monthly closing snapshots exactly this → carried cash == dashboard
     // == cash book == 300k.

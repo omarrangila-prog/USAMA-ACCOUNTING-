@@ -172,11 +172,10 @@ describe('Test 12 — Party ledger running balance is correct after every line',
     const entries = computeLedger(data, 'A', P);
     const running = ledgerRunningBalance(entries);
 
-    // New rule: sales, purchases AND cash are reference-only in the party
-    // ledger — only opening + manual adjustments move the running balance.
-    // Here there are no manual adjustments, so the ledger ends at opening(0).
-    // (The 500k purchase, 300k sale and 100k receipt are all reference/memo.)
-    expect(running[running.length - 1]).toBe(0);
+    // Rule: sales & purchases are reference-only (memo) in the party ledger,
+    // but cash Receivable/Payable DOES move it. Here: opening(0) + received
+    // 100k (Cash Receivable → +100,000). The 500k purchase & 300k sale are memo.
+    expect(running[running.length - 1]).toBe(100000);
     // Never NaN / undefined at any step.
     running.forEach((v) => expect(Number.isFinite(v)).toBe(true));
 

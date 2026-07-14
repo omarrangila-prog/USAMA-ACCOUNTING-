@@ -35,8 +35,8 @@ import './cashbook.css';
  *  Only those four types move cash; Adjustment / Expense / Income do not. */
 function cashSign(type: TxnBookType, amount: number): number {
   switch (type) {
-    case 'Sale': case 'Receipt': return amount;
-    case 'Purchase': case 'Payment': return -amount;
+    case 'Sale': case 'Receivable': return amount;
+    case 'Purchase': case 'Payable': return -amount;
     default: return 0; // Adjustment, Expense, Income
   }
 }
@@ -46,7 +46,7 @@ function ledgerEntryToRow(e: { refType: string; refId: string }): Pick<TxnBookRo
   switch (e.refType) {
     case 'purchase': return { collection: 'purchases', refId: e.refId, type: 'Purchase' };
     case 'sale': return { collection: 'sales', refId: e.refId, type: 'Sale' };
-    case 'cash': return { collection: 'cashTransactions', refId: e.refId, type: 'Receipt' };
+    case 'cash': return { collection: 'cashTransactions', refId: e.refId, type: 'Receivable' };
     case 'adjustment': return { collection: 'partyAdjustments', refId: e.refId, type: 'Adjustment' };
     default: return null; // opening / closing — not editable
   }
@@ -118,11 +118,11 @@ export function CashBook() {
   }, [viewParty, data, period]);
 
   const typeClass = (t: TxnBookType) =>
-    t === 'Sale' || t === 'Receipt' || t === 'Income' ? 'pos'
-    : t === 'Purchase' || t === 'Payment' || t === 'Expense' ? 'neg'
+    t === 'Sale' || t === 'Receivable' || t === 'Income' ? 'pos'
+    : t === 'Purchase' || t === 'Payable' || t === 'Expense' ? 'neg'
     : '';
 
-  const FILTERS: (TxnBookType | 'all')[] = ['all', 'Purchase', 'Sale', 'Receipt', 'Payment', 'Expense'];
+  const FILTERS: (TxnBookType | 'all')[] = ['all', 'Purchase', 'Sale', 'Receivable', 'Payable', 'Expense'];
 
   /** Open the right edit modal for a transaction row (by its collection). */
   const startEdit = (r: Pick<TxnBookRow, 'collection' | 'refId'>) => {
