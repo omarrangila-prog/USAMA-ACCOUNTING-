@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeFinancials,
+  computeCashBookSummary,
   computeDashboard,
   computeBusinessSummary,
   computePartyBalances,
@@ -64,11 +65,13 @@ function assertReconciled(data: DataSet, partyId: string) {
   const run = ledgerRunningBalance(computeLedger(data, partyId, P));
   expect(run[run.length - 1]).toBe(bal.balance);
 
-  // Dashboard == Business Summary == engine.
+  // Dashboard == Business Summary == Cash Book formula (display cash);
+  // receivable/payable == engine.
+  const cbCash = computeCashBookSummary(data, P).cashInHand;
   const d = computeDashboard(data, P);
   const bs = computeBusinessSummary(data, P);
-  expect(d.cashInHand).toBe(fin.cashInHand);
-  expect(bs.cashInHand).toBe(fin.cashInHand);
+  expect(d.cashInHand).toBe(cbCash);
+  expect(bs.cashInHand).toBe(cbCash);
   expect(d.cashReceivable).toBe(fin.netReceivable);
   expect(d.cashPayable).toBe(fin.netPayable);
   expect(bs.netReceivable).toBe(fin.netReceivable);
@@ -80,7 +83,7 @@ function assertReconciled(data: DataSet, partyId: string) {
   const metric = (label: string) => sum.rows.find((r) => r[0] === label)?.[1];
   expect(metric('Pending Receivable')).toBe(money(fin.netReceivable));
   expect(metric('Pending Payable')).toBe(money(fin.netPayable));
-  expect(metric('Cash in Hand')).toBe(money(fin.cashInHand));
+  expect(metric('Cash in Hand')).toBe(money(cbCash));
 }
 
 describe('Reconciliation — receivable/payable come from manual entries only', () => {

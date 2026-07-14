@@ -59,7 +59,6 @@ export function CashBook() {
   const data = dataset();
   const cur = settings.currency;
 
-  const [expenseModal, setExpenseModal] = useState(false);
   const [tradeModal, setTradeModal] = useState<'purchase' | 'sale' | null>(null);
   const [cashModal, setCashModal] = useState<CashDirection | null>(null);
   const [selParty, setSelParty] = useState('');   // person selector for the 4 buttons
@@ -67,7 +66,6 @@ export function CashBook() {
   const [filter, setFilter] = useState<TxnBookType | 'all'>('all');
   // Edit / delete a single transaction row.
   const [editCashId, setEditCashId] = useState<string | null>(null);
-  const [editExpenseId, setEditExpenseId] = useState<string | null>(null);
   const [editRecord, setEditRecord] = useState<{ kind: 'purchase' | 'sale'; rec: Purchase | Sale | null } | null>(null);
   const [toDelete, setToDelete] = useState<Pick<TxnBookRow, 'collection' | 'refId'> | null>(null);
 
@@ -122,7 +120,7 @@ export function CashBook() {
     : t === 'Purchase' || t === 'Payable' || t === 'Expense' ? 'neg'
     : '';
 
-  const FILTERS: (TxnBookType | 'all')[] = ['all', 'Purchase', 'Sale', 'Receivable', 'Payable', 'Expense'];
+  const FILTERS: (TxnBookType | 'all')[] = ['all', 'Purchase', 'Sale', 'Receivable', 'Payable'];
 
   /** Open the right edit modal for a transaction row (by its collection). */
   const startEdit = (r: Pick<TxnBookRow, 'collection' | 'refId'>) => {
@@ -132,7 +130,6 @@ export function CashBook() {
         setEditCashId(r.refId); setCashModal(dir);
         break;
       }
-      case 'expenses': setEditExpenseId(r.refId); setExpenseModal(true); break;
       case 'purchases': setEditRecord({ kind: 'purchase', rec: data.purchases.find((p) => p.id === r.refId) ?? null }); break;
       case 'sales': setEditRecord({ kind: 'sale', rec: data.sales.find((s) => s.id === r.refId) ?? null }); break;
     }
@@ -157,11 +154,6 @@ export function CashBook() {
       <PageHeader
         title="Cash Book"
         subtitle={`${monthName(period.month)} ${period.year} · every transaction in one place`}
-        actions={
-          <button className="btn" onClick={() => setExpenseModal(true)}>
-            <Icon name="wallet" size={16} /> Expense / Income
-          </button>
-        }
       />
 
       {/* Summary cards — everything the old Dashboard showed, on this one page. */}
@@ -174,7 +166,7 @@ export function CashBook() {
         <div className="cb-card">
           <span className="cb-card-label">{sum.profit >= 0 ? 'Profit' : 'Loss'}</span>
           <span className={cx('cb-card-value', sum.profit >= 0 ? 'pos' : 'neg')}>{formatMoney(Math.abs(sum.profit), cur)}</span>
-          <span className="cb-card-sub">Sales − Cost of Sales − Expenses</span>
+          <span className="cb-card-sub">Sales − Cost of Sales</span>
         </div>
         <div className="cb-card">
           <span className="cb-card-label">Total Sales</span>
@@ -393,7 +385,6 @@ export function CashBook() {
         record={editRecord?.rec ?? null}
         onClose={() => setEditRecord(null)}
       />
-      <ExpenseModal open={expenseModal} editId={editExpenseId} onClose={() => { setExpenseModal(false); setEditExpenseId(null); }} />
       <ConfirmDialog
         open={!!toDelete}
         title="Delete this transaction?"
@@ -406,94 +397,3 @@ export function CashBook() {
   );
 }
 
-/**
- * Inline Expense / Income entry — the Expense page was removed, but the write
- * logic (store.addExpense) and engine are intact. This just calls the EXISTING
- * addExpense; the row then appears in the Cash Book automatically.
- */
-function ExpenseModal({ open, editId, onClose }: { open: boolean; editId?: string | null; onClose: () => void }) {
-  const store = useData();
-  const [kind, setKind] = useState<'expense' | 'income'>('expense');
-  const [category, setCategory] = useState('');
-  const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('');
-  const [date, setDate] = useState(defaultDateForPeriod(store.period));
-  const [busy, setBusy] = useState(false);
-  const amtRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const rec = editId ? (store.expenses ?? []).find((e) => e.id === editId) : null;
-    if (rec) {
-      setKind(rec.kind); setCategory(rec.category); setAmount(String(rec.amount));
-      setDescription(rec.description ?? ''); setDate(rec.date);
-    } else {
-      setKind('expense'); setCategory(''); setAmount(''); setDescription('');
-      setDate(defaultDateForPeriod(store.period));
-    }
-    setTimeout(() => amtRef.current?.focus(), 40);
-  }, [open, editId]);
-
-  const submit = async () => {
-    const amt = Number(amount) || 0;
-    if (amt <= 0) { toast.error('Enter a positive amount.'); amtRef.current?.focus(); return; }
-    setBusy(true);
-    try {
-      const input = {
-        date, kind, amount: amt,
-        category: category.trim() || (kind === 'income' ? 'Other Income' : 'General'),
-        description: description.trim() || undefined,
-      };
-      const ok = editId ? await store.updateExpense(editId, input) : await store.addExpense(input);
-      if (ok) onClose();
-    } finally { setBusy(false); }
-  };
-
-  const isIncome = kind === 'income';
-  return (
-    <Modal
-      open={open}
-      title="Expense / Income"
-      subtitle="Records to the existing expense account — appears in the Cash Book & reports."
-      onClose={onClose}
-      width={440}
-      footer={
-        <>
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className={isIncome ? 'btn btn-green' : 'btn btn-danger'} onClick={submit} disabled={busy}>
-            <Icon name="save" size={16} /> Save
-          </button>
-        </>
-      }
-    >
-      <div className="form-grid">
-        <div className="field">
-          <label>Type</label>
-          <div className="segment">
-            <button className={cx(!isIncome && 'active')} onClick={() => setKind('expense')}>Expense</button>
-            <button className={cx(isIncome && 'active')} onClick={() => setKind('income')}>Income</button>
-          </div>
-        </div>
-        <div className="field">
-          <label>Date</label>
-          <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
-        </div>
-        <div className="field">
-          <label>Category</label>
-          <input className="input" placeholder={isIncome ? 'e.g. Commission' : 'e.g. Rent, Salary'} value={category}
-            onChange={(e) => setCategory(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
-        </div>
-        <div className="field">
-          <label>Amount</label>
-          <input ref={amtRef} type="number" min="0" inputMode="numeric" className="input" placeholder="0" value={amount}
-            onChange={(e) => setAmount(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
-        </div>
-        <div className="field">
-          <label>Description <span className="faint">(optional)</span></label>
-          <input className="input" placeholder="Details / note" value={description}
-            onChange={(e) => setDescription(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
-        </div>
-      </div>
-    </Modal>
-  );
-}

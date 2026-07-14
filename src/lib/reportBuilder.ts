@@ -8,7 +8,7 @@ import {
   computePayables,
   computeFinancials,
   computeSettlementSummary,
-  computeCashInHand,
+  computeCashBookSummary,
   computeTrialBalance,
   computeDashboard,
   computeLedger,
@@ -204,6 +204,7 @@ export function buildSections(
     // whose net > 0; computePayables = parties whose net < 0 (abs). Net-zero
     // parties are already excluded by those helpers.
     const fin = computeFinancials(data, period);
+    const cbCash = computeCashBookSummary(data, period).cashInHand;
     const rec = azSort(computeReceivables(data, period));
     const pay = azSort(computePayables(data, period));
     const totalRec = rec.reduce((a, r) => a + r.balance, 0);
@@ -244,7 +245,7 @@ export function buildSections(
         ['Total Payable Created', money(ss.payableCreated)],
         ['Total Paid', money(ss.paid)],
         ['Pending Payable', money(ss.pendingPayable)],
-        ['Cash in Hand', money(fin.cashInHand)],
+        ['Cash in Hand', money(cbCash)],
         ['Net Position', money(fin.netReceivable - fin.netPayable)],
       ],
       numericCols: [1],
@@ -414,6 +415,7 @@ export function exportReportExcel(data: DataSet, period: Period): void {
   // driven by the same Financial Engine as the dashboard & PDF report.
   {
     const fin = computeFinancials(data, period);
+    const cbCash = computeCashBookSummary(data, period).cashInHand;
     const recRows = azSortByName(computeReceivables(data, period));
     const payRows = azSortByName(computePayables(data, period));
     sheets.push({
@@ -428,7 +430,7 @@ export function exportReportExcel(data: DataSet, period: Period): void {
         ...payRows.map((r) => [r.name, r.balance, 'Payable']),
         ['Total Payable', fin.netPayable, ''],
         ['', '', ''],
-        ['Cash in Hand', fin.cashInHand, ''],
+        ['Cash in Hand', cbCash, ''],
         ['Net Position', fin.netReceivable - fin.netPayable, ''],
       ],
     });

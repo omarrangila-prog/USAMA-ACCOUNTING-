@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeFinancials,
+  computeCashBookSummary,
   computeDashboard,
   computeBusinessSummary,
   computePartyBalances,
@@ -66,9 +67,11 @@ function assertConsistent(data: DataSet, period: { month: number; year: number }
   expect(fin.netPayable).toBe(netPay);
   expect(fin.cashInHand).toBe(raw); // Cash in Hand = physical cash only
 
-  // Dashboard, Business Summary must equal the engine — always.
-  expect(computeDashboard(data, period).cashInHand).toBe(fin.cashInHand);
-  expect(computeBusinessSummary(data, period).cashInHand).toBe(fin.cashInHand);
+  // Display cash (Dashboard, Business Summary) uses the Cash Book formula and
+  // must be identical across them; receivable/payable == engine.
+  const cbCash = computeCashBookSummary(data, period).cashInHand;
+  expect(computeDashboard(data, period).cashInHand).toBe(cbCash);
+  expect(computeBusinessSummary(data, period).cashInHand).toBe(cbCash);
   expect(computeDashboard(data, period).cashReceivable).toBe(fin.netReceivable);
   expect(computeBusinessSummary(data, period).netPayable).toBe(fin.netPayable);
 

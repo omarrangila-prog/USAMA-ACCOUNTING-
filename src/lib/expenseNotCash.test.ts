@@ -19,26 +19,26 @@ const dataset = (over: Partial<DataSet>): DataSet => ({
 } as DataSet);
 
 describe('Expense treatment', () => {
-  it('example: expense 2,000 → physical cash unchanged, but Profit −2,000', () => {
+  it('example: expense 2,000 → neither physical cash NOR profit affected', () => {
     const data = dataset({ expenses: [expense('e', 2000)] });
-    // Physical cash (computeCashInHand) is NOT touched by expenses.
+    // Expense/Income feature removed from UI; profit is trading-only, so an
+    // expense record affects neither cash nor profit.
     expect(computeCashInHand(data, P)).toBe(0);
     expect(computeFinancials(data, P).cashInHand).toBe(0);
-    // Net Profit = trading(0) − expense(2000) = −2000.
-    expect(computeProfitLoss(data, P)).toBe(-2000);
+    expect(computeProfitLoss(data, P)).toBe(0);
   });
 
-  it('expense reduces PROFIT (Sales−Cost−Expenses); physical cash unchanged', () => {
-    // Cash sale 700k (cost 0 → trading 700k). Expense 100k → profit 600k.
+  it('expense affects neither PROFIT nor physical cash (trading-only profit)', () => {
+    // Cash sale 700k (cost 0 → trading 700k). Expense 100k leaves both at 700k.
     const data = dataset({ sales: [cashSale('s', 700000)], expenses: [expense('e', 100000)] });
-    expect(computeCashInHand(data, P)).toBe(700000);       // physical cash unaffected
-    expect(computeProfitLoss(data, P)).toBe(600000);       // 700k − 100k expense
+    expect(computeCashInHand(data, P)).toBe(700000);
+    expect(computeProfitLoss(data, P)).toBe(700000);       // trading only
   });
 
-  it('income does NOT raise profit (only expenses subtract)', () => {
+  it('income does NOT affect profit', () => {
     const data = dataset({ expenses: [income('i', 50000)] });
     expect(computeCashInHand(data, P)).toBe(0);
-    expect(computeProfitLoss(data, P)).toBe(0);            // income excluded from profit
+    expect(computeProfitLoss(data, P)).toBe(0);
   });
 
   it('Trial Balance shows an Expenses account (not inside Cash in Hand)', () => {

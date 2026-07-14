@@ -7,6 +7,7 @@ import {
   computeReceivables,
   computePayables,
   computeCashInHand,
+  computeCashBookSummary,
   computeLedger,
   ledgerRunningBalance,
   computeProfitLoss,
@@ -92,16 +93,17 @@ function mixedData(): DataSet {
 describe('Test 9 — Dashboard vs Reports: Cash in Hand identical everywhere', () => {
   it('dashboard = business summary = PDF card = Excel-source = engine', () => {
     const data = mixedData();
-    const engine = computeFinancials(data, P).cashInHand;
+    // All screens/reports show the Cash Book formula: (Sales−Purchases)+(Received−Paid).
+    const cbCash = computeCashBookSummary(data, P).cashInHand;
     const dash = computeDashboard(data, P).cashInHand;
     const summary = computeBusinessSummary(data, P).cashInHand;
     const pdfCard = cardValue(summaryCards(data, P), 'Cash in Hand');
     const monthly = monthlyRow(data, 'Cash in Hand');
 
-    expect(dash).toBe(engine);
-    expect(summary).toBe(engine);
-    expect(pdfCard).toBe(money(engine));   // PDF renders the engine number
-    expect(monthly).toBe(money(engine));   // Monthly Summary section too
+    expect(dash).toBe(cbCash);
+    expect(summary).toBe(cbCash);
+    expect(pdfCard).toBe(money(cbCash));   // PDF renders the same number
+    expect(monthly).toBe(money(cbCash));   // Monthly Summary section too
   });
 });
 
@@ -256,10 +258,12 @@ describe('Test 15/16/17 — property tests over 1000s of random records', () => 
 
     expect(fin.netReceivable).toBe(netRec);
     expect(fin.netPayable).toBe(netPay);
-    expect(fin.cashInHand).toBe(raw); // physical cash only
-    // Dashboard & summary must equal the engine, always.
-    expect(computeDashboard(data, P).cashInHand).toBe(fin.cashInHand);
-    expect(computeBusinessSummary(data, P).cashInHand).toBe(fin.cashInHand);
+    expect(fin.cashInHand).toBe(raw); // computeFinancials = physical cash only
+    // Display-facing Cash in Hand (Dashboard, Business Summary) uses the Cash
+    // Book formula and must be identical across all of them.
+    const cbCash = computeCashBookSummary(data, P).cashInHand;
+    expect(computeDashboard(data, P).cashInHand).toBe(cbCash);
+    expect(computeBusinessSummary(data, P).cashInHand).toBe(cbCash);
     // A party can never be double-counted (receivable AND payable).
     balances.forEach((b) => { if (b.balance > 0) expect(b.balance).toBeGreaterThan(0); });
   }
@@ -336,19 +340,20 @@ describe('Test 20 — Financial Engine integrity: one source of truth', () => {
     ];
     for (const data of worlds) {
       const fin = computeFinancials(data, P);
-      // Dashboard
+      const cbCash = computeCashBookSummary(data, P).cashInHand; // Cash Book formula
+      // Dashboard — cash uses the Cash Book formula; receivable/payable = engine.
       const d = computeDashboard(data, P);
-      expect(d.cashInHand).toBe(fin.cashInHand);
+      expect(d.cashInHand).toBe(cbCash);
       expect(d.cashReceivable).toBe(fin.netReceivable);
       expect(d.cashPayable).toBe(fin.netPayable);
       // Business Summary (Balance Sheet KPIs share this)
       const s = computeBusinessSummary(data, P);
-      expect(s.cashInHand).toBe(fin.cashInHand);
+      expect(s.cashInHand).toBe(cbCash);
       expect(s.netReceivable).toBe(fin.netReceivable);
       expect(s.netPayable).toBe(fin.netPayable);
       // PDF + Excel are built from summaryCards/buildSections → computeDashboard
-      expect(cardValue(summaryCards(data, P), 'Cash in Hand')).toBe(money(fin.cashInHand));
-      expect(monthlyRow(data, 'Cash in Hand')).toBe(money(fin.cashInHand));
+      expect(cardValue(summaryCards(data, P), 'Cash in Hand')).toBe(money(cbCash));
+      expect(monthlyRow(data, 'Cash in Hand')).toBe(money(cbCash));
     }
   });
 });

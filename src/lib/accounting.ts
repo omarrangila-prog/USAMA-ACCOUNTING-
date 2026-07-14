@@ -265,7 +265,8 @@ export function computeBusinessSummary(data: DataSet, period: Period): BusinessS
   const totalPurchaseAmount = round2(data.purchases.filter((p) => inPeriod(p, period)).reduce((a, p) => a + p.amount, 0));
 
   return {
-    cashInHand: fin.cashInHand,
+    // Cash in Hand matches the Cash Book screen formula (single display source).
+    cashInHand: computeCashBookSummary(data, period).cashInHand,
     totalProfitLoss,
     purchaseProfit: round2(purchaseProfit),
     saleProfit: round2(saleProfit),
@@ -869,7 +870,8 @@ export function computeTrialBalance(data: DataSet, period: Period): TrialBalance
   const payable = balances
     .filter((b) => b.balance < 0)
     .reduce((a, b) => a + Math.abs(b.balance), 0);
-  const cash = computeCashInHand(data, period);
+  // Cash in Hand matches the Cash Book screen: (Sales−Purchases)+(Received−Paid).
+  const cash = computeCashBookSummary(data, period).cashInHand;
   const bank = computeFileBalance(data.opening);
   const stock = computeStock(data, period).reduce((a, s) => a + s.closingValue, 0);
   const profit = computeProfitLoss(data, period);
@@ -914,11 +916,10 @@ export function computeTrialBalance(data: DataSet, period: Period): TrialBalance
  * is never folded into Receivable/Payable.
  */
 export function computeProfitLoss(data: DataSet, period: Period): number {
-  // Net Profit = trading profit (Sales − Cost of Sales) − Expenses.
-  // (Other income is NOT added — client rule.) Single source of truth for the
-  // Profit figure across every screen/report.
-  const { expense } = computeExpenseNet(data, period);
-  return round2(computeTradingProfit(data, period) - expense);
+  // Profit = trading profit ONLY = Sales − Cost of Sales. (Expense/Income
+  // feature removed from the UI, so nothing else affects Profit.)
+  // Single source of truth for the Profit figure across every screen/report.
+  return computeTradingProfit(data, period);
 }
 
 /** Trading-only profit (before expenses/income), for reporting clarity. */
@@ -958,6 +959,9 @@ export function computeDashboard(data: DataSet, period: Period): DashboardStats 
   const bank = computeFileBalance(data.opening);
   const exp = computeExpenseNet(data, period);
   const tb = computeTrialBalance(data, period);
+  // Cash in Hand for reports MATCHES the Cash Book screen formula:
+  //   (Sales − Purchases) + (Received − Paid).
+  const cashInHand = computeCashBookSummary(data, period).cashInHand;
 
   return {
     totalPurchase,
@@ -966,10 +970,9 @@ export function computeDashboard(data: DataSet, period: Period): DashboardStats 
     closingStockValue,
     cashReceivable: fin.netReceivable,
     cashPayable: fin.netPayable,
-    cashInHand: fin.cashInHand,
-    // Net worth = physical cash + bank + stock + net party position (receivable
-    // − payable). This is a SEPARATE figure from Cash in Hand.
-    netBalance: round2(fin.cashInHand + bank + closingStockValue + fin.netParty),
+    cashInHand,
+    // Net worth = cash + bank + stock + net party position (receivable − payable).
+    netBalance: round2(cashInHand + bank + closingStockValue + fin.netParty),
     profitLoss: computeProfitLoss(data, period),
     totalExpense: exp.expense,
     totalIncome: exp.income,

@@ -20,7 +20,6 @@ export function CommandPalette({
       { id: 'rep', label: 'Reports', sub: 'F7', icon: 'reports', run: go('/reports') },
       { id: 'pur', label: 'New Purchase', sub: 'F2', icon: 'purchase', run: go('/purchase') },
       { id: 'sal', label: 'New Sale', sub: 'F3', icon: 'sale', run: go('/sale') },
-      { id: 'exp', label: 'Expense / Income', sub: 'In Cash Book', icon: 'wallet', run: go('/cashbook') },
       { id: 'stk', label: 'Stock', icon: 'stock', run: go('/stock') },
       { id: 'rec', label: 'Receivable', icon: 'receivable', run: go('/receivable') },
       { id: 'pay', label: 'Payable', icon: 'payable', run: go('/payable') },

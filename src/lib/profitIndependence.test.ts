@@ -7,7 +7,7 @@ import type { Party, PartyAdjustment, Sale, Purchase, Expense } from '@/types';
  *   Receivable / Payable  = party balances only  (NEVER include profit)
  *   Cash Flow             = Receivable − Payable
  *   Cash in Hand          = physical cash only    (NEVER affected by profit)
- *   Net Profit            = (Sale − Cost of Sales) − Expenses  (its own figure,
+ *   Profit                = Sale − Cost of Sales (trading only; expenses excluded,
  *                           never folded into Receivable/Payable)
  */
 const now = Date.now();
@@ -51,16 +51,16 @@ describe('Profit independence from Receivable / Payable / Cash', () => {
     expect(computeBusinessSummary(withProfit, P).totalProfitLoss).toBe(300000);
   });
 
-  it('expense reduces profit but not physical cash; profit never lands in cash', () => {
-    // Cash sale 700k with 200k cost → trading 500k. Expense 50k → profit 450k.
+  it('expense affects neither cash nor profit (trading-only profit)', () => {
+    // Cash sale 700k with 200k cost → trading 500k. Expense 50k changes nothing.
     const data = dataset({
       sales: [cashSale('s', 700000, 200000)],
       purchases: [cashPurchase('cp', 200000)],
       expenses: [expense('e', 50000)],
     });
-    // Physical cash = +700k sale − 200k purchase = 500k (expense is non-cash here).
+    // Physical cash = +700k sale − 200k purchase = 500k.
     expect(computeCashInHand(data, P)).toBe(500000);
-    // Net Profit = trading 500k − expense 50k = 450k.
-    expect(computeProfitLoss(data, P)).toBe(450000);
+    // Profit = trading only = 700k − 200k = 500k (expense excluded).
+    expect(computeProfitLoss(data, P)).toBe(500000);
   });
 });
