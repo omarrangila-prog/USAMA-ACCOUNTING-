@@ -17,7 +17,7 @@ export function CommandPalette({
     const go = (to: string) => () => { nav(to); onClose(); };
     const pages: Cmd[] = [
       { id: 'cash', label: 'Cash Book', sub: 'All transactions', icon: 'wallet', run: go('/') },
-      { id: 'dash', label: 'Dashboard', icon: 'dashboard', run: go('/dashboard') },
+      { id: 'rep', label: 'Reports', sub: 'F7', icon: 'reports', run: go('/reports') },
       { id: 'pur', label: 'New Purchase', sub: 'F2', icon: 'purchase', run: go('/purchase') },
       { id: 'sal', label: 'New Sale', sub: 'F3', icon: 'sale', run: go('/sale') },
       { id: 'exp', label: 'Expense / Income', sub: 'In Cash Book', icon: 'wallet', run: go('/cashbook') },

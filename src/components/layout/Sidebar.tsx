@@ -8,13 +8,7 @@ interface NavItem { to: string; tkey: string; icon: IconName; shortcut?: string;
 
 const items: NavItem[] = [
   { to: '/', tkey: 'nav.cashbook', icon: 'wallet', shortcut: 'F1' },
-  { to: '/dashboard', tkey: 'nav.dashboard', icon: 'dashboard' },
-  { to: '/purchase', tkey: 'nav.purchase', icon: 'purchase', shortcut: 'F2' },
-  { to: '/sale', tkey: 'nav.sale', icon: 'sale', shortcut: 'F3' },
-  { to: '/stock', tkey: 'nav.stock', icon: 'stock' },
-  { to: '/receivable', tkey: 'nav.receivable', icon: 'receivable' },
-  { to: '/payable', tkey: 'nav.payable', icon: 'payable' },
-  { to: '/trial-balance', tkey: 'nav.trialBalance', icon: 'trial' },
+  { to: '/reports', tkey: 'nav.reports', icon: 'reports', shortcut: 'F7' },
 ];
 
 export function Sidebar({ open, onNavigate }: { open: boolean; onNavigate?: () => void }) {

@@ -641,6 +641,57 @@ export function computeTransactionBook(data: DataSet, period: Period): TxnBookRo
   );
 }
 
+/**
+ * Cash Book summary — every headline figure the single Cash Book screen shows.
+ *
+ * CLIENT CASH FORMULA (this screen only):
+ *   Cash in Hand = (Total Sales − Total Purchases) + (Cash Received − Cash Paid)
+ * i.e. ALL sales/purchases count toward cash here (not just no-party ones), plus
+ * the net of cash receipts/payments. Profit, Receivable and Payable are shown as
+ * SEPARATE figures and are NOT folded into this cash number.
+ *
+ * NOTE: This is the Cash Book's own presentation figure. The trial balance and
+ * other reports keep using computeCashInHand (physical cash) unchanged.
+ */
+export interface CashBookSummary {
+  totalSales: number;
+  totalPurchases: number;
+  totalReceived: number;
+  totalPaid: number;
+  cashInHand: number;    // (Sales − Purchases) + (Received − Paid)
+  receivable: number;    // Σ positive party balances
+  payable: number;       // |Σ negative party balances|
+  profit: number;        // trading profit = Sales − Cost of Sales
+  txnCount: number;
+}
+
+export function computeCashBookSummary(data: DataSet, period: Period): CashBookSummary {
+  const totalSales = round2(
+    data.sales.filter((s) => inPeriod(s, period)).reduce((a, s) => a + s.amount, 0)
+  );
+  const totalPurchases = round2(
+    data.purchases.filter((p) => inPeriod(p, period)).reduce((a, p) => a + p.amount, 0)
+  );
+  const cashRows = data.cash.filter((c) => inPeriod(c, period));
+  const totalReceived = round2(cashRows.filter((c) => c.direction === 'received').reduce((a, c) => a + c.amount, 0));
+  const totalPaid = round2(cashRows.filter((c) => c.direction === 'paid').reduce((a, c) => a + c.amount, 0));
+
+  const fin = computeFinancials(data, period);
+
+  return {
+    totalSales,
+    totalPurchases,
+    totalReceived,
+    totalPaid,
+    // Client formula: (Sales − Purchases) + (Received − Paid).
+    cashInHand: round2((totalSales - totalPurchases) + (totalReceived - totalPaid)),
+    receivable: fin.netReceivable,
+    payable: fin.netPayable,
+    profit: computeTradingProfit(data, period),
+    txnCount: computeTransactionBook(data, period).length,
+  };
+}
+
 /** Total imported bank/"file" account balances (assets), shown from opening on. */
 export function computeFileBalance(opening: OpeningBalances | null | undefined): number {
   if (!opening) return 0;

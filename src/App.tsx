@@ -7,13 +7,13 @@ import { useData } from '@/store/dataStore';
 import { PinLock, isUnlocked } from '@/components/PinLock';
 import { AppShell } from '@/components/layout/AppShell';
 import { Toasts } from '@/components/ui/Toasts';
-import { Dashboard } from '@/pages/Dashboard';
 import { CashBook } from '@/pages/CashBook';
 import { Purchase } from '@/pages/Purchase';
 import { Sale } from '@/pages/Sale';
 import { Stock } from '@/pages/Stock';
 import { Balances } from '@/pages/Balances';
 import { TrialBalance } from '@/pages/TrialBalance';
+import { Reports } from '@/pages/Reports';
 
 function Splash() {
   return (
@@ -57,10 +57,11 @@ export default function App() {
       <Toasts />
       <Routes>
         <Route element={<AppShell />}>
-          {/* Cash Book is the primary working screen. */}
+          {/* Cash Book is the single working screen; Reports is the only other. */}
           <Route path="/" element={<CashBook />} />
           <Route path="/cashbook" element={<CashBook />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/reports" element={<Reports />} />
+          {/* Kept reachable by URL (used by entry forms / deep-links), not in sidebar. */}
           <Route path="/purchase" element={<Purchase />} />
           <Route path="/sale" element={<Sale />} />
           <Route path="/stock" element={<Stock />} />

@@ -1,0 +1,54 @@
+/* Cash Book — summary cards + entry box (single-page hub). */
+
+.cb-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.cb-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e6e8ee);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.cb-card-label { font-size: 12px; font-weight: 600; color: var(--text-soft, #6b7280); }
+.cb-card-value { font-size: 21px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.cb-card-sub { font-size: 10.5px; color: var(--text-soft, #9aa1ac); }
+.cb-card .pos, .cb-card-value.pos { color: var(--green, #10a066); }
+.cb-card .neg, .cb-card-value.neg { color: var(--red, #dc3c3c); }
+
+/* Hero (Cash in Hand) spans a bit wider and stands out. */
+.cb-card.hero {
+  grid-column: span 2;
+  background: linear-gradient(135deg, rgba(37,99,235,0.10), rgba(16,160,102,0.08));
+  border-color: rgba(37,99,235,0.25);
+}
+.cb-card.hero .cb-card-value { font-size: 28px; }
+.cb-card.hero.pos .cb-card-value { color: var(--green, #10a066); }
+.cb-card.hero.neg .cb-card-value { color: var(--red, #dc3c3c); }
+
+@media (max-width: 560px) {
+  .cb-card.hero { grid-column: span 2; }
+}
+
+/* Entry box */
+.cb-entry { margin-bottom: 16px; }
+.cb-entry-title {
+  display: flex; align-items: center; gap: 6px;
+  font-weight: 700; font-size: 14px; margin-bottom: 12px;
+}
+.cb-entry-row {
+  display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;
+}
+.cb-entry-party { flex: 1; min-width: 240px; }
+.cb-entry-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.cb-entry-buttons .btn { min-width: 118px; justify-content: center; }
+
+@media (max-width: 560px) {
+  .cb-entry-buttons { width: 100%; }
+  .cb-entry-buttons .btn { flex: 1; min-width: 0; }
+}

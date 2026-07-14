@@ -19,8 +19,8 @@ import type { CashDirection } from '@/types';
 
 /** Purchase / Sale entry in a modal (wraps the existing TransactionForm). */
 export function TradeModal({
-  kind, onClose,
-}: { kind: 'purchase' | 'sale' | null; onClose: () => void }) {
+  kind, defaultParty = '', onClose,
+}: { kind: 'purchase' | 'sale' | null; defaultParty?: string; onClose: () => void }) {
   return (
     <Modal
       open={!!kind}
@@ -29,7 +29,7 @@ export function TradeModal({
       onClose={onClose}
       width={480}
     >
-      {kind && <TransactionForm key={kind} kind={kind} embedded onSaved={onClose} />}
+      {kind && <TransactionForm key={kind} kind={kind} embedded defaultParty={defaultParty} onSaved={onClose} />}
     </Modal>
   );
 }

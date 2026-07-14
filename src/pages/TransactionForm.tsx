@@ -13,6 +13,8 @@ interface Props {
   embedded?: boolean;
   /** Fired after a successful save (e.g. to close a wrapping modal). */
   onSaved?: () => void;
+  /** Pre-selected party (overrides the ?party= URL param when provided). */
+  defaultParty?: string;
 }
 
 /**
@@ -25,7 +27,7 @@ interface Props {
  * New entries default their date to the month currently selected in the top bar
  * (not today), so working "inside a month" needs no date changes.
  */
-export function TransactionForm({ kind, embedded = false, onSaved }: Props) {
+export function TransactionForm({ kind, embedded = false, onSaved, defaultParty }: Props) {
   const store = useData();
   const t = useT();
   const isSale = kind === 'sale';
@@ -35,7 +37,7 @@ export function TransactionForm({ kind, embedded = false, onSaved }: Props) {
   // the party so the user isn't asked to pick it again.
   const [params] = useSearchParams();
   const [date, setDate] = useState(() => defaultDateForPeriod(period));
-  const [partyId, setPartyId] = useState(params.get('party') ?? '');
+  const [partyId, setPartyId] = useState(defaultParty ?? params.get('party') ?? '');
   const [bondTypeId, setBondTypeId] = useState('');
   const [quantity, setQuantity] = useState('');
   const [rate, setRate] = useState('');

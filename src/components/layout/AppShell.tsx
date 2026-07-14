@@ -28,7 +28,7 @@ export function AppShell() {
     onCashReceived: () => nav('/?cash=received'),
     onCashPaid: () => nav('/?cash=paid'),
     onLedger: () => nav('/'),
-    onReports: () => nav('/dashboard'),
+    onReports: () => nav('/reports'),
     onSearch: () => setPaletteOpen(true),
     onPrint: () => window.print(),
     onSave: () => { /* pages auto-save on submit; surfaced as a no-op */ },

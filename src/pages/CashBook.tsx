@@ -1,21 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
-import { AddTransactionModal, type TxnKind } from '@/components/AddTransaction';
+import { Combo } from '@/components/ui/Combo';
 import { TradeModal, CashModal, AdjustmentModal } from '@/components/TransactionModals';
 import type { CashDirection } from '@/types';
 import {
   computeTransactionBook,
-  computeCashInHand,
-  type TxnBookRow,
+  computeCashBookSummary,
+  computeBondMovement,
   type TxnBookType,
 } from '@/lib/accounting';
 import { formatMoney, formatNumber, formatDate, monthName, defaultDateForPeriod, cx } from '@/lib/utils';
 import { toast } from '@/store/toast';
 import './statement.css';
+import './cashbook.css';
 
 /**
  * Cash Book — the central, unified transaction screen. It is a pure projection
@@ -25,32 +26,35 @@ import './statement.css';
  * balance. "New Transaction" reuses the existing forms/modals — no new write
  * logic, no schema or collection changes.
  */
+/** Signed cash effect of a row under the CLIENT formula:
+ *  Cash in Hand = (Sales − Purchases) + (Received − Paid).
+ *  Only those four types move cash; Adjustment / Expense / Income do not. */
+function cashSign(type: TxnBookType, amount: number): number {
+  switch (type) {
+    case 'Sale': case 'Receipt': return amount;
+    case 'Purchase': case 'Payment': return -amount;
+    default: return 0; // Adjustment, Expense, Income
+  }
+}
+
 export function CashBook() {
-  const nav = useNavigate();
   const [params, setParams] = useSearchParams();
   const { period, dataset, settings } = useData();
   const data = dataset();
   const cur = settings.currency;
 
-  const [addTxn, setAddTxn] = useState(false);
   const [expenseModal, setExpenseModal] = useState(false);
   const [tradeModal, setTradeModal] = useState<'purchase' | 'sale' | null>(null);
   const [cashModal, setCashModal] = useState<CashDirection | null>(null);
   const [adjModal, setAdjModal] = useState<'receivable' | 'payable' | null>(null);
-  const [modalParty, setModalParty] = useState('');
+  const [selParty, setSelParty] = useState('');   // person selector for the 4 buttons
   const [filter, setFilter] = useState<TxnBookType | 'all'>('all');
 
-  // Deep-links: "?new=1" opens the chooser; "?cash=received|paid" opens the cash
-  // modal directly (used by keyboard shortcuts / the global + button).
+  // Deep-links: "?cash=received|paid" opens the cash modal directly (keyboard
+  // shortcuts). Entries made from ANY page still appear here automatically.
   useEffect(() => {
-    if (params.get('new') === '1') {
-      setAddTxn(true);
-      params.delete('new');
-      setParams(params, { replace: true });
-    }
     const c = params.get('cash');
     if (c === 'received' || c === 'paid') {
-      setModalParty('');
       setCashModal(c);
       params.delete('cash');
       setParams(params, { replace: true });
@@ -58,43 +62,30 @@ export function CashBook() {
   }, [params]);
 
   const rows = useMemo(() => computeTransactionBook(data, period), [data, period]);
-  const openingCash = 0; // running column starts at 0; period cash is self-contained
-  const cashInHand = useMemo(() => computeCashInHand(data, period), [data, period]);
+  const sum = useMemo(() => computeCashBookSummary(data, period), [data, period]);
+  const movement = useMemo(() => computeBondMovement(data, period), [data, period]);
 
-  // Running physical-cash balance (only cash-affecting rows move it).
+  // Running cash balance under the client formula (Sale +, Purchase −,
+  // Received +, Paid −; adjustments/expense don't move cash).
   const withRunning = useMemo(() => {
-    let run = openingCash;
+    let run = 0;
     return rows.map((r) => {
-      run += r.cashDelta;
-      return { row: r, running: run };
+      const delta = cashSign(r.type, r.amount);
+      run += delta;
+      return { row: r, running: run, delta };
     });
   }, [rows]);
 
   const shown = filter === 'all' ? withRunning : withRunning.filter((x) => x.row.type === filter);
 
-  const totalIn = rows.reduce((a, r) => a + (r.cashDelta > 0 ? r.cashDelta : 0), 0);
-  const totalOut = rows.reduce((a, r) => a + (r.cashDelta < 0 ? -r.cashDelta : 0), 0);
-
-  /** Open the matching entry modal (all reuse the EXISTING write logic). */
-  const handleAddTxn = (kind: TxnKind, partyId: string) => {
-    setModalParty(partyId);
-    switch (kind) {
-      case 'purchase': setTradeModal('purchase'); break;
-      case 'sale': setTradeModal('sale'); break;
-      case 'stock': nav('/stock'); break;   // Stock page kept
-      case 'received': setCashModal('received'); break;
-      case 'paid': setCashModal('paid'); break;
-      case 'receivable': setAdjModal('receivable'); break;
-      case 'payable': setAdjModal('payable'); break;
-    }
-  };
+  const partyOptions = data.parties.map((p) => ({ id: p.id, label: p.name, sub: p.phone }));
 
   const typeClass = (t: TxnBookType) =>
     t === 'Sale' || t === 'Receipt' || t === 'Income' ? 'pos'
     : t === 'Purchase' || t === 'Payment' || t === 'Expense' ? 'neg'
     : '';
 
-  const FILTERS: (TxnBookType | 'all')[] = ['all', 'Purchase', 'Sale', 'Receipt', 'Payment', 'Expense', 'Adjustment'];
+  const FILTERS: (TxnBookType | 'all')[] = ['all', 'Purchase', 'Sale', 'Receipt', 'Payment', 'Adjustment', 'Expense'];
 
   return (
     <div>
@@ -102,39 +93,77 @@ export function CashBook() {
         title="Cash Book"
         subtitle={`${monthName(period.month)} ${period.year} · every transaction in one place`}
         actions={
-          <>
-            <button className="btn btn-primary" onClick={() => setAddTxn(true)}>
-              <Icon name="plus" size={16} /> New Transaction
-            </button>
-            <button className="btn" onClick={() => setExpenseModal(true)}>
-              <Icon name="wallet" size={16} /> Expense / Income
-            </button>
-          </>
+          <button className="btn" onClick={() => setExpenseModal(true)}>
+            <Icon name="wallet" size={16} /> Expense / Income
+          </button>
         }
       />
 
-      <div className="card statement-card">
-        <div className="stmt-title">Cash Book</div>
-        <div className="stmt-summary">
-          <div className="stmt-sum-item">
-            <span className="stmt-sum-label">Cash In</span>
-            <span className="stmt-sum-value pos">{formatMoney(totalIn, cur)}</span>
+      {/* Summary cards — everything the old Dashboard showed, on this one page. */}
+      <div className="cb-cards">
+        <div className={cx('cb-card hero', sum.cashInHand >= 0 ? 'pos' : 'neg')}>
+          <span className="cb-card-label">Cash in Hand</span>
+          <span className="cb-card-value">{formatMoney(sum.cashInHand, cur)}</span>
+          <span className="cb-card-sub">(Sales − Purchase) + (Received − Paid)</span>
+        </div>
+        <div className="cb-card">
+          <span className="cb-card-label">Receivable</span>
+          <span className="cb-card-value pos">{formatMoney(sum.receivable, cur)}</span>
+          <span className="cb-card-sub">Party owes you</span>
+        </div>
+        <div className="cb-card">
+          <span className="cb-card-label">Payable</span>
+          <span className="cb-card-value neg">{formatMoney(sum.payable, cur)}</span>
+          <span className="cb-card-sub">You owe party</span>
+        </div>
+        <div className="cb-card">
+          <span className="cb-card-label">{sum.profit >= 0 ? 'Profit' : 'Loss'}</span>
+          <span className={cx('cb-card-value', sum.profit >= 0 ? 'pos' : 'neg')}>{formatMoney(Math.abs(sum.profit), cur)}</span>
+          <span className="cb-card-sub">Sales − Cost of Sales</span>
+        </div>
+        <div className="cb-card">
+          <span className="cb-card-label">Total Sales</span>
+          <span className="cb-card-value">{formatMoney(sum.totalSales, cur)}</span>
+        </div>
+        <div className="cb-card">
+          <span className="cb-card-label">Total Purchases</span>
+          <span className="cb-card-value">{formatMoney(sum.totalPurchases, cur)}</span>
+        </div>
+      </div>
+
+      {/* Entry box: pick a person, then one of 4 buttons opens a fill-in form. */}
+      <div className="card cb-entry">
+        <div className="cb-entry-title"><Icon name="plus" size={16} /> New Entry</div>
+        <div className="cb-entry-row">
+          <div className="field cb-entry-party">
+            <label>Person / Party <span className="faint">(optional for Sale/Purchase)</span></label>
+            <Combo
+              value={selParty}
+              options={partyOptions}
+              placeholder="Select or create a party"
+              allowCreate
+              onChange={setSelParty}
+            />
           </div>
-          <div className="stmt-sum-item">
-            <span className="stmt-sum-label">Cash Out</span>
-            <span className="stmt-sum-value neg">{formatMoney(totalOut, cur)}</span>
-          </div>
-          <div className="stmt-sum-item">
-            <span className="stmt-sum-label">Cash in Hand</span>
-            <span className={cx('stmt-sum-value', cashInHand >= 0 ? 'pos' : 'neg')}>
-              {formatMoney(cashInHand, cur)}
-            </span>
-          </div>
-          <div className="stmt-sum-item">
-            <span className="stmt-sum-label">Transactions</span>
-            <span className="stmt-sum-value">{formatNumber(rows.length)}</span>
+          <div className="cb-entry-buttons">
+            <button className="btn btn-green" onClick={() => setTradeModal('sale')}>
+              <Icon name="sale" size={16} /> Sale
+            </button>
+            <button className="btn btn-primary" onClick={() => setTradeModal('purchase')}>
+              <Icon name="purchase" size={16} /> Purchase
+            </button>
+            <button className="btn btn-green" onClick={() => { if (needParty()) setAdjModal('receivable'); }}>
+              <Icon name="receivable" size={16} /> Receivable
+            </button>
+            <button className="btn btn-danger" onClick={() => { if (needParty()) setAdjModal('payable'); }}>
+              <Icon name="payable" size={16} /> Payable
+            </button>
           </div>
         </div>
+      </div>
+
+      <div className="card statement-card">
+        <div className="stmt-title">Transactions · {formatNumber(sum.txnCount)}</div>
 
         <div className="cashbook-filters no-print">
           {FILTERS.map((f) => (
@@ -150,8 +179,8 @@ export function CashBook() {
 
         {shown.length === 0 ? (
           <div className="empty">
-            No transactions yet this month. Click <strong>New Transaction</strong> to record a purchase,
-            sale, receipt, payment or adjustment — it will appear here instantly.
+            No transactions yet this month. Pick a person and press <strong>Sale</strong>, <strong>Purchase</strong>,
+            <strong> Receivable</strong> or <strong>Payable</strong> above — it will appear here instantly.
           </div>
         ) : (
           <div className="table-wrap">
@@ -164,7 +193,7 @@ export function CashBook() {
                 </tr>
               </thead>
               <tbody>
-                {shown.map(({ row: r, running }) => (
+                {shown.map(({ row: r, running, delta }) => (
                   <tr key={r.id}>
                     <td data-label="Date">{formatDate(r.date)}</td>
                     <td data-label="Voucher #" className="mono">{r.voucher}</td>
@@ -174,10 +203,10 @@ export function CashBook() {
                     <td data-label="Qty" className="num mono">{r.qty ? formatNumber(r.qty) : '-'}</td>
                     <td data-label="Rate" className="num mono">{r.rate ? formatNumber(r.rate) : '-'}</td>
                     <td data-label="Amount" className={cx('num mono', typeClass(r.type))}>
-                      {formatMoney(r.amount, cur)}
+                      {delta > 0 ? '+' : delta < 0 ? '−' : ''}{formatMoney(r.amount, cur)}
                     </td>
                     <td data-label="Cash Balance" className={cx('num mono stmt-bal', running >= 0 ? 'pos' : 'neg')}>
-                      {r.cashDelta === 0 ? '—' : formatMoney(running, cur)}
+                      {delta === 0 ? '—' : formatMoney(running, cur)}
                     </td>
                   </tr>
                 ))}
@@ -187,23 +216,18 @@ export function CashBook() {
         )}
       </div>
 
-      {/* Mobile floating action button. */}
-      <button className="ledger-fab no-print" onClick={() => setAddTxn(true)} aria-label="New Transaction">
-        <Icon name="plus" size={18} /> Add
-      </button>
-
-      <AddTransactionModal
-        open={addTxn}
-        partyId=""
-        onClose={() => setAddTxn(false)}
-        onPick={handleAddTxn}
-      />
-      <TradeModal kind={tradeModal} onClose={() => setTradeModal(null)} />
-      <CashModal direction={cashModal} defaultParty={modalParty} onClose={() => setCashModal(null)} />
-      <AdjustmentModal kind={adjModal} defaultParty={modalParty} onClose={() => setAdjModal(null)} />
+      <TradeModal kind={tradeModal} defaultParty={selParty} onClose={() => setTradeModal(null)} />
+      <CashModal direction={cashModal} defaultParty={selParty} onClose={() => setCashModal(null)} />
+      <AdjustmentModal kind={adjModal} defaultParty={selParty} onClose={() => setAdjModal(null)} />
       <ExpenseModal open={expenseModal} onClose={() => setExpenseModal(false)} />
     </div>
   );
+
+  /** Receivable/Payable require a party; warn if none picked. */
+  function needParty(): boolean {
+    if (!selParty) { toast.error('Select a person/party first for Receivable / Payable.'); return false; }
+    return true;
+  }
 }
 
 /**
