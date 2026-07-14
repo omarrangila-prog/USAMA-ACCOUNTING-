@@ -19,6 +19,10 @@ const LINE: [number, number, number] = [232, 235, 240];
 
 export interface StatementRow {
   date: string;        // ISO
+  voucher?: string;    // e.g. "SAL-01", "PUR-02", "RCV-01"
+  type?: string;       // Opening / Purchase / Sale / Receipt / Payment / Adjustment
+  qty?: number;        // bond quantity (purchase/sale only)
+  rate?: number;       // per-bond rate (purchase/sale only)
   tafseel: string;     // description
   debit: number;       // (-)
   credit: number;      // (+)
@@ -36,7 +40,8 @@ export interface StatementOpts {
 export function buildStatementPdf(opts: StatementOpts): jsPDF {
   const { settings, title, rows } = opts;
   const cur = settings.currency || 'Rs';
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  // Landscape so the detailed ledger (Voucher/Type/Qty/Rate + Dr/Cr/Balance) fits.
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const M = 40;
   let y = 46;
@@ -93,28 +98,35 @@ export function buildStatementPdf(opts: StatementOpts): jsPDF {
   y += 8;
 
   // ---- Ledger table ----
+  const BAL_COL = 8; // index of the Balance column (after adding Voucher/Type/Qty/Rate)
   autoTable(doc, {
     startY: y,
-    head: [['Date', 'Tafseel', 'Debit (-)', 'Credit (+)', 'Balance']],
+    head: [['Date', 'Voucher #', 'Type', 'Tafseel', 'Qty', 'Rate', 'Debit (-)', 'Credit (+)', 'Balance']],
     body: rows.map((r) => [
       formatDate(r.date),
+      r.voucher ?? '-',
+      r.type ?? '-',
       r.tafseel,
+      r.qty ? formatNumber(r.qty) : '-',
+      r.rate ? formatNumber(r.rate) : '-',
       r.debit ? formatNumber(r.debit) : '-',
       r.credit ? formatNumber(r.credit) : '-',
       `${formatNumber(Math.abs(r.balance))} ${r.balance >= 0 ? '(+)' : '(-)'}`,
     ]),
     margin: { left: M, right: M },
-    styles: { fontSize: 9.5, cellPadding: 8, textColor: DARK as any, lineColor: LINE, lineWidth: 0.5 },
+    styles: { fontSize: 9, cellPadding: 6, textColor: DARK as any, lineColor: LINE, lineWidth: 0.5 },
     headStyles: { fillColor: [255, 255, 255], textColor: SOFT as any, fontStyle: 'bold', fontSize: 8.5, lineWidth: { bottom: 0.8 } as any },
     columnStyles: {
-      2: { halign: 'right' },
-      3: { halign: 'right' },
-      4: { halign: 'right', textColor: GREEN as any, fontStyle: 'bold' },
+      4: { halign: 'right' },
+      5: { halign: 'right' },
+      6: { halign: 'right' },
+      7: { halign: 'right' },
+      [BAL_COL]: { halign: 'right', textColor: GREEN as any, fontStyle: 'bold' },
     },
     theme: 'plain',
     didParseCell: (data) => {
       // Colour the running-balance cell red when negative.
-      if (data.section === 'body' && data.column.index === 4) {
+      if (data.section === 'body' && data.column.index === BAL_COL) {
         const r = rows[data.row.index];
         data.cell.styles.textColor = (r.balance >= 0 ? GREEN : RED) as any;
       }

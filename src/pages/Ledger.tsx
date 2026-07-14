@@ -92,9 +92,20 @@ export function Ledger() {
     if (isCashBook) {
       return computeCashBook(data, period).map((l) => {
         run += l.inflow - l.outflow;
-        return { date: l.date, tafseel: l.description, debit: l.outflow, credit: l.inflow, balance: run };
+        return {
+          date: l.date,
+          type: l.inflow ? 'Cash In' : 'Cash Out',
+          tafseel: l.description,
+          debit: l.outflow, credit: l.inflow, balance: run,
+        };
       });
     }
+    // Per-type running voucher counters (SAL-01, PUR-02, RCV-01, …).
+    const seq: Record<string, number> = {};
+    const voucher = (prefix: string) => {
+      seq[prefix] = (seq[prefix] ?? 0) + 1;
+      return `${prefix}-${String(seq[prefix]).padStart(2, '0')}`;
+    };
     return entries.map((e) => {
       run += e.debit - e.credit;
       // Sale/Purchase are reference rows (memo): show the amount in the
@@ -102,7 +113,28 @@ export function Ledger() {
       const tafseel = e.memo
         ? `${e.description} — ${formatMoney(e.memo, cur)}`
         : e.description;
-      return { date: e.date, tafseel, debit: e.debit, credit: e.credit, balance: run };
+      // Voucher #, Type, and (for bond trades) Qty/Rate from the source record.
+      let vNo: string | undefined, type: string | undefined, qty: number | undefined, rate: number | undefined;
+      switch (e.refType) {
+        case 'opening': type = 'Opening'; vNo = 'OPN'; break;
+        case 'purchase': {
+          type = 'Purchase'; vNo = voucher('PUR');
+          const p = data.purchases.find((x) => x.id === e.refId);
+          qty = p?.quantity; rate = p?.rate; break;
+        }
+        case 'sale': {
+          type = 'Sale'; vNo = voucher('SAL');
+          const s = data.sales.find((x) => x.id === e.refId);
+          qty = s?.quantity; rate = s?.rate; break;
+        }
+        case 'cash': {
+          const c = data.cash.find((x) => x.id === e.refId);
+          type = c?.direction === 'received' ? 'Receipt' : 'Payment';
+          vNo = voucher(c?.direction === 'received' ? 'RCV' : 'PAY'); break;
+        }
+        case 'adjustment': type = 'Adjustment'; vNo = voucher('ADJ'); break;
+      }
+      return { date: e.date, voucher: vNo, type, qty, rate, tafseel, debit: e.debit, credit: e.credit, balance: run };
     });
   }, [entries, isCashBook, data, period]);
 
@@ -230,7 +262,8 @@ export function Ledger() {
               <table className="grid stmt-grid stack-sm">
                 <thead>
                   <tr>
-                    <th>Date</th><th>Tafseel</th>
+                    <th>Date</th><th>Voucher #</th><th>Type</th><th>Tafseel</th>
+                    <th className="num">Qty</th><th className="num">Rate</th>
                     <th className="num">Debit (-)</th><th className="num">Credit (+)</th><th className="num">Balance</th>
                     <th className="no-print"></th>
                   </tr>
@@ -243,7 +276,11 @@ export function Ledger() {
                     return (
                       <tr key={e?.id ?? `cb-${i}`}>
                         <td data-label="Date">{formatDate(r.date)}</td>
+                        <td data-label="Voucher #" className="mono">{r.voucher ?? '-'}</td>
+                        <td data-label="Type">{r.type ?? '-'}</td>
                         <td data-label="Tafseel">{r.tafseel}</td>
+                        <td data-label="Qty" className="num mono">{r.qty ? formatNumber(r.qty) : '-'}</td>
+                        <td data-label="Rate" className="num mono">{r.rate ? formatNumber(r.rate) : '-'}</td>
                         <td data-label="Debit (-)" className="num mono">{r.debit ? formatNumber(r.debit) : '-'}</td>
                         <td data-label="Credit (+)" className="num mono">{r.credit ? formatNumber(r.credit) : '-'}</td>
                         <td data-label="Balance" className={cx('num mono stmt-bal', r.balance >= 0 ? 'pos' : 'neg')}>
