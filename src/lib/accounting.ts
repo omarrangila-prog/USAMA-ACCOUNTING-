@@ -880,7 +880,7 @@ export function computeTrialBalance(data: DataSet, period: Period): TrialBalance
   rows.push({ name: 'Cash in Hand', debit: Math.max(cash, 0), credit: Math.max(-cash, 0) });
   if (bank !== 0) rows.push({ name: 'Bank / File Accounts', debit: Math.max(bank, 0), credit: Math.max(-bank, 0) });
   rows.push({ name: 'Accounts Receivable', debit: receivable, credit: 0 });
-  rows.push({ name: 'Closing Stock', debit: stock, credit: 0 });
+  rows.push({ name: 'Closing Stock', debit: 0, credit: stock });
   rows.push({ name: 'Accounts Payable', debit: 0, credit: payable });
   // Expenses post to their own account (debit), income to its own (credit) —
   // NOT to Cash in Hand. They flow into Profit/Loss below.
