@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { StatCard } from '@/components/ui/StatCard';
-import { CashInHandCard } from '@/components/ui/CashInHandCard';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import {
@@ -10,8 +8,8 @@ import {
 } from '@/lib/reportBuilder';
 import { PdfPreview } from '@/components/ui/PdfPreview';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
-import { computeDashboard } from '@/lib/accounting';
-import { formatMoney, formatNumber, monthName } from '@/lib/utils';
+import { computePartyBalances, partyTradeTotals, partyCashTotals } from '@/lib/accounting';
+import { formatMoney, monthName, cx } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
 import { toast } from '@/store/toast';
 import './reports.css';
@@ -38,8 +36,24 @@ export function Reports() {
   const [preview, setPreview] = useState<{ which: 'all' | ReportId; title: string } | null>(null);
   const printConfirm = usePrintConfirm();
 
-  const stats = useMemo(() => computeDashboard(data, period), [data, period]);
   const closed = isMonthClosed();
+
+  // On-page party ledger: every party with buying/selling + cash + balance.
+  const ledger = useMemo(() => {
+    const balances = computePartyBalances(data, period);
+    return data.parties.map((p) => {
+      const bal = balances.find((b) => b.partyId === p.id)?.balance ?? 0;
+      const trade = partyTradeTotals(data, p.id, period);
+      const cash = partyCashTotals(data, p.id, period);
+      return {
+        id: p.id, name: p.name,
+        purchased: trade.purchased, sold: trade.sold,
+        paid: cash.paid, received: cash.received,
+        balance: bal,
+        status: bal > 0.005 ? 'Receivable' : bal < -0.005 ? 'Payable' : 'Settled',
+      };
+    });
+  }, [data, period]);
 
   const generate = () => {
     setPreview({ which: 'all', title: `Monthly Report — ${monthName(period.month)} ${period.year}` });
@@ -75,14 +89,40 @@ export function Reports() {
         }
       />
 
-      <CashInHandCard />
-      <div style={{ height: 16 }} />
-
-      <div className="summary-cards">
-        <StatCard label="Total Purchase" value={formatMoney(stats.totalPurchase, cur)} icon="purchase" accent="blue" />
-        <StatCard label="Total Sale" value={formatMoney(stats.totalSale, cur)} icon="sale" accent="green" />
-        <StatCard label="Closing Stock" value={formatMoney(stats.closingStockValue, cur)} icon="stock" accent="purple" hint={`${formatNumber(stats.closingStockQty)} bonds`} />
-        <StatCard label="Profit / Loss" value={formatMoney(stats.profitLoss, cur)} icon="trial" accent={stats.profitLoss >= 0 ? 'green' : 'red'} />
+      {/* Party Ledger — how much each party bought / sold + cash + balance. */}
+      <div className="card" style={{ marginBottom: 18 }}>
+        <div className="section-title"><Icon name="ledger" size={16} /> Party Ledger · {ledger.length}</div>
+        {ledger.length === 0 ? (
+          <div className="empty">No parties yet.</div>
+        ) : (
+          <div className="table-wrap">
+            <table className="grid stack-sm">
+              <thead>
+                <tr>
+                  <th>Party</th>
+                  <th className="num">Total Purchased</th><th className="num">Total Sold</th>
+                  <th className="num">Paid</th><th className="num">Received</th>
+                  <th className="num">Balance</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ledger.map((r) => (
+                  <tr key={r.id}>
+                    <td data-label="Party"><strong>{r.name}</strong></td>
+                    <td data-label="Total Purchased" className="num mono">{formatMoney(r.purchased, cur)}</td>
+                    <td data-label="Total Sold" className="num mono">{formatMoney(r.sold, cur)}</td>
+                    <td data-label="Paid" className="num mono">{formatMoney(r.paid, cur)}</td>
+                    <td data-label="Received" className="num mono">{formatMoney(r.received, cur)}</td>
+                    <td data-label="Balance" className={cx('num mono', r.balance > 0 ? 'pos' : r.balance < 0 ? 'neg' : '')}>
+                      {formatMoney(Math.abs(r.balance), cur)} {r.balance > 0 ? 'Dr' : r.balance < 0 ? 'Cr' : ''}
+                    </td>
+                    <td data-label="Status" className={cx(r.balance > 0 ? 'pos' : r.balance < 0 ? 'neg' : '')}>{r.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ marginBottom: 18 }}>
