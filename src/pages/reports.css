@@ -31,3 +31,15 @@
 .closed-tag { display: inline-flex; align-items: center; gap: 6px; }
 
 .summary-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 18px; }
+
+/* Party Ledger table — center-align headers AND values so columns line up.
+   Higher specificity (table.grid…) to override the global thead-left / .num-right. */
+table.grid.party-ledger-table thead th,
+table.grid.party-ledger-table tbody td {
+  text-align: center;
+}
+/* Keep the first column (Party name) left-aligned for readability. */
+table.grid.party-ledger-table thead th:first-child,
+table.grid.party-ledger-table tbody td:first-child {
+  text-align: left;
+}

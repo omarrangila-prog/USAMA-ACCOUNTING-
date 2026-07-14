@@ -96,7 +96,7 @@ export function Reports() {
           <div className="empty">No parties yet.</div>
         ) : (
           <div className="table-wrap">
-            <table className="grid stack-sm">
+            <table className="grid stack-sm party-ledger-table">
               <thead>
                 <tr>
                   <th>Party</th>
