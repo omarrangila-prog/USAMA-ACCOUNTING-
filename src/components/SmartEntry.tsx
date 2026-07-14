@@ -5,7 +5,7 @@ import { useData } from '@/store/dataStore';
 import { parseSmartEntry } from '@/lib/smartEntry';
 import { computePartyBalances } from '@/lib/accounting';
 import { previewCashEntry } from '@/lib/cashSafeguard';
-import { todayISO, formatMoney } from '@/lib/utils';
+import { defaultDateForPeriod, formatMoney } from '@/lib/utils';
 import { toast } from '@/store/toast';
 import type { SmartIntent } from '@/types';
 import './smartentry.css';
@@ -36,7 +36,9 @@ export function SmartEntry({ open, onClose }: { open: boolean; onClose: () => vo
     }
     setBusy(true);
     try {
-      const date = todayISO();
+      // Use the ACTIVE period's date, not today — otherwise entries land in the
+      // current month and vanish from the (differently-filtered) view on reload.
+      const date = defaultDateForPeriod(store.period);
       if (intent.kind === 'cash') {
         if (!intent.partyName || !intent.amount) {
           toast.error('Need a party and amount for cash entry.');

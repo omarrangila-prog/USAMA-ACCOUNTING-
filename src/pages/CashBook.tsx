@@ -295,10 +295,16 @@ export function CashBook() {
                       <tr key={e.id}>
                         <td data-label="Date">{formatDate(e.date)}</td>
                         <td data-label="Details">
-                          {e.memo ? `${e.description} — ${formatMoney(e.memo, cur)}` : e.description}
+                          {e.memo
+                            ? <>{e.description} — {formatMoney(e.memo, cur)} <span className="faint">(reference)</span></>
+                            : e.description}
                         </td>
-                        <td data-label="Debit (+)" className="num mono">{e.debit ? formatMoney(e.debit, cur) : '—'}</td>
-                        <td data-label="Credit (−)" className="num mono">{e.credit ? formatMoney(e.credit, cur) : '—'}</td>
+                        <td data-label="Debit (+)" className="num mono">
+                          {e.debit ? formatMoney(e.debit, cur) : e.memo ? <span className="faint">ref</span> : '—'}
+                        </td>
+                        <td data-label="Credit (−)" className="num mono">
+                          {e.credit ? formatMoney(e.credit, cur) : e.memo ? <span className="faint">ref</span> : '—'}
+                        </td>
                         <td data-label="Receivable / Payable" className={cx('num mono stmt-bal', running > 0 ? 'pos' : running < 0 ? 'neg' : '')}>
                           {running === 0 ? formatMoney(0, cur)
                             : running > 0 ? `+${formatMoney(running, cur)} Receivable`

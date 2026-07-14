@@ -254,9 +254,22 @@ export const useData = create<DataStore>((set, get) => ({
     get().unbind();
     set({ uidRef: userUid, ready: false });
 
+    // Gate `ready` on the FIRST snapshot of the core financial collections, so
+    // the app never renders a false "empty" state before Firestore data arrives
+    // (which previously looked like lost data next to a slow snapshot).
+    const coreCollections = [
+      'parties', 'bondTypes', 'purchases', 'sales',
+      'cashTransactions', 'expenses', 'partyAdjustments',
+    ];
+    const pending = new Set(coreCollections);
+    const markArrived = (name: string) => {
+      if (pending.delete(name) && pending.size === 0) set({ ready: true });
+    };
+
     const sub = <T,>(name: any, key: keyof DataStore) =>
       subscribeCollection<T>(userUid, name, (rows) => {
         set({ [key]: rows } as any);
+        markArrived(name);
       });
 
     unsubs = [
@@ -279,8 +292,9 @@ export const useData = create<DataStore>((set, get) => ({
       }),
     ];
 
-    // Mark ready shortly after binding (snapshots arrive synchronously in mock).
-    setTimeout(() => set({ ready: true }), 60);
+    // Safety net: never hang on the splash if a collection is slow/offline —
+    // reveal the app after 4s even if some first snapshots haven't landed.
+    setTimeout(() => set({ ready: true }), 4000);
   },
 
   unbind: () => {
