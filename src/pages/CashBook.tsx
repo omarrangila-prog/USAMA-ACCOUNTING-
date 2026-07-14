@@ -172,16 +172,6 @@ export function CashBook() {
           <span className="cb-card-sub">(Sales − Purchase) + (Received − Paid)</span>
         </div>
         <div className="cb-card">
-          <span className="cb-card-label">Receivable</span>
-          <span className="cb-card-value pos">{formatMoney(sum.receivable, cur)}</span>
-          <span className="cb-card-sub">Party owes you</span>
-        </div>
-        <div className="cb-card">
-          <span className="cb-card-label">Payable</span>
-          <span className="cb-card-value neg">{formatMoney(sum.payable, cur)}</span>
-          <span className="cb-card-sub">You owe party</span>
-        </div>
-        <div className="cb-card">
           <span className="cb-card-label">{sum.profit >= 0 ? 'Profit' : 'Loss'}</span>
           <span className={cx('cb-card-value', sum.profit >= 0 ? 'pos' : 'neg')}>{formatMoney(Math.abs(sum.profit), cur)}</span>
           <span className="cb-card-sub">Sales − Cost of Sales</span>
