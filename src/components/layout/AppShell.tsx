@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
-import { SmartEntry } from '../SmartEntry';
 import { CommandPalette } from '../CommandPalette';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { MISCONFIGURED_PROD } from '@/firebase/config';
@@ -12,7 +11,6 @@ export function AppShell() {
   const nav = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
   const [collapsed, setCollapsed] = useState(false);      // desktop collapse
-  const [smartOpen, setSmartOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   // The hamburger toggles the mobile drawer on small screens, and collapses
@@ -43,7 +41,6 @@ export function AppShell() {
         <Topbar
           onMenu={onMenu}
           onSearch={() => setPaletteOpen(true)}
-          onSmart={() => setSmartOpen(true)}
         />
         {MISCONFIGURED_PROD && (
           <div className="config-warning no-print">
@@ -57,8 +54,7 @@ export function AppShell() {
         </main>
       </div>
 
-      <SmartEntry open={smartOpen} onClose={() => setSmartOpen(false)} />
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onSmart={() => setSmartOpen(true)} />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }

@@ -11,10 +11,9 @@ import './topbar.css';
 interface Props {
   onMenu: () => void;
   onSearch: () => void;
-  onSmart: () => void;
 }
 
-export function Topbar({ onMenu, onSearch, onSmart }: Props) {
+export function Topbar({ onMenu, onSearch }: Props) {
   const { mockMode } = useAuth();
   const { period, setPeriod, online, dataset, settings } = useData();
   const { lang, setLang } = useI18n();
@@ -77,10 +76,6 @@ export function Topbar({ onMenu, onSearch, onSmart }: Props) {
           Demo
         </span>
       )}
-
-      <button className="btn btn-green btn-sm smart-btn" onClick={onSmart} title="Smart Entry">
-        <Icon name="sparkles" size={15} /> Smart Entry
-      </button>
 
       {/* Full inline tools on wide screens */}
       <div className="tool-group">

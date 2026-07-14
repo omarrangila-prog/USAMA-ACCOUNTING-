@@ -42,8 +42,8 @@ export function Sidebar({ open, onNavigate }: { open: boolean; onNavigate?: () =
 
       <div className="sidebar-foot">
         <div className="tip glass card-tight">
-          <Icon name="sparkles" size={15} />
-          <span>Type naturally in Smart Entry to record faster.</span>
+          <Icon name="wallet" size={15} />
+          <span>Record everything from the Cash Book — one screen.</span>
         </div>
       </div>
     </aside>

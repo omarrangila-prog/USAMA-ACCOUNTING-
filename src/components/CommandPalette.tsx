@@ -6,8 +6,8 @@ import './command.css';
 interface Cmd { id: string; label: string; sub?: string; icon: IconName; run: () => void; }
 
 export function CommandPalette({
-  open, onClose, onSmart,
-}: { open: boolean; onClose: () => void; onSmart: () => void }) {
+  open, onClose,
+}: { open: boolean; onClose: () => void }) {
   const nav = useNavigate();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
@@ -25,10 +25,9 @@ export function CommandPalette({
       { id: 'rec', label: 'Receivable', icon: 'receivable', run: go('/receivable') },
       { id: 'pay', label: 'Payable', icon: 'payable', run: go('/payable') },
       { id: 'tb', label: 'Trial Balance', icon: 'trial', run: go('/trial-balance') },
-      { id: 'smart', label: 'Smart Entry', sub: 'Type naturally', icon: 'sparkles', run: () => { onClose(); onSmart(); } },
     ];
     return pages;
-  }, [nav, onClose, onSmart]);
+  }, [nav, onClose]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
