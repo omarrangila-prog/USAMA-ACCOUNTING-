@@ -4,9 +4,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Icon } from '@/components/ui/Icon';
 import { Combo, type ComboHandle } from '@/components/ui/Combo';
 import { TransactionForm } from '@/pages/TransactionForm';
-import { computePartyBalances } from '@/lib/accounting';
-import { previewCashEntry } from '@/lib/cashSafeguard';
-import { defaultDateForPeriod, cx } from '@/lib/utils';
+import { defaultDateForPeriod } from '@/lib/utils';
 import { toast } from '@/store/toast';
 import type { CashDirection } from '@/types';
 
@@ -65,18 +63,9 @@ export function CashModal({
   const isReceived = direction === 'received';
   const partyOptions = store.parties.map((p) => ({ id: p.id, label: p.name, sub: p.phone }));
 
-  const amt = Number(amount) || 0;
-  const partyBalance = partyId
-    ? computePartyBalances(store.dataset(), store.period).find((b) => b.partyId === partyId)?.balance ?? 0
-    : 0;
-  const preview = partyId && amt > 0 && direction
-    ? previewCashEntry(partyBalance, direction, amt)
-    : null;
-
   const submit = async () => {
     const amt = Number(amount) || 0;
     if (amt <= 0) { toast.error('Enter a positive amount.'); amountRef.current?.focus(); return; }
-    if (preview?.createsAdvance && !window.confirm(preview.warning)) return;
     setBusy(true);
     try {
       const input = { date, partyId, direction: direction!, amount: amt, note: note || undefined };
@@ -126,19 +115,6 @@ export function CashModal({
           <input className="input" placeholder="Details / note" value={note}
             onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
         </div>
-        {preview && (
-          <div className={cx('cash-preview', preview.createsAdvance && 'warn')}>
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <span className="faint">Current Balance</span><strong>{preview.beforeLabel}</strong>
-            </div>
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <span className="faint">After This Entry</span><strong>{preview.afterLabel}</strong>
-            </div>
-            {preview.createsAdvance && (
-              <div className="cash-preview-note">⚠ Creates an advance — you'll be asked to confirm.</div>
-            )}
-          </div>
-        )}
       </div>
     </Modal>
   );

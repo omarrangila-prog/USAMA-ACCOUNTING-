@@ -2,67 +2,38 @@ import { describe, it, expect } from 'vitest';
 import { previewCashEntry, statusOf } from './cashSafeguard';
 
 /**
- * Cash-entry safeguard acceptance tests (spec scenarios 1–6). Balance sign:
- * +receivable / −payable. received: balance − amount, paid: balance + amount.
+ * Cash-entry preview: pure before/after display, NO advance warnings.
+ * Client rule — a receipt is just cash in, a payment is just cash out; we never
+ * flip a party to the opposite side or block with a confirmation.
+ * Balance sign: +receivable / −payable. received: balance − amount, paid: + amount.
  */
-describe('previewCashEntry — advance warnings + before/after', () => {
-  it('1. Receivable 300k + Receive 100k → Receivable 200k, NO warning', () => {
+describe('previewCashEntry — before/after only, no advance warnings', () => {
+  it('never creates an advance / never warns (received)', () => {
+    for (const [before, amt] of [[300000, 400000], [0, 100000], [-50000, 100000]] as const) {
+      const p = previewCashEntry(before, 'received', amt);
+      expect(p.createsAdvance).toBe(false);
+      expect(p.warning).toBe('');
+    }
+  });
+
+  it('never creates an advance / never warns (paid)', () => {
+    for (const [before, amt] of [[-300000, 400000], [0, 100000], [50000, 100000]] as const) {
+      const p = previewCashEntry(before, 'paid', amt);
+      expect(p.createsAdvance).toBe(false);
+      expect(p.warning).toBe('');
+    }
+  });
+
+  it('before/after math still correct: received subtracts', () => {
     const p = previewCashEntry(300000, 'received', 100000);
     expect(p.after).toBe(200000);
     expect(statusOf(p.after)).toBe('Receivable');
-    expect(p.createsAdvance).toBe(false);
   });
 
-  it('2. Receivable 300k + Receive 400k → warning; after = Payable 100k', () => {
-    const p = previewCashEntry(300000, 'received', 400000);
-    expect(p.createsAdvance).toBe(true);
-    expect(p.warning).toContain('more than the outstanding receivable');
-    expect(p.after).toBe(-100000);
-    expect(statusOf(p.after)).toBe('Payable');
-  });
-
-  it('3. Settled party + Receive 100k → warning; after = Payable 100k', () => {
-    const p = previewCashEntry(0, 'received', 100000);
-    expect(p.createsAdvance).toBe(true);
-    expect(p.warning).toContain('no outstanding receivable');
-    expect(p.after).toBe(-100000);
-    expect(statusOf(p.after)).toBe('Payable');
-  });
-
-  it('4. Payable 300k + Pay 100k → Payable 200k, NO warning', () => {
+  it('before/after math still correct: paid adds', () => {
     const p = previewCashEntry(-300000, 'paid', 100000);
     expect(p.after).toBe(-200000);
     expect(statusOf(p.after)).toBe('Payable');
-    expect(p.createsAdvance).toBe(false);
-  });
-
-  it('5. Payable 300k + Pay 400k → warning; after = Receivable 100k', () => {
-    const p = previewCashEntry(-300000, 'paid', 400000);
-    expect(p.createsAdvance).toBe(true);
-    expect(p.warning).toContain('more than the outstanding payable');
-    expect(p.after).toBe(100000);
-    expect(statusOf(p.after)).toBe('Receivable');
-  });
-
-  it('6. Settled party + Pay 100k → warning; after = Receivable 100k', () => {
-    const p = previewCashEntry(0, 'paid', 100000);
-    expect(p.createsAdvance).toBe(true);
-    expect(p.warning).toContain('no outstanding payable');
-    expect(p.after).toBe(100000);
-    expect(statusOf(p.after)).toBe('Receivable');
-  });
-
-  it('exact-settle does NOT warn (Receivable 300k + Receive 300k = 0)', () => {
-    const p = previewCashEntry(300000, 'received', 300000);
-    expect(p.after).toBe(0);
-    expect(statusOf(p.after)).toBe('Settled');
-    expect(p.createsAdvance).toBe(false);
-  });
-
-  it('receiving while payable warns (no receivable to reduce)', () => {
-    const p = previewCashEntry(-50000, 'received', 100000);
-    expect(p.createsAdvance).toBe(true);
-    expect(p.after).toBe(-150000); // deeper payable
   });
 
   it('before/after labels use plain rupee language', () => {

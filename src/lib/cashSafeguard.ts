@@ -41,11 +41,9 @@ export interface CashPreview {
   warning: string;
 }
 
-const rs = (n: number) => `Rs ${Math.round(Math.abs(n)).toLocaleString('en-PK')}`;
-
 /**
- * Compute the before/after balance and whether this cash entry needs a
- * "create advance" confirmation.
+ * Compute the before/after balance for display. No advance/confirmation logic —
+ * cash receipts and payments just move Cash in Hand.
  *
  * @param before   current party net balance (+receivable / -payable)
  * @param direction 'received' | 'paid'
@@ -57,49 +55,17 @@ export function previewCashEntry(
   amount: number
 ): CashPreview {
   const after = direction === 'received' ? before - amount : before + amount;
-  const beforeStatus = statusOf(before);
 
-  let warning = '';
-  if (direction === 'received') {
-    // Receiving reduces receivable; excess becomes payable/advance.
-    if (beforeStatus === 'Receivable' && amount > before + 0.005) {
-      const excess = amount - before;
-      warning =
-        `This receipt is more than the outstanding receivable.\n` +
-        `Receivable: ${rs(before)}\n` +
-        `Receipt: ${rs(amount)}\n` +
-        `Extra ${rs(excess)} will become Customer Advance (Payable).\n` +
-        `Do you want to continue?`;
-    } else if (beforeStatus !== 'Receivable') {
-      warning =
-        `This party has no outstanding receivable.\n` +
-        `Receiving ${rs(amount)} will create a Customer Advance (Payable).\n` +
-        `Do you want to continue?`;
-    }
-  } else {
-    // Paying reduces payable; excess becomes receivable/advance.
-    if (beforeStatus === 'Payable' && amount > Math.abs(before) + 0.005) {
-      const excess = amount - Math.abs(before);
-      warning =
-        `This payment is more than the outstanding payable.\n` +
-        `Payable: ${rs(before)}\n` +
-        `Payment: ${rs(amount)}\n` +
-        `Extra ${rs(excess)} will become Advance Paid (Receivable).\n` +
-        `Do you want to continue?`;
-    } else if (beforeStatus !== 'Payable') {
-      warning =
-        `This party has no outstanding payable.\n` +
-        `Paying ${rs(amount)} will create an Advance Paid (Receivable).\n` +
-        `Do you want to continue?`;
-    }
-  }
-
+  // Cash Received / Paid simply moves Cash in Hand. We DO NOT treat an unmatched
+  // receipt/payment as a "customer advance" that flips the party to the opposite
+  // side, and we never block the entry with a confirmation. (Client preference:
+  // a receipt is just cash in, a payment is just cash out.)
   return {
     before,
     after,
     beforeLabel: balanceLabel(before),
     afterLabel: balanceLabel(after),
-    createsAdvance: warning !== '',
-    warning,
+    createsAdvance: false,
+    warning: '',
   };
 }
