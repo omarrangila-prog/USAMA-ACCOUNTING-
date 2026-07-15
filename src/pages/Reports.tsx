@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import {
-  exportReportPdf, exportReportExcel, reportTitle, buildReportDoc, reportFileName, type ReportId,
+  exportReportPdf, exportReportExcel, reportTitle, buildReportDoc, reportFileName, azSortByName, type ReportId,
 } from '@/lib/reportBuilder';
 import { PdfPreview } from '@/components/ui/PdfPreview';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
@@ -38,10 +38,10 @@ export function Reports() {
 
   const closed = isMonthClosed();
 
-  // On-page party ledger: every party with buying/selling + cash + balance.
+  // On-page party ledger: every party (A→Z) with buying/selling + cash + balance.
   const ledger = useMemo(() => {
     const balances = computePartyBalances(data, period);
-    return data.parties.map((p) => {
+    return azSortByName(data.parties).map((p) => {
       const bal = balances.find((b) => b.partyId === p.id)?.balance ?? 0;
       const trade = partyTradeTotals(data, p.id, period);
       const cash = partyCashTotals(data, p.id, period);

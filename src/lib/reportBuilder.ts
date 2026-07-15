@@ -281,8 +281,8 @@ export function buildSections(
       sections.push({
         title: `${party.name} Statement`,
         head: ['Date', 'Tafseel', 'Debit (-)', 'Credit (+)', 'Balance'],
-        // Accumulate the running balance chronologically, then reverse so the
-        // newest entry is on top (each row keeps its correct running balance).
+        // Statement entries read first → last (oldest at top), so the running
+        // balance builds naturally down the page.
         rows: entries.map((e) => {
           running += e.debit - e.credit;
           // Sale/Purchase are memo rows: show the amount in Tafseel; balance flat.
@@ -293,7 +293,7 @@ export function buildSections(
             e.credit ? formatNumber(e.credit) : '-',
             `${formatNumber(Math.abs(running))} ${running >= 0 ? '(+)' : '(-)'}`,
           ];
-        }).reverse(),
+        }),
         foot: ['', 'Total', formatNumber(totalDebit), formatNumber(totalCredit),
           `${formatNumber(Math.abs(running))} ${running >= 0 ? '(+)' : '(-)'}`],
         numericCols: [2, 3, 4],
@@ -430,7 +430,7 @@ export function exportReportExcel(data: DataSet, period: Period): void {
         .map((e) => [e.date, e.kind, e.category, e.description ?? '', e.amount]),
     ],
   });
-  const balances = computePartyBalances(data, period);
+  const balances = azSortByName(computePartyBalances(data, period)); // parties A→Z
   sheets.push({
     name: 'Balances',
     rows: [
