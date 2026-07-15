@@ -33,6 +33,16 @@ export function azSortByName<T extends { name: string }>(rows: T[]): T[] {
   );
 }
 
+/**
+ * Newest entry first: latest date on top, oldest at the bottom. Same-day rows
+ * fall back to creation order (newest created first).
+ */
+function newestFirst<T extends { date: string; createdAt: number }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) =>
+    a.date > b.date ? -1 : a.date < b.date ? 1 : b.createdAt - a.createdAt
+  );
+}
+
 const C = {
   blue: [59, 130, 246] as [number, number, number],
   green: [16, 185, 129] as [number, number, number],
@@ -93,7 +103,7 @@ export function buildSections(
   }
 
   if (want('purchase')) {
-    const rows = data.purchases.filter((p) => p.month === period.month && p.year === period.year);
+    const rows = newestFirst(data.purchases.filter((p) => p.month === period.month && p.year === period.year));
     sections.push({
       title: 'Purchase Report',
       head: ['Date', 'Party', 'Bond', 'Qty', 'Rate', 'Amount', 'Description'],
@@ -107,7 +117,7 @@ export function buildSections(
   }
 
   if (want('sale')) {
-    const rows = data.sales.filter((s) => s.month === period.month && s.year === period.year);
+    const rows = newestFirst(data.sales.filter((s) => s.month === period.month && s.year === period.year));
     sections.push({
       title: 'Sale Report',
       head: ['Date', 'Party', 'Bond', 'Qty', 'Rate', 'Amount', 'Profit', 'Description'],
@@ -271,6 +281,8 @@ export function buildSections(
       sections.push({
         title: `${party.name} Statement`,
         head: ['Date', 'Tafseel', 'Debit (-)', 'Credit (+)', 'Balance'],
+        // Accumulate the running balance chronologically, then reverse so the
+        // newest entry is on top (each row keeps its correct running balance).
         rows: entries.map((e) => {
           running += e.debit - e.credit;
           // Sale/Purchase are memo rows: show the amount in Tafseel; balance flat.
@@ -281,7 +293,7 @@ export function buildSections(
             e.credit ? formatNumber(e.credit) : '-',
             `${formatNumber(Math.abs(running))} ${running >= 0 ? '(+)' : '(-)'}`,
           ];
-        }),
+        }).reverse(),
         foot: ['', 'Total', formatNumber(totalDebit), formatNumber(totalCredit),
           `${formatNumber(Math.abs(running))} ${running >= 0 ? '(+)' : '(-)'}`],
         numericCols: [2, 3, 4],
@@ -290,7 +302,7 @@ export function buildSections(
   }
 
   if (want('expenses')) {
-    const rows = (data.expenses ?? []).filter((e) => e.month === period.month && e.year === period.year);
+    const rows = newestFirst((data.expenses ?? []).filter((e) => e.month === period.month && e.year === period.year));
     if (rows.length) {
       const totalExp = rows.filter((e) => e.kind === 'expense').reduce((a, e) => a + e.amount, 0);
       const totalInc = rows.filter((e) => e.kind === 'income').reduce((a, e) => a + e.amount, 0);
@@ -390,7 +402,7 @@ export function exportReportExcel(data: DataSet, period: Period): void {
     name: 'Purchases',
     rows: [
       ['Date', 'Party', 'Bond', 'Qty', 'Rate', 'Amount', 'Mode', 'Description'],
-      ...data.purchases.filter((p) => p.month === period.month && p.year === period.year)
+      ...newestFirst(data.purchases.filter((p) => p.month === period.month && p.year === period.year))
         .map((p) => [p.date, partyName(data, p.partyId), bondName(data, p.bondTypeId), p.quantity, p.rate, p.amount, p.payment, describePurchase(data, p)]),
     ],
   });
@@ -398,7 +410,7 @@ export function exportReportExcel(data: DataSet, period: Period): void {
     name: 'Sales',
     rows: [
       ['Date', 'Party', 'Bond', 'Qty', 'Rate', 'Amount', 'Profit', 'Mode', 'Description'],
-      ...data.sales.filter((s) => s.month === period.month && s.year === period.year)
+      ...newestFirst(data.sales.filter((s) => s.month === period.month && s.year === period.year))
         .map((s) => [s.date, partyName(data, s.partyId), bondName(data, s.bondTypeId), s.quantity, s.rate, s.amount, saleProfitLive(data, s, period), s.receipt, describeSale(data, s)]),
     ],
   });
@@ -406,7 +418,7 @@ export function exportReportExcel(data: DataSet, period: Period): void {
     name: 'Cash',
     rows: [
       ['Date', 'Party', 'Direction', 'Amount', 'Description'],
-      ...data.cash.filter((c) => c.month === period.month && c.year === period.year)
+      ...newestFirst(data.cash.filter((c) => c.month === period.month && c.year === period.year))
         .map((c) => [c.date, partyName(data, c.partyId), c.direction, c.amount, describeCash(data, c)]),
     ],
   });

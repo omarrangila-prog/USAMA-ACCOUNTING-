@@ -88,14 +88,18 @@ export function CashBook() {
   const movement = useMemo(() => computeBondMovement(data, period), [data, period]);
 
   // Running cash balance under the client formula (Sale +, Purchase −,
-  // Received +, Paid −; adjustments/expense don't move cash).
+  // Received +, Paid −; adjustments/expense don't move cash). The balance is
+  // accumulated in CHRONOLOGICAL order, then the list is reversed so the newest
+  // entry shows on top (each row still carries its correct running balance).
   const withRunning = useMemo(() => {
     let run = 0;
-    return rows.map((r) => {
-      const delta = cashSign(r.type, r.amount);
-      run += delta;
-      return { row: r, running: run, delta };
-    });
+    return rows
+      .map((r) => {
+        const delta = cashSign(r.type, r.amount);
+        run += delta;
+        return { row: r, running: run, delta };
+      })
+      .reverse();
   }, [rows]);
 
   const shown = filter === 'all' ? withRunning : withRunning.filter((x) => x.row.type === filter);
@@ -109,10 +113,13 @@ export function CashBook() {
     if (!viewParty) return null;
     const entries = computeLedger(data, viewParty, period);
     let run = 0;
-    const rows = entries.map((e) => {
-      run += e.debit - e.credit;              // debit => receivable, credit => payable
-      return { entry: e, running: run };
-    });
+    // Accumulate chronologically, then reverse so the newest row is on top.
+    const rows = entries
+      .map((e) => {
+        run += e.debit - e.credit;            // debit => receivable, credit => payable
+        return { entry: e, running: run };
+      })
+      .reverse();
     const trade = partyTradeTotals(data, viewParty, period);
     const name = data.parties.find((p) => p.id === viewParty)?.name ?? '';
     return { rows, trade, name, balance: run };
