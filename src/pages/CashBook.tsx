@@ -32,6 +32,16 @@ import './cashbook.css';
  * balance. "New Transaction" reuses the existing forms/modals — no new write
  * logic, no schema or collection changes.
  */
+/** Signed cash effect of a row under the CLIENT formula:
+ *  Cash in Hand = (Sales − Purchases) + (Received − Paid).
+ *  Only those four types move cash; Adjustment / Expense / Income do not. */
+function cashSign(type: TxnBookType, amount: number): number {
+  switch (type) {
+    case 'Sale': case 'Receivable': return amount;
+    case 'Purchase': case 'Payable': return -amount;
+    default: return 0; // Adjustment, Expense, Income
+  }
+}
 
 /** Map a party-ledger entry to the minimal row shape edit/delete need. */
 function ledgerEntryToRow(e: { refType: string; refId: string }): Pick<TxnBookRow, 'collection' | 'refId' | 'type'> | null {
@@ -85,10 +95,7 @@ export function CashBook() {
     let run = 0;
     return rows
       .map((r) => {
-        // r.cashDelta is the row's PHYSICAL cash effect (cash sale +, cash
-        // purchase −, received +, paid −; credit trades & adjustments = 0). Its
-        // running total reconciles with computeCashInHand.
-        const delta = r.cashDelta;
+        const delta = cashSign(r.type, r.amount);
         run += delta;
         return { row: r, running: run, delta };
       })
@@ -180,7 +187,7 @@ export function CashBook() {
         <div className={cx('cb-card hero', sum.cashInHand >= 0 ? 'pos' : 'neg')}>
           <span className="cb-card-label">Cash in Hand</span>
           <span className="cb-card-value">{formatMoney(sum.cashInHand, cur)}</span>
-          <span className="cb-card-sub">Physical cash (cash sales/purchases + Received − Paid)</span>
+          <span className="cb-card-sub">(Sales − Purchase) + (Received − Paid)</span>
         </div>
         <div className="cb-card">
           <span className="cb-card-label">{sum.profit >= 0 ? 'Profit' : 'Loss'}</span>

@@ -27,10 +27,10 @@ const dataset = (over: Partial<DataSet>): DataSet => ({
 } as DataSet);
 
 describe('Cash Book summary formula', () => {
-  it('Cash in Hand = Received − Paid (credit sales/purchases not in cash)', () => {
+  it('Cash in Hand = (Sales − Purchases) + (Received − Paid)', () => {
     const data = dataset({
-      sales: [sale('s1', 3000), sale('s2', 1500)],       // credit → receivable, NOT cash
-      purchases: [purchase('p1', 2000)],                 // credit → payable, NOT cash
+      sales: [sale('s1', 3000), sale('s2', 1500)],       // 4500
+      purchases: [purchase('p1', 2000)],                 // 2000
       cash: [cash('c1', 'received', 800), cash('c2', 'paid', 300)],
     });
     const s = computeCashBookSummary(data, P);
@@ -38,11 +38,11 @@ describe('Cash Book summary formula', () => {
     expect(s.totalPurchases).toBe(2000);
     expect(s.totalReceived).toBe(800);
     expect(s.totalPaid).toBe(300);
-    // Cash in Hand = Received − Paid = 800 − 300 = 500 (sales/purchases excluded).
-    expect(s.cashInHand).toBe(500);
+    // (4500 − 2000) + (800 − 300) = 3000
+    expect(s.cashInHand).toBe(3000);
   });
 
-  it('sale auto-builds receivable; profit separate; no cash without a receipt', () => {
+  it('sale auto-builds receivable; profit separate', () => {
     const data = dataset({
       sales: [sale('s', 2000)],                 // +2000 receivable (party A), profit 2000
       partyAdjustments: [adj('r', 1000), adj('p', -400)],
@@ -52,8 +52,8 @@ describe('Cash Book summary formula', () => {
     // Receivable = sale 2000 + adj 1000 − adj 400 = 2600 (all on party A).
     expect(s.receivable).toBe(2600);
     expect(s.payable).toBe(0);
-    // No cash received/paid → Cash in Hand = 0 (the sale is a receivable, not cash).
-    expect(s.cashInHand).toBe(0);
+    // cashInHand still uses (Sales−Purchases)+(Received−Paid) = 2000.
+    expect(s.cashInHand).toBe(2000);
   });
 
   it('empty period is all zeros', () => {
