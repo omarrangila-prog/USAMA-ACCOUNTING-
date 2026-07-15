@@ -86,11 +86,18 @@ function assertReconciled(data: DataSet, partyId: string) {
   expect(metric('Cash in Hand')).toBe(money(cbCash));
 }
 
-describe('Reconciliation — receivable/payable come from manual entries only', () => {
-  it('a credit SALE does NOT change the party balance (only manual receivable does)', () => {
+describe('Reconciliation — auto receivable/payable from sales/purchases', () => {
+  it('a SALE to a party auto-creates its Receivable (derived, once)', () => {
     const data = dataset({ parties: [party('A', 'Ali')], sales: [sale('s1', 'A', 500000)] });
-    expect(computePartyBalances(data, P).find((b) => b.partyId === 'A')!.balance).toBe(0);
-    expect(computeFinancials(data, P).netReceivable).toBe(0);
+    expect(computePartyBalances(data, P).find((b) => b.partyId === 'A')!.balance).toBe(500000);
+    expect(computeFinancials(data, P).netReceivable).toBe(500000);
+    assertReconciled(data, 'A');
+  });
+
+  it('a PURCHASE from a party auto-creates its Payable (derived, once)', () => {
+    const data = dataset({ parties: [party('A', 'Ali')], purchases: [purchase('p1', 'A', 300000)] });
+    expect(computePartyBalances(data, P).find((b) => b.partyId === 'A')!.balance).toBe(-300000);
+    expect(computeFinancials(data, P).netPayable).toBe(300000);
     assertReconciled(data, 'A');
   });
 
@@ -110,28 +117,36 @@ describe('Reconciliation — receivable/payable come from manual entries only', 
     assertReconciled(data, 'A');
   });
 
-  it('Cash Receivable (received) increases receivable; Cash Payable (paid) increases payable', () => {
-    // Name-matches-card: received => +receivable, paid => -payable.
-    const rec = dataset({ parties: [party('A', 'Ali')], cash: [cash('c1', 'A', 'received', 500000)] });
-    expect(computePartyBalances(rec, P).find((b) => b.partyId === 'A')!.balance).toBe(500000); // receivable
-    expect(computeFinancials(rec, P).netReceivable).toBe(500000);
-    expect(computeCashInHand(rec, P)).toBe(500000);
-
-    const pay = dataset({ parties: [party('A', 'Ali')], cash: [cash('c2', 'A', 'paid', 500000)] });
-    expect(computePartyBalances(pay, P).find((b) => b.partyId === 'A')!.balance).toBe(-500000); // payable
-    expect(computeFinancials(pay, P).netPayable).toBe(500000);
-    expect(computeCashInHand(pay, P)).toBe(-500000);
-  });
-
-  it('Cash Receivable 5k then Cash Payable 3k on one party nets to Receivable 2k', () => {
+  it('SALE 500k then RECEIVE 500k settles the receivable to zero', () => {
+    // Sale creates receivable 500k; receiving cash settles it (no double-count).
     const data = dataset({
       parties: [party('A', 'Ali')],
-      cash: [cash('c1', 'A', 'received', 5000), cash('c2', 'A', 'paid', 3000)],
+      sales: [sale('s1', 'A', 500000)],
+      cash: [cash('c1', 'A', 'received', 500000)],
     });
-    expect(computePartyBalances(data, P).find((b) => b.partyId === 'A')!.balance).toBe(2000); // +5000 −3000
-    expect(computeFinancials(data, P).netReceivable).toBe(2000);
+    expect(computePartyBalances(data, P).find((b) => b.partyId === 'A')!.balance).toBe(0); // +500k −500k
+    expect(computeFinancials(data, P).netReceivable).toBe(0);
     expect(computeFinancials(data, P).netPayable).toBe(0);
-    expect(computeCashInHand(data, P)).toBe(2000);
+  });
+
+  it('SALE 500k then partial RECEIVE 300k leaves Receivable 200k', () => {
+    const data = dataset({
+      parties: [party('A', 'Ali')],
+      sales: [sale('s1', 'A', 500000)],
+      cash: [cash('c1', 'A', 'received', 300000)],
+    });
+    expect(computePartyBalances(data, P).find((b) => b.partyId === 'A')!.balance).toBe(200000);
+    expect(computeFinancials(data, P).netReceivable).toBe(200000);
+  });
+
+  it('PURCHASE 300k then PAY 300k settles the payable to zero', () => {
+    const data = dataset({
+      parties: [party('A', 'Ali')],
+      purchases: [purchase('p1', 'A', 300000)],
+      cash: [cash('c1', 'A', 'paid', 300000)],
+    });
+    expect(computePartyBalances(data, P).find((b) => b.partyId === 'A')!.balance).toBe(0); // −300k +300k
+    expect(computeFinancials(data, P).netPayable).toBe(0);
   });
 
   it('NO-party sale stays cash: hits Cash in Hand, no party balance', () => {
@@ -172,9 +187,9 @@ describe('Reconciliation — create / edit / delete keep everything in sync', ()
     assertReconciled(data, 'A');
   });
 
-  it('a SALE does NOT move the party balance (only manual entries do)', () => {
+  it('a SALE auto-creates receivable; a manual adjustment adds to it', () => {
     const withSale = dataset({ parties: [party('A', 'Ali')], sales: [sale('s1', 'A', 123456)] });
-    expect(computePartyBalances(withSale, P).find((b) => b.partyId === 'A')!.balance).toBe(0);
+    expect(computePartyBalances(withSale, P).find((b) => b.partyId === 'A')!.balance).toBe(123456);
     const withAdj = dataset({ parties: [party('A', 'Ali')], partyAdjustments: [adj('r', 'A', 123456)] });
     expect(computePartyBalances(withAdj, P).find((b) => b.partyId === 'A')!.balance).toBe(123456);
   });

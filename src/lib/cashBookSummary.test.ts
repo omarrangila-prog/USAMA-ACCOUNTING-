@@ -42,16 +42,17 @@ describe('Cash Book summary formula', () => {
     expect(s.cashInHand).toBe(3000);
   });
 
-  it('profit / receivable / payable are separate, NOT in cash', () => {
+  it('sale auto-builds receivable; profit separate', () => {
     const data = dataset({
-      sales: [sale('s', 2000)],                 // trading profit = 2000 (cost 0)
+      sales: [sale('s', 2000)],                 // +2000 receivable (party A), profit 2000
       partyAdjustments: [adj('r', 1000), adj('p', -400)],
     });
     const s = computeCashBookSummary(data, P);
     expect(s.profit).toBe(2000);
-    expect(s.receivable).toBe(600);   // 1000 − 400 net on party A
+    // Receivable = sale 2000 + adj 1000 − adj 400 = 2600 (all on party A).
+    expect(s.receivable).toBe(2600);
     expect(s.payable).toBe(0);
-    // cash = (2000 − 0) + (0 − 0) = 2000 — profit/adjustments don't add extra
+    // cashInHand still uses (Sales−Purchases)+(Received−Paid) = 2000.
     expect(s.cashInHand).toBe(2000);
   });
 

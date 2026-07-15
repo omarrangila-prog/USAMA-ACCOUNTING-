@@ -177,29 +177,30 @@ describe('Financial Engine — per-party netting', () => {
     expect(computeFinancials(data, P).cashInHand).toBe(600000);
   });
 
-  it('7. sales/purchases do NOT affect party balance (only manual + cash do)', () => {
+  it('7. sale => +receivable, purchase => -payable (auto, netted)', () => {
     const data = dataset({
       parties: [party('A', 'Ali')],
-      purchases: [creditPurchase('p1', 'A', 1000000)],
-      sales: [creditSale('s1', 'A', 400000)],
+      purchases: [creditPurchase('p1', 'A', 1000000)], // -1,000,000 payable
+      sales: [creditSale('s1', 'A', 400000)],          // +400,000 receivable
     });
-    // New rule: a credit sale/purchase never touches receivable/payable.
-    expect(partyNet(data, 'A')).toBe(0);
+    // Net = 400,000 − 1,000,000 = −600,000 => payable 600,000.
+    expect(partyNet(data, 'A')).toBe(-600000);
     const fin = computeFinancials(data, P);
     expect(fin.netReceivable).toBe(0);
-    expect(fin.netPayable).toBe(0);
+    expect(fin.netPayable).toBe(600000);
   });
 
-  it('8. only a manual adjustment builds receivable/payable', () => {
+  it('8. sales/purchases + a manual adjustment all net into the balance', () => {
     const data = dataset({
       parties: [party('A', 'Ali')],
-      purchases: [creditPurchase('p1', 'A', 400000)], // ignored for balance
-      sales: [creditSale('s1', 'A', 1000000)],        // ignored for balance
-      partyAdjustments: [adjustment('m', 'A', 600000)], // THIS builds the receivable
+      purchases: [creditPurchase('p1', 'A', 400000)],   // -400,000
+      sales: [creditSale('s1', 'A', 1000000)],          // +1,000,000
+      partyAdjustments: [adjustment('m', 'A', 600000)], // +600,000
     });
-    expect(partyNet(data, 'A')).toBe(600000);
+    // Net = 1,000,000 − 400,000 + 600,000 = 1,200,000 receivable.
+    expect(partyNet(data, 'A')).toBe(1200000);
     const fin = computeFinancials(data, P);
-    expect(fin.netReceivable).toBe(600000);
+    expect(fin.netReceivable).toBe(1200000);
     expect(fin.netPayable).toBe(0);
   });
 });
