@@ -839,7 +839,10 @@ export function computeLedger(
       })
     );
 
-  return entries.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  // Date-wise ascending (oldest first); same-day entries keep creation order.
+  return entries.sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : a.createdAt - b.createdAt
+  );
 }
 
 export interface TrialBalanceRow {

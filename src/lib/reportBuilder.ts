@@ -293,9 +293,9 @@ export function buildSections(
       sections.push({
         title: `${party.name} Statement`,
         head: ['Date', 'Tafseel', 'Debit (-)', 'Credit (+)', 'Balance'],
-        // Single-party report: newest entry on top. All-party ledger: oldest on
-        // top (chronological, so the running balance builds down the page).
-        rows: onlyPartyId ? statementRows.reverse() : statementRows,
+        // Entries read first → last (oldest at top) so the running balance
+        // builds naturally down the page — for both single- and all-party.
+        rows: statementRows,
         foot: ['', 'Total', formatNumber(totalDebit), formatNumber(totalCredit),
           `${formatNumber(Math.abs(running))} ${running >= 0 ? '(+)' : '(-)'}`],
         numericCols: [2, 3, 4],
