@@ -703,9 +703,11 @@ export function computeCashBookSummary(data: DataSet, period: Period): CashBookS
     totalPurchases,
     totalReceived,
     totalPaid,
-    // Client formula: (Sales − Purchases) + (Received − Paid). Expenses are NOT
-    // part of Cash in Hand — they only reduce Profit.
-    cashInHand: round2((totalSales - totalPurchases) + (totalReceived - totalPaid)),
+    // Cash in Hand = PHYSICAL cash: cash (no-party) sales − cash purchases +
+    // Received − Paid. Credit sales/purchases build Receivable/Payable instead
+    // (they are NOT cash), so a credit sale is never double-counted in both
+    // cash and receivable. computeCashInHand is the single physical-cash source.
+    cashInHand: computeCashInHand(data, period),
     receivable: fin.netReceivable,
     payable: fin.netPayable,
     // Net Profit = trading − expenses (same single source of truth everywhere).
