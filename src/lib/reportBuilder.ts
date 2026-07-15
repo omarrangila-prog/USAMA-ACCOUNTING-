@@ -278,22 +278,24 @@ export function buildSections(
       const totalDebit = entries.reduce((a, e) => a + e.debit, 0);
       const totalCredit = entries.reduce((a, e) => a + e.credit, 0);
       // Statement style: Date · Tafseel · Debit(-) · Credit(+) · Balance (+/-)
+      // Build rows with the running balance accumulated chronologically.
+      const statementRows = entries.map((e) => {
+        running += e.debit - e.credit;
+        // Sale/Purchase are memo rows: show the amount in Tafseel; balance flat.
+        const tafseel = e.memo ? `${e.description} — ${money(e.memo)}` : e.description;
+        return [
+          formatDate(e.date), tafseel,
+          e.debit ? formatNumber(e.debit) : '-',
+          e.credit ? formatNumber(e.credit) : '-',
+          `${formatNumber(Math.abs(running))} ${running >= 0 ? '(+)' : '(-)'}`,
+        ];
+      });
       sections.push({
         title: `${party.name} Statement`,
         head: ['Date', 'Tafseel', 'Debit (-)', 'Credit (+)', 'Balance'],
-        // Statement entries read first → last (oldest at top), so the running
-        // balance builds naturally down the page.
-        rows: entries.map((e) => {
-          running += e.debit - e.credit;
-          // Sale/Purchase are memo rows: show the amount in Tafseel; balance flat.
-          const tafseel = e.memo ? `${e.description} — ${money(e.memo)}` : e.description;
-          return [
-            formatDate(e.date), tafseel,
-            e.debit ? formatNumber(e.debit) : '-',
-            e.credit ? formatNumber(e.credit) : '-',
-            `${formatNumber(Math.abs(running))} ${running >= 0 ? '(+)' : '(-)'}`,
-          ];
-        }),
+        // Single-party report: newest entry on top. All-party ledger: oldest on
+        // top (chronological, so the running balance builds down the page).
+        rows: onlyPartyId ? statementRows.reverse() : statementRows,
         foot: ['', 'Total', formatNumber(totalDebit), formatNumber(totalCredit),
           `${formatNumber(Math.abs(running))} ${running >= 0 ? '(+)' : '(-)'}`],
         numericCols: [2, 3, 4],

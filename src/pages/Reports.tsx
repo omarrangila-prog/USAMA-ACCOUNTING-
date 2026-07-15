@@ -29,11 +29,12 @@ const REPORTS: { id: ReportId; icon: IconName; desc: string; accent: string }[] 
 
 export function Reports() {
   const t = useT();
-  const { period, dataset, settings, isMonthClosed, closeMonth } = useData();
+  const { period, dataset, settings, isMonthClosed, closeMonth, deleteParty } = useData();
   const data = dataset();
   const cur = settings.currency;
   const [confirmClose, setConfirmClose] = useState(false);
   const [preview, setPreview] = useState<{ which: 'all' | ReportId; title: string } | null>(null);
+  const [partyToDelete, setPartyToDelete] = useState<{ id: string; name: string } | null>(null);
   const printConfirm = usePrintConfirm();
 
   const closed = isMonthClosed();
@@ -89,42 +90,6 @@ export function Reports() {
         }
       />
 
-      {/* Party Ledger — how much each party bought / sold + cash + balance. */}
-      <div className="card" style={{ marginBottom: 18 }}>
-        <div className="section-title"><Icon name="ledger" size={16} /> Party Ledger · {ledger.length}</div>
-        {ledger.length === 0 ? (
-          <div className="empty">No parties yet.</div>
-        ) : (
-          <div className="table-wrap">
-            <table className="grid stack-sm party-ledger-table">
-              <thead>
-                <tr>
-                  <th>Party</th>
-                  <th className="num">Total Purchased</th><th className="num">Total Sold</th>
-                  <th className="num">Payable</th><th className="num">Receivable</th>
-                  <th className="num">Balance</th><th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ledger.map((r) => (
-                  <tr key={r.id}>
-                    <td data-label="Party"><strong>{r.name}</strong></td>
-                    <td data-label="Total Purchased" className="num mono">{formatMoney(r.purchased, cur)}</td>
-                    <td data-label="Total Sold" className="num mono">{formatMoney(r.sold, cur)}</td>
-                    <td data-label="Payable" className="num mono">{formatMoney(r.paid, cur)}</td>
-                    <td data-label="Receivable" className="num mono">{formatMoney(r.received, cur)}</td>
-                    <td data-label="Balance" className={cx('num mono', r.balance > 0 ? 'pos' : r.balance < 0 ? 'neg' : '')}>
-                      {formatMoney(Math.abs(r.balance), cur)} {r.balance > 0 ? 'Dr' : r.balance < 0 ? 'Cr' : ''}
-                    </td>
-                    <td data-label="Status" className={cx(r.balance > 0 ? 'pos' : r.balance < 0 ? 'neg' : '')}>{r.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
       <div className="card" style={{ marginBottom: 18 }}>
         <div className="section-title"><Icon name="reports" size={16} /> Individual Reports (PDF)</div>
         <div className="report-grid">
@@ -167,6 +132,50 @@ export function Reports() {
         </div>
       </div>
 
+      {/* Party Ledger — how much each party bought / sold + cash + balance.
+          Shown below the report options; each row can be deleted. */}
+      <div className="card" style={{ marginBottom: 18 }}>
+        <div className="section-title"><Icon name="ledger" size={16} /> Party Ledger · {ledger.length}</div>
+        {ledger.length === 0 ? (
+          <div className="empty">No parties yet.</div>
+        ) : (
+          <div className="table-wrap">
+            <table className="grid stack-sm party-ledger-table">
+              <thead>
+                <tr>
+                  <th>Party</th>
+                  <th className="num">Total Purchased</th><th className="num">Total Sold</th>
+                  <th className="num">Payable</th><th className="num">Receivable</th>
+                  <th className="num">Balance</th><th>Status</th>
+                  <th className="no-print"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {ledger.map((r) => (
+                  <tr key={r.id}>
+                    <td data-label="Party"><strong>{r.name}</strong></td>
+                    <td data-label="Total Purchased" className="num mono">{formatMoney(r.purchased, cur)}</td>
+                    <td data-label="Total Sold" className="num mono">{formatMoney(r.sold, cur)}</td>
+                    <td data-label="Payable" className="num mono">{formatMoney(r.paid, cur)}</td>
+                    <td data-label="Receivable" className="num mono">{formatMoney(r.received, cur)}</td>
+                    <td data-label="Balance" className={cx('num mono', r.balance > 0 ? 'pos' : r.balance < 0 ? 'neg' : '')}>
+                      {formatMoney(Math.abs(r.balance), cur)} {r.balance > 0 ? 'Dr' : r.balance < 0 ? 'Cr' : ''}
+                    </td>
+                    <td data-label="Status" className={cx(r.balance > 0 ? 'pos' : r.balance < 0 ? 'neg' : '')}>{r.status}</td>
+                    <td className="no-print actions-cell">
+                      <button className="btn btn-ghost btn-icon btn-sm del-btn" title="Delete party"
+                        onClick={() => setPartyToDelete({ id: r.id, name: r.name })}>
+                        <Icon name="trash" size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       <div className="card">
         <div className="section-title"><Icon name="check" size={16} /> Monthly Closing</div>
         <div className="close-panel">
@@ -204,6 +213,15 @@ export function Reports() {
         confirmLabel={closed ? 'Refresh Summary' : 'Close Month'}
         onConfirm={doClose}
         onCancel={() => setConfirmClose(false)}
+      />
+
+      <ConfirmDialog
+        open={!!partyToDelete}
+        title={`Delete ${partyToDelete?.name ?? 'party'}?`}
+        message="This removes the party. Any of its existing transactions are kept (they will show without a party name). This cannot be undone."
+        confirmLabel="Delete Party" danger
+        onConfirm={() => { if (partyToDelete) deleteParty(partyToDelete.id); setPartyToDelete(null); }}
+        onCancel={() => setPartyToDelete(null)}
       />
 
       <PdfPreview

@@ -364,16 +364,9 @@ export const useData = create<DataStore>((set, get) => ({
 
   deleteParty: async (id) => {
     const u = get().uidRef!;
-    const s = get();
-    const inUse =
-      s.purchases.some((p) => p.partyId === id) ||
-      s.sales.some((x) => x.partyId === id) ||
-      s.cash.some((c) => c.partyId === id) ||
-      (s.partyAdjustments ?? []).some((a) => a.partyId === id);
-    if (inUse) {
-      toast.error('Party has transactions or balances — cannot delete.');
-      return;
-    }
+    // Any party can be deleted. Existing transactions are KEPT (they simply lose
+    // their party name and show as "Cash"/"—" in the ledger), so no financial
+    // amounts are lost — only the party record is removed.
     await removeDoc(u, 'parties', id);
     toast.info('Party deleted.');
   },
