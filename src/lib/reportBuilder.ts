@@ -66,7 +66,9 @@ export function summaryCards(data: DataSet, period: Period): PdfSummaryCard[] {
 export function buildSections(
   data: DataSet,
   period: Period,
-  which: 'all' | ReportId = 'all'
+  which: 'all' | ReportId = 'all',
+  /** When set with which='ledger', build ONLY this party's statement. */
+  onlyPartyId?: string,
 ): PdfSection[] {
   const sections: PdfSection[] = [];
   const want = (id: ReportId) => which === 'all' || which === id;
@@ -253,10 +255,15 @@ export function buildSections(
   }
 
   if (want('ledger')) {
-    azSort(data.parties).forEach((party) => {
+    const ledgerParties = onlyPartyId
+      ? data.parties.filter((p) => p.id === onlyPartyId)
+      : azSort(data.parties);
+    ledgerParties.forEach((party) => {
       const entries = computeLedger(data, party.id, period);
       const hasMovement = entries.some((e) => e.refType !== 'opening');
-      if (!hasMovement && (entries[0]?.debit ?? 0) === 0 && (entries[0]?.credit ?? 0) === 0) return;
+      // Skip empty parties only in the "all parties" ledger; a single-party
+      // print always renders even when there's no movement.
+      if (!onlyPartyId && !hasMovement && (entries[0]?.debit ?? 0) === 0 && (entries[0]?.credit ?? 0) === 0) return;
       let running = 0;
       const totalDebit = entries.reduce((a, e) => a + e.debit, 0);
       const totalCredit = entries.reduce((a, e) => a + e.credit, 0);
@@ -335,16 +342,24 @@ export function buildReportDoc(
   data: DataSet,
   settings: Settings,
   period: Period,
-  which: 'all' | ReportId = 'all'
+  which: 'all' | ReportId = 'all',
+  onlyPartyId?: string,
 ) {
+  const partyName = onlyPartyId ? data.parties.find((p) => p.id === onlyPartyId)?.name : undefined;
   return buildReportPdf({
-    title: which === 'all' ? 'Monthly Report' : reportTitle(which),
+    title: partyName ? `${partyName} — Ledger` : which === 'all' ? 'Monthly Report' : reportTitle(which),
     settings,
     month: period.month,
     year: period.year,
-    summary: summaryCards(data, period),
-    sections: buildSections(data, period, which),
+    // A single-party ledger doesn't need the whole-business summary cards.
+    summary: onlyPartyId ? [] : summaryCards(data, period),
+    sections: buildSections(data, period, which, onlyPartyId),
   });
+}
+
+/** Build + download a single party's ledger statement PDF. */
+export function buildPartyLedgerDoc(data: DataSet, settings: Settings, period: Period, partyId: string) {
+  return buildReportDoc(data, settings, period, 'ledger', partyId);
 }
 
 export function reportFileName(period: Period, which: 'all' | ReportId = 'all'): string {

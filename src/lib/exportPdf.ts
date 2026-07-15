@@ -107,14 +107,13 @@ export function buildReportPdf(opts: {
       body: section.rows.map((r) => r.map(String)),
       foot: section.foot ? [section.foot.map(String)] : undefined,
       margin: { left: M, right: M },
-      styles: { fontSize: 9.5, cellPadding: 7, textColor: DARK as any, lineColor: LINE, lineWidth: 0.5 },
-      headStyles: { fillColor: [255, 255, 255], textColor: SOFT as any, fontStyle: 'bold', fontSize: 8.5, lineWidth: { bottom: 0.8 } as any },
-      footStyles: { fillColor: [246, 250, 248], textColor: GREEN as any, fontStyle: 'bold', lineWidth: { top: 0.8 } as any },
+      // Center-align every column (header + body + foot) so values line up
+      // under their headings. The first column (labels) stays left-aligned.
+      styles: { fontSize: 9.5, cellPadding: 7, textColor: DARK as any, lineColor: LINE, lineWidth: 0.5, halign: 'center' },
+      headStyles: { fillColor: [255, 255, 255], textColor: SOFT as any, fontStyle: 'bold', fontSize: 8.5, lineWidth: { bottom: 0.8 } as any, halign: 'center' },
+      footStyles: { fillColor: [246, 250, 248], textColor: GREEN as any, fontStyle: 'bold', lineWidth: { top: 0.8 } as any, halign: 'center' },
       alternateRowStyles: { fillColor: [250, 251, 252] },
-      columnStyles: (section.numericCols ?? []).reduce((acc, c) => {
-        acc[c] = { halign: 'right' };
-        return acc;
-      }, {} as any),
+      columnStyles: { 0: { halign: 'left' } },
       theme: 'plain',
     });
     // @ts-expect-error lastAutoTable is set by the plugin

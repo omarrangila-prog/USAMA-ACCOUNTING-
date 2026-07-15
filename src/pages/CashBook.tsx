@@ -7,6 +7,8 @@ import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { Combo } from '@/components/ui/Combo';
 import { TradeModal, CashModal } from '@/components/TransactionModals';
 import { EditTransactionModal } from '@/pages/EditTransactionModal';
+import { usePrintConfirm } from '@/components/ui/PrintConfirm';
+import { buildPartyLedgerDoc, reportFileName } from '@/lib/reportBuilder';
 import type { CashDirection, Purchase, Sale } from '@/types';
 import {
   computeTransactionBook,
@@ -67,6 +69,7 @@ export function CashBook() {
   // Edit / delete a single transaction row.
   const [editCashId, setEditCashId] = useState<string | null>(null);
   const [editRecord, setEditRecord] = useState<{ kind: 'purchase' | 'sale'; rec: Purchase | Sale | null } | null>(null);
+  const printConfirm = usePrintConfirm();
   const [toDelete, setToDelete] = useState<Pick<TxnBookRow, 'collection' | 'refId'> | null>(null);
 
   // Deep-links: "?cash=received|paid" opens the cash modal directly (keyboard
@@ -149,6 +152,22 @@ export function CashBook() {
     }
   };
 
+  /** Print / download the currently-viewed single party's ledger. */
+  const partyLedgerFile = () =>
+    `ledger-${data.parties.find((p) => p.id === viewParty)?.name ?? 'party'}-${reportFileName(period, 'ledger').replace(/^bond-ledger-/, '')}`;
+  const printPartyLedger = () => {
+    if (!viewParty) return;
+    printConfirm.print({
+      makeDoc: () => buildPartyLedgerDoc(data, settings, period, viewParty),
+      fileName: partyLedgerFile(),
+    });
+  };
+  const downloadPartyLedger = () => {
+    if (!viewParty) return;
+    buildPartyLedgerDoc(data, settings, period, viewParty).save(partyLedgerFile());
+    toast.success('Ledger PDF downloaded');
+  };
+
   return (
     <div>
       <PageHeader
@@ -224,6 +243,16 @@ export function CashBook() {
               onChange={setViewParty}
             />
           </div>
+          {partyLedger && (
+            <div className="row no-print" style={{ gap: 6 }}>
+              <button className="btn btn-sm" title="Print this party's ledger" onClick={printPartyLedger}>
+                <Icon name="print" size={15} /> Print
+              </button>
+              <button className="btn btn-sm" title="Download this party's ledger PDF" onClick={downloadPartyLedger}>
+                <Icon name="pdf" size={15} /> PDF
+              </button>
+            </div>
+          )}
         </div>
 
         {partyLedger ? (
@@ -393,6 +422,7 @@ export function CashBook() {
         onConfirm={doDelete}
         onCancel={() => setToDelete(null)}
       />
+      {printConfirm.dialog}
     </div>
   );
 }
