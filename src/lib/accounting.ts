@@ -353,36 +353,22 @@ export function partyCashTotals(data: DataSet, partyId: string, period: Period):
  * Sign (name-matches-card): a "Cash Receivable" entry (direction 'received')
  * increases the party's RECEIVABLE (balance +); a "Cash Payable" entry
  * (direction 'paid') increases the PAYABLE (balance −). So the amount always
- * AUTOMATIC ACCOUNTING (derived, never duplicated):
- *   Sale to a party      => +Receivable (they owe us)
- *   Purchase from a party => -Payable    (we owe them)
- *   Cash Received (settle) => -Receivable (customer paid us)
- *   Cash Paid (settle)     => +Payable    (we paid the supplier)
+ * shows under the card whose name matches the button pressed.
  *
- * The Sale/Purchase transaction is stored ONCE; the balance is derived from it
- * here — the amount is never counted twice. Cash Received/Paid SETTLE those
- * balances (they don't create a second receivable/payable), so recording a sale
- * then receiving payment nets correctly with no double-counting.
+ * Sales & Purchases do NOT affect Receivable/Payable — they belong to the Total
+ * Sales / Purchases figures only.
  */
 export function computePartyBalances(data: DataSet, period: Period): PartyBalance[] {
   return data.parties.map((party) => {
     const opening = openingPartyBalance(party, period, data.closings, data.opening);
     let balance = opening;
 
-    // Sale => the party owes us (+receivable). Only party-linked (credit) sales.
-    data.sales
-      .filter((s) => s.partyId === party.id && inPeriod(s, period))
-      .forEach((s) => (balance += s.amount));
-    // Purchase => we owe the party (-payable). Only party-linked (credit) purchases.
-    data.purchases
-      .filter((p) => p.partyId === party.id && inPeriod(p, period))
-      .forEach((p) => (balance -= p.amount));
-    // Cash SETTLES the balance: received clears receivable (-), paid clears payable (+).
+    // Cash Receivable (received) => +receivable; Cash Payable (paid) => -payable.
     data.cash
       .filter((c) => c.partyId === party.id && inPeriod(c, period))
       .forEach((c) => {
-        if (c.direction === 'received') balance -= c.amount;
-        else balance += c.amount;
+        if (c.direction === 'received') balance += c.amount;
+        else balance -= c.amount;
       });
     // Manual party adjustments: +receivable / -payable.
     (data.partyAdjustments ?? [])
@@ -786,16 +772,16 @@ export function computeLedger(
     updatedAt: 0,
   });
 
-  // Sale => party owes us => DEBIT (+receivable). Purchase => we owe party =>
-  // CREDIT (-payable). These drive the balance directly (derived from the one
-  // stored transaction — never duplicated), matching computePartyBalances.
+  // Sales & Purchases appear in the party ledger for REFERENCE (memo), but do
+  // NOT affect the running balance — debit/credit stay 0, so receivable/payable
+  // still comes only from opening + cash + manual adjustments.
   data.purchases
     .filter((p) => p.partyId === partyId && inPeriod(p, period))
     .forEach((p) =>
       entries.push({
         id: 'p-' + p.id, partyId, refType: 'purchase', refId: p.id,
         description: describePurchase(data, p),
-        debit: 0, credit: p.amount,
+        debit: 0, credit: 0, memo: p.amount,
         date: p.date, month: p.month, year: p.year,
         createdAt: p.createdAt, updatedAt: p.updatedAt,
       })
@@ -806,14 +792,15 @@ export function computeLedger(
       entries.push({
         id: 's-' + s.id, partyId, refType: 'sale', refId: s.id,
         description: describeSale(data, s),
-        debit: s.amount, credit: 0,
+        debit: 0, credit: 0, memo: s.amount,
         date: s.date, month: s.month, year: s.year,
         createdAt: s.createdAt, updatedAt: s.updatedAt,
       })
     );
 
-  // Cash SETTLES the balance: Received clears receivable => CREDIT (-);
-  // Paid clears payable => DEBIT (+). No new receivable/payable is created.
+  // Cash Receivable (received) => debit (+receivable); Cash Payable (paid) =>
+  // credit (-payable). Matches computePartyBalances so the amount lands under
+  // the card whose name matches the button.
   data.cash
     .filter((c) => c.partyId === partyId && inPeriod(c, period))
     .forEach((c) =>
@@ -823,8 +810,8 @@ export function computeLedger(
         refType: 'cash',
         refId: c.id,
         description: describeCash(data, c),
-        debit: c.direction === 'paid' ? c.amount : 0,
-        credit: c.direction === 'received' ? c.amount : 0,
+        debit: c.direction === 'received' ? c.amount : 0,
+        credit: c.direction === 'paid' ? c.amount : 0,
         date: c.date,
         month: c.month,
         year: c.year,
