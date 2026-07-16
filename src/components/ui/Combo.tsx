@@ -42,6 +42,9 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
   const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; width: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  // True once we've focused the search box for the CURRENT open session, so a
+  // later re-measure of `pos` (scroll/resize) doesn't re-grab focus mid-typing.
+  const focusedRef = useRef(false);
 
   // Measure the trigger and place the popup below it — or ABOVE if there isn't
   // room below (common on phones when the field is low on screen). Width is
@@ -92,14 +95,22 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
   // Focus the search box synchronously right after it mounts (before paint) so
   // no keystroke is dropped in the race between opening and focusing. The
   // caret is placed at the end so a pre-seeded first letter isn't overwritten.
+  //
+  // NOTE: depend on `pos` as well — the input is only rendered once `pos` is
+  // measured (one render AFTER `open` flips true). Keying on `open` alone means
+  // the input isn't mounted yet when this runs, so focus is silently skipped and
+  // the user has to click the box. Re-running when `pos` becomes non-null (and
+  // whenever `open` toggles) guarantees we focus the input the moment it exists.
   useLayoutEffect(() => {
-    if (open && searchRef.current) {
-      const el = searchRef.current;
-      el.focus();
-      const len = el.value.length;
-      el.setSelectionRange(len, len);
-    }
-  }, [open]);
+    if (!open) { focusedRef.current = false; return; } // reset on close
+    if (!pos || focusedRef.current) return;            // wait for mount; focus once
+    const el = searchRef.current;
+    if (!el) return;
+    el.focus();
+    const len = el.value.length;
+    el.setSelectionRange(len, len);
+    focusedRef.current = true;
+  }, [open, pos]);
   useLayoutEffect(() => { setActive(0); }, [query, open]);
 
   const pick = (id: string) => {
