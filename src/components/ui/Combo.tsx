@@ -39,7 +39,7 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
   const [busy, setBusy] = useState(false);
   // Screen-space position of the popup, measured from the trigger. The popup is
   // portalled to <body> so it escapes any parent stacking context / overflow.
-  const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; width: number } | null>(null);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; width: number; maxHeight: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   // True once we've focused the search box for the CURRENT open session, so a
@@ -67,9 +67,15 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
     const openUp = openUpRef.current;
     const width = Math.min(r.width, window.innerWidth - 16);
     const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
+    const GAP = 6, MARGIN = 8;
+    // Cap the popup height to the room actually available in the chosen
+    // direction, so on short (Chromebook) screens it never overflows the top or
+    // bottom edge. The inner list scrolls; min floor keeps it usable.
+    const room = openUp ? (r.top - GAP - MARGIN) : (window.innerHeight - r.bottom - GAP - MARGIN);
+    const maxHeight = Math.max(140, Math.min(280, Math.floor(room)));
     const next = openUp
-      ? { bottom: window.innerHeight - r.top + 6, left, width }
-      : { top: r.bottom + 6, left, width };
+      ? { bottom: window.innerHeight - r.top + GAP, left, width, maxHeight }
+      : { top: r.bottom + GAP, left, width, maxHeight };
     // Only update state when the position ACTUALLY changed. Rounding to whole
     // pixels + a shallow compare prevents a re-render storm: focusing the input
     // can nudge the page by sub-pixels, which fires the scroll listener, which
@@ -79,7 +85,8 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
         && Math.round(prev.top ?? -1) === Math.round(next.top ?? -1)
         && Math.round(prev.bottom ?? -1) === Math.round(next.bottom ?? -1)
         && Math.round(prev.left) === Math.round(next.left)
-        && Math.round(prev.width) === Math.round(next.width);
+        && Math.round(prev.width) === Math.round(next.width)
+        && prev.maxHeight === next.maxHeight;
       return same ? prev : next;
     });
   };
@@ -199,7 +206,7 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
           <div className="combo-overlay" onMouseDown={() => setOpen(false)} />
           <div
             className="combo-pop glass"
-            style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, width: pos.width }}
+            style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
             onMouseDown={(e) => e.stopPropagation()}
           >
             <input
