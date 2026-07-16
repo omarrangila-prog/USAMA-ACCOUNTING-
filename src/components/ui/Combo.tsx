@@ -45,6 +45,11 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
   // True once we've focused the search box for the CURRENT open session, so a
   // later re-measure of `pos` (scroll/resize) doesn't re-grab focus mid-typing.
   const focusedRef = useRef(false);
+  // Direction (up/down) is decided ONCE per open and locked for the session.
+  // Without this, as the filtered list shrinks the popup height changes, which
+  // can flip `spaceBelow < POP_MAX` and make the popup jump up↔down mid-typing —
+  // the flicker seen on shorter client screens. null = not yet decided.
+  const openUpRef = useRef<boolean | null>(null);
 
   // Measure the trigger and place the popup below it — or ABOVE if there isn't
   // room below (common on phones when the field is low on screen). Width is
@@ -54,14 +59,29 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
     if (!r) return;
     const POP_MAX = 300; // ~max-height + search box
     const spaceBelow = window.innerHeight - r.bottom;
-    const openUp = spaceBelow < POP_MAX && r.top > spaceBelow;
+    // Decide direction only the first time this open session; keep it locked
+    // after that so the popup never oscillates up↔down while the user types.
+    if (openUpRef.current === null) {
+      openUpRef.current = spaceBelow < POP_MAX && r.top > spaceBelow;
+    }
+    const openUp = openUpRef.current;
     const width = Math.min(r.width, window.innerWidth - 16);
     const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
-    if (openUp) {
-      setPos({ bottom: window.innerHeight - r.top + 6, left, width });
-    } else {
-      setPos({ top: r.bottom + 6, left, width });
-    }
+    const next = openUp
+      ? { bottom: window.innerHeight - r.top + 6, left, width }
+      : { top: r.bottom + 6, left, width };
+    // Only update state when the position ACTUALLY changed. Rounding to whole
+    // pixels + a shallow compare prevents a re-render storm: focusing the input
+    // can nudge the page by sub-pixels, which fires the scroll listener, which
+    // would otherwise setPos a new object every time → flicker / reopen loop.
+    setPos((prev) => {
+      const same = prev
+        && Math.round(prev.top ?? -1) === Math.round(next.top ?? -1)
+        && Math.round(prev.bottom ?? -1) === Math.round(next.bottom ?? -1)
+        && Math.round(prev.left) === Math.round(next.left)
+        && Math.round(prev.width) === Math.round(next.width);
+      return same ? prev : next;
+    });
   };
   useLayoutEffect(() => {
     if (!open) return;
@@ -102,7 +122,7 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
   // the user has to click the box. Re-running when `pos` becomes non-null (and
   // whenever `open` toggles) guarantees we focus the input the moment it exists.
   useLayoutEffect(() => {
-    if (!open) { focusedRef.current = false; return; } // reset on close
+    if (!open) { focusedRef.current = false; openUpRef.current = null; return; } // reset on close
     if (!pos || focusedRef.current) return;            // wait for mount; focus once
     const el = searchRef.current;
     if (!el) return;
