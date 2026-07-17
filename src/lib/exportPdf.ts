@@ -96,45 +96,65 @@ export function buildReportPdf(opts: {
   doc.line(M, y, pageW - M, y);
   y += 8;
 
-  // --- Sections (compact register tables) ---
-  for (const section of opts.sections) {
-    if (y > doc.internal.pageSize.getHeight() - 60) { doc.addPage(); y = 24; }
+  // --- Sections: one report per page, each filled to the page bottom with
+  //     empty bordered grid rows so it prints as a COMPLETE Excel worksheet. ---
+  const pageH = doc.internal.pageSize.getHeight();
+  const FOOTER_SPACE = 26;       // reserved at the very bottom for the page footer
+  const ROW_H = 12.2;            // measured height of one compact grid row
+  const numCols = (s: PdfSection) => s.head.length;
+  const blankRow = (n: number) => Array.from({ length: n }, () => '');
+
+  opts.sections.forEach((section, idx) => {
+    // Each report begins on its own fresh page (the first uses the header area).
+    if (idx > 0) { doc.addPage(); y = 24; }
+
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9.5);
     doc.setTextColor(...DARK);
     doc.text(section.title, M, y + 8);
-    y += 11;
+    y += 12;
+
+    const cols = numCols(section);
+    // Body = data rows, then the totals row (if any) right after the data.
+    const dataRows = section.rows.map((r) => r.map(String));
+    const totalRowIdx = section.foot ? dataRows.length : -1;
+    if (section.foot) dataRows.push(section.foot.map(String));
+
+    // How many BLANK rows fit between the totals and the page bottom → the sheet
+    // stays a full bordered grid all the way down, even with only a few records.
+    const gridTop = y + ROW_H;                       // after the header row
+    const avail = pageH - FOOTER_SPACE - gridTop;
+    const usedRows = dataRows.length;
+    const fitRows = Math.floor(avail / ROW_H);
+    const blanks = Math.max(0, fitRows - usedRows);
+    for (let i = 0; i < blanks; i++) dataRows.push(blankRow(cols));
 
     autoTable(doc, {
       startY: y,
       head: [section.head],
-      body: section.rows.map((r) => r.map(String)),
-      foot: section.foot ? [section.foot.map(String)] : undefined,
+      body: dataRows,
       margin: { left: M, right: M },
-      // Ultra-compact accounting register: thin grid on EVERY cell, tiny padding,
-      // tight rows. Names/dates LEFT, numeric columns RIGHT (accountant standard).
-      // Table hugs its content width (no wasted horizontal space).
-      tableWidth: 'wrap',
-      styles: { fontSize: 8.5, cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 }, textColor: DARK as any, lineColor: GRID, lineWidth: 0.4, halign: 'left', valign: 'middle', minCellHeight: 0, overflow: 'linebreak' },
+      tableWidth: 'auto',       // fixed layout: columns span the full page width
+      styles: { fontSize: 8.5, cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 }, textColor: DARK as any, lineColor: GRID, lineWidth: 0.4, halign: 'left', valign: 'middle', minCellHeight: ROW_H - 2.5, overflow: 'linebreak' },
       headStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', fontSize: 8, lineColor: GRID, lineWidth: 0.4, halign: 'center', cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
-      footStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', lineColor: GRID, lineWidth: 0.4, cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 } },
-      alternateRowStyles: { fillColor: [250, 251, 252] },
-      // First column left; every numeric column right-aligned.
+      alternateRowStyles: { fillColor: [255, 255, 255] }, // uniform white — like a printed sheet
       columnStyles: (() => {
         const cs: Record<number, any> = { 0: { halign: 'left' } };
         (section.numericCols ?? []).forEach((c) => { cs[c] = { halign: 'right' }; });
         return cs;
       })(),
+      // Emphasise the totals row (bold + grey) without a separate foot band.
+      didParseCell: (d) => {
+        if (d.section === 'body' && d.row.index === totalRowIdx) {
+          d.cell.styles.fontStyle = 'bold';
+          d.cell.styles.fillColor = HEAD;
+        }
+      },
       theme: 'grid',
     });
     // @ts-expect-error lastAutoTable is set by the plugin
-    y = doc.lastAutoTable.finalY + 7; // minimal gap between sections
-
-    if (y > doc.internal.pageSize.getHeight() - 40) {
-      doc.addPage();
-      y = 24;
-    }
-  }
+    y = doc.lastAutoTable.finalY;
+  });
 
   // --- Footer on every page ---
   const pageCount = doc.getNumberOfPages();
