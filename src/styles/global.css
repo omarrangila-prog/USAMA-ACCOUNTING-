@@ -41,10 +41,15 @@
   box-sizing: border-box;
 }
 
+/* Use MIN-height (not height:100%) so the document grows past the viewport and
+   the WINDOW scrolls naturally — with the mouse AND the keyboard. height:100%
+   capped html/body to the viewport, so long pages overflowed invisibly and
+   keyboard scrolling (PageDown/End/arrows) had nothing to scroll. The body
+   background uses background-attachment:fixed, so it needs no explicit height. */
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
   margin: 0;
 }
 

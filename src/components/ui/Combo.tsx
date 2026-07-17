@@ -42,6 +42,7 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
   const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; width: number; maxHeight: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   // True once we've focused the search box for the CURRENT open session, so a
   // later re-measure of `pos` (scroll/resize) doesn't re-grab focus mid-typing.
   const focusedRef = useRef(false);
@@ -140,6 +141,19 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
   }, [open, pos]);
   useLayoutEffect(() => { setActive(0); }, [query, open]);
 
+  // Keep the keyboard-highlighted option scrolled into view: when arrowing past
+  // the visible area, the list auto-scrolls so the active row stays on screen.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const list = listRef.current;
+    const el = list?.querySelector<HTMLElement>('.kbd-active');
+    if (list && el) {
+      const top = el.offsetTop, bottom = top + el.offsetHeight;
+      if (top < list.scrollTop) list.scrollTop = top;
+      else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
+    }
+  }, [active, open]);
+
   const pick = (id: string) => {
     onChange(id);
     setQuery('');
@@ -181,8 +195,13 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
   };
 
   const onSearchKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, rowCount - 1)); }
+    const last = rowCount - 1;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, last)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
+    else if (e.key === 'PageDown') { e.preventDefault(); setActive((a) => Math.min(a + 6, last)); }
+    else if (e.key === 'PageUp') { e.preventDefault(); setActive((a) => Math.max(a - 6, 0)); }
+    else if (e.key === 'Home') { e.preventDefault(); setActive(0); }
+    else if (e.key === 'End') { e.preventDefault(); setActive(last); }
     else if (e.key === 'Enter') { e.preventDefault(); commitActive(); }
     else if (e.key === 'Escape') { e.preventDefault(); setOpen(false); triggerRef.current?.focus(); }
     else if (e.key === 'Tab') { setOpen(false); }
@@ -217,7 +236,7 @@ export const Combo = forwardRef<ComboHandle, Props>(function Combo(
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onSearchKey}
             />
-            <div className="combo-list">
+            <div className="combo-list" ref={listRef}>
               {filtered.map((o, i) => (
                 <button
                   key={o.id}

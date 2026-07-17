@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -12,6 +12,33 @@ export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
   const [collapsed, setCollapsed] = useState(false);      // desktop collapse
   const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Keyboard page scrolling (mouse-free): PageUp/Down, Home/End, and Arrow
+  // Up/Down scroll the window — but ONLY when focus is on the page body, not
+  // inside a form field, dropdown, or a scrollable table (those keep their own
+  // key behaviour). This makes long reports fully navigable from the keyboard.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const a = document.activeElement as HTMLElement | null;
+      const tag = a?.tagName;
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || a?.isContentEditable;
+      // Don't hijack keys while a dialog/dropdown is open or while typing.
+      if (typing || document.querySelector('.combo-pop, .modal')) return;
+      // The document (window) scrolls now that html/body use min-height.
+      if (document.documentElement.scrollHeight <= window.innerHeight + 1) return;
+      const page = Math.round(window.innerHeight * 0.9);
+      switch (e.key) {
+        case 'PageDown': window.scrollBy({ top: page, behavior: 'smooth' }); e.preventDefault(); break;
+        case 'PageUp': window.scrollBy({ top: -page, behavior: 'smooth' }); e.preventDefault(); break;
+        case 'Home': if (!e.ctrlKey) { window.scrollTo({ top: 0, behavior: 'smooth' }); e.preventDefault(); } break;
+        case 'End': if (!e.ctrlKey) { window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }); e.preventDefault(); } break;
+        case 'ArrowDown': window.scrollBy({ top: 60 }); e.preventDefault(); break;
+        case 'ArrowUp': window.scrollBy({ top: -60 }); e.preventDefault(); break;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // The hamburger toggles the mobile drawer on small screens, and collapses
   // the docked sidebar on wide screens — so it always does something visible.
