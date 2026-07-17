@@ -114,11 +114,21 @@ export function buildReportPdf(opts: {
     doc.text(section.title, M, y + 8);
     y += 12;
 
-    const cols = numCols(section);
+    const realCols = numCols(section);
+    // Real columns take a natural share of the page; the REMAINING width is
+    // filled with extra empty bordered columns so the grid reaches the right
+    // edge like a blank Excel sheet. ~40pt per spare column.
+    const usableW = pageW - M * 2;
+    const REAL_W = 62;                                     // avg width budget / real col
+    const SPARE_W = 40;
+    const extraCols = Math.max(0, Math.floor((usableW - realCols * REAL_W) / SPARE_W));
+    const cols = realCols + extraCols;
+    const pad = (arr: string[]) => [...arr, ...blankRow(extraCols)];
+
     // Body = data rows, then the totals row (if any) right after the data.
-    const dataRows = section.rows.map((r) => r.map(String));
+    const dataRows = section.rows.map((r) => pad(r.map(String)));
     const totalRowIdx = section.foot ? dataRows.length : -1;
-    if (section.foot) dataRows.push(section.foot.map(String));
+    if (section.foot) dataRows.push(pad(section.foot.map(String)));
 
     // How many BLANK rows fit between the totals and the page bottom → the sheet
     // stays a full bordered grid all the way down, even with only a few records.
@@ -131,21 +141,23 @@ export function buildReportPdf(opts: {
 
     autoTable(doc, {
       startY: y,
-      head: [section.head],
+      head: [pad(section.head)],
       body: dataRows,
       margin: { left: M, right: M },
-      tableWidth: 'auto',       // fixed layout: columns span the full page width
+      tableWidth: 'auto',       // span the full page width
       styles: { fontSize: 8.5, cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 }, textColor: DARK as any, lineColor: GRID, lineWidth: 0.4, halign: 'left', valign: 'middle', minCellHeight: ROW_H - 2.5, overflow: 'linebreak' },
       headStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', fontSize: 8, lineColor: GRID, lineWidth: 0.4, halign: 'center', cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
       alternateRowStyles: { fillColor: [255, 255, 255] }, // uniform white — like a printed sheet
       columnStyles: (() => {
         const cs: Record<number, any> = { 0: { halign: 'left' } };
         (section.numericCols ?? []).forEach((c) => { cs[c] = { halign: 'right' }; });
+        // Extra spare columns get a fixed narrow width so they tile to the edge.
+        for (let c = realCols; c < cols; c++) cs[c] = { cellWidth: SPARE_W };
         return cs;
       })(),
       // Emphasise the totals row (bold + grey) without a separate foot band.
       didParseCell: (d) => {
-        if (d.section === 'body' && d.row.index === totalRowIdx) {
+        if (d.section === 'body' && d.row.index === totalRowIdx && d.column.index < realCols) {
           d.cell.styles.fontStyle = 'bold';
           d.cell.styles.fillColor = HEAD;
         }
