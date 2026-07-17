@@ -74,6 +74,16 @@ export function CashModal({
     } finally { setBusy(false); }
   };
 
+  // Ctrl/Cmd+S saves the modal from any field (keyboard-first workflow).
+  useEffect(() => {
+    if (!direction) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); submit(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   return (
     <Modal
       open={!!direction}
@@ -171,6 +181,16 @@ export function AdjustmentModal({
       if (ok) onClose();
     } finally { setBusy(false); }
   };
+
+  // Ctrl/Cmd+S saves from any field.
+  useEffect(() => {
+    if (!kind) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); submit(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   return (
     <Modal

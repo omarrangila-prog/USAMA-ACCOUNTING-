@@ -3,27 +3,27 @@
    Presentation only — no data/logic changes. */
 
 .rpt-card {
-  padding: 12px 14px;
+  padding: 8px 10px;
 }
 .rpt-title {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
   color: var(--text, #1f2430);
-  margin-bottom: 8px;
+  margin-bottom: 5px;
   letter-spacing: 0.01em;
 }
 
 .rpt-grid {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: 12px;
   table-layout: auto;
 }
 .rpt-grid th,
 .rpt-grid td {
   border: 1px solid var(--rpt-line, #cfd4dc);
-  padding: 5px 9px;
-  line-height: 1.35;
+  padding: 2px 7px;      /* ultra-compact rows */
+  line-height: 1.25;
   white-space: nowrap;
   vertical-align: middle;
 }

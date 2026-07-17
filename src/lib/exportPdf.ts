@@ -99,10 +99,10 @@ export function buildReportPdf(opts: {
   for (const section of opts.sections) {
     if (y > doc.internal.pageSize.getHeight() - 120) { doc.addPage(); y = 46; }
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11.5);
+    doc.setFontSize(10.5);
     doc.setTextColor(...DARK);
-    doc.text(section.title, M, y + 12);
-    y += 20;
+    doc.text(section.title, M, y + 10);
+    y += 14;
 
     autoTable(doc, {
       startY: y,
@@ -110,18 +110,19 @@ export function buildReportPdf(opts: {
       body: section.rows.map((r) => r.map(String)),
       foot: section.foot ? [section.foot.map(String)] : undefined,
       margin: { left: M, right: M },
-      // Excel-style worksheet: thin grid lines on EVERY cell, compact rows,
-      // consistent font. Center-align columns so values line up under headings;
-      // the first column (labels/dates) stays left-aligned. Totals row emphasised.
-      styles: { fontSize: 9, cellPadding: 4, textColor: DARK as any, lineColor: GRID, lineWidth: 0.5, halign: 'center', valign: 'middle' },
-      headStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', fontSize: 8.5, lineColor: GRID, lineWidth: 0.5, halign: 'center' },
-      footStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', lineColor: GRID, lineWidth: 0.5, halign: 'center' },
+      // Ultra-compact Excel worksheet: thin grid lines on EVERY cell, minimal
+      // padding, tight rows, consistent font. Center-align columns so values line
+      // up under headings; first column (labels/dates) left-aligned. Totals
+      // row emphasised. No extra whitespace.
+      styles: { fontSize: 8.5, cellPadding: { top: 2, bottom: 2, left: 4, right: 4 }, textColor: DARK as any, lineColor: GRID, lineWidth: 0.4, halign: 'center', valign: 'middle', minCellHeight: 0 },
+      headStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', fontSize: 8, lineColor: GRID, lineWidth: 0.4, halign: 'center', cellPadding: { top: 2.5, bottom: 2.5, left: 4, right: 4 } },
+      footStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', lineColor: GRID, lineWidth: 0.4, halign: 'center', cellPadding: { top: 2, bottom: 2, left: 4, right: 4 } },
       alternateRowStyles: { fillColor: [250, 251, 252] },
       columnStyles: { 0: { halign: 'left' } },
       theme: 'grid',
     });
     // @ts-expect-error lastAutoTable is set by the plugin
-    y = doc.lastAutoTable.finalY + 22;
+    y = doc.lastAutoTable.finalY + 12;
 
     if (y > doc.internal.pageSize.getHeight() - 80) {
       doc.addPage();
