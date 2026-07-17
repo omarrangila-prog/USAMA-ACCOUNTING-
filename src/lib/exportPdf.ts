@@ -99,8 +99,9 @@ export function buildReportPdf(opts: {
   // --- Sections: one report per page, each filled to the page bottom with
   //     empty bordered grid rows so it prints as a COMPLETE Excel worksheet. ---
   const pageH = doc.internal.pageSize.getHeight();
-  const FOOTER_SPACE = 26;       // reserved at the very bottom for the page footer
-  const ROW_H = 12.2;            // measured height of one compact grid row
+  const FOOTER_SPACE = 10;       // minimal bottom reserve — grid runs to the edge
+  const ROW_H = 12.6;            // ACTUAL rendered row height (slightly over so the
+                                 // fill never spills onto a 2nd page)
   const numCols = (s: PdfSection) => s.head.length;
   const blankRow = (n: number) => Array.from({ length: n }, () => '');
 
@@ -131,12 +132,15 @@ export function buildReportPdf(opts: {
     if (section.foot) dataRows.push(pad(section.foot.map(String)));
 
     // How many BLANK rows fit between the totals and the page bottom → the sheet
-    // stays a full bordered grid all the way down, even with only a few records.
+    // stays a full bordered grid ALL THE WAY DOWN with no leftover space, even
+    // with only a few records. ceil (+ tiny epsilon) so the last row reaches the
+    // very edge rather than stopping a row short.
     const gridTop = y + ROW_H;                       // after the header row
     const avail = pageH - FOOTER_SPACE - gridTop;
-    const usedRows = dataRows.length;
+    // Floor so the grid NEVER spills onto a 2nd page; ROW_H is set slightly over
+    // the real height so the last row still sits right at the bottom edge.
     const fitRows = Math.floor(avail / ROW_H);
-    const blanks = Math.max(0, fitRows - usedRows);
+    const blanks = Math.max(0, fitRows - dataRows.length);
     for (let i = 0; i < blanks; i++) dataRows.push(blankRow(cols));
 
     autoTable(doc, {
@@ -145,7 +149,7 @@ export function buildReportPdf(opts: {
       body: dataRows,
       margin: { left: M, right: M },
       tableWidth: 'auto',       // span the full page width
-      styles: { fontSize: 8.5, cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 }, textColor: DARK as any, lineColor: GRID, lineWidth: 0.4, halign: 'left', valign: 'middle', minCellHeight: ROW_H - 2.5, overflow: 'linebreak' },
+      styles: { fontSize: 8.5, cellPadding: { top: 1, bottom: 1, left: 3, right: 3 }, textColor: DARK as any, lineColor: GRID, lineWidth: 0.4, halign: 'left', valign: 'middle', minCellHeight: ROW_H - 2, overflow: 'linebreak' },
       headStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', fontSize: 8, lineColor: GRID, lineWidth: 0.4, halign: 'center', cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
       alternateRowStyles: { fillColor: [255, 255, 255] }, // uniform white — like a printed sheet
       columnStyles: (() => {
