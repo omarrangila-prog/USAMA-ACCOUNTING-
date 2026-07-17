@@ -43,34 +43,34 @@ export function buildReportPdf(opts: {
 }): jsPDF {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
-  const M = 40;
-  let y = 46;
+  const M = 24;              // tighter page margin — more usable width, less edge space
+  let y = 30;
 
-  // --- Easy-Khata style header: business name (small caps) + report title ---
+  // --- Compact header: business name + report title on nearby lines ---
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setTextColor(...SOFT);
-  doc.text((opts.settings.businessName || 'USAMA RAZA').toUpperCase(), M, y - 20);
+  doc.text((opts.settings.businessName || 'USAMA RAZA').toUpperCase(), M, y);
 
-  doc.setFontSize(16);
+  doc.setFontSize(14);
   doc.setTextColor(...DARK);
-  doc.text(opts.title, M, y);
+  doc.text(opts.title, M, y + 15);
 
   // Owner/contact line under the title.
   const sub = [opts.settings.ownerName, opts.settings.phone, opts.settings.address]
     .filter(Boolean)
     .join('  •  ');
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9.5);
+  doc.setFontSize(8.5);
   doc.setTextColor(...SOFT);
-  doc.text(`${monthName(opts.month)} ${opts.year}${sub ? '   ·   ' + sub : ''}`, M, y + 15);
-  y += 30;
+  doc.text(`${monthName(opts.month)} ${opts.year}${sub ? '   ·   ' + sub : ''}`, M, y + 27);
+  y += 34;
 
-  // --- Summary strip (label above value, plain — like the statement) ---
+  // --- Summary strip: dense single-line rows (no tall cards). ---
   if (opts.summary?.length) {
     const cols = 4;
     const colW = (pageW - M * 2) / cols;
-    const rowH = 40;
+    const rowH = 15;         // compact line height
     opts.summary.forEach((c, i) => {
       const col = i % cols;
       const rowIdx = Math.floor(i / cols);
@@ -79,30 +79,31 @@ export function buildReportPdf(opts: {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(...SOFT);
-      doc.text(c.label, x, cy + 12);
+      doc.text(`${c.label}:`, x, cy + 10);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11.5);
+      doc.setFontSize(8.5);
       const neg = c.value.trim().startsWith('-') || /\(-\)/.test(c.value);
       doc.setTextColor(...(neg ? [200, 60, 60] as [number, number, number] : DARK));
-      doc.text(c.value, x, cy + 27);
+      // value right after the label (labels are short) — keep it on one line.
+      doc.text(c.value, x + doc.getTextWidth(`${c.label}: `) + 2, cy + 10);
     });
     const rows = Math.ceil(opts.summary.length / cols);
-    y += rows * rowH + 6;
+    y += rows * rowH + 4;
   }
 
-  doc.setDrawColor(...LINE);
-  doc.setLineWidth(0.8);
+  doc.setDrawColor(...GRID);
+  doc.setLineWidth(0.5);
   doc.line(M, y, pageW - M, y);
-  y += 14;
+  y += 8;
 
-  // --- Sections (plain-lined statement tables, green totals) ---
+  // --- Sections (compact register tables) ---
   for (const section of opts.sections) {
-    if (y > doc.internal.pageSize.getHeight() - 120) { doc.addPage(); y = 46; }
+    if (y > doc.internal.pageSize.getHeight() - 60) { doc.addPage(); y = 24; }
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10.5);
+    doc.setFontSize(9.5);
     doc.setTextColor(...DARK);
-    doc.text(section.title, M, y + 10);
-    y += 14;
+    doc.text(section.title, M, y + 8);
+    y += 11;
 
     autoTable(doc, {
       startY: y,
@@ -127,11 +128,11 @@ export function buildReportPdf(opts: {
       theme: 'grid',
     });
     // @ts-expect-error lastAutoTable is set by the plugin
-    y = doc.lastAutoTable.finalY + 12;
+    y = doc.lastAutoTable.finalY + 7; // minimal gap between sections
 
-    if (y > doc.internal.pageSize.getHeight() - 80) {
+    if (y > doc.internal.pageSize.getHeight() - 40) {
       doc.addPage();
-      y = 46;
+      y = 24;
     }
   }
 
