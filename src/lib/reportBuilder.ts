@@ -72,8 +72,8 @@ export function summaryCards(data: DataSet, period: Period): PdfSummaryCard[] {
     { label: 'Total Sale', value: money(d.totalSale), accent: C.green },
     { label: 'Closing Stock', value: money(d.closingStockValue), accent: C.purple },
     { label: 'Profit / Loss', value: money(d.profitLoss), accent: d.profitLoss >= 0 ? C.green : C.red },
-    { label: 'Receivable', value: money(d.cashReceivable), accent: C.green },
     { label: 'Payable', value: money(d.cashPayable), accent: C.red },
+    { label: 'Receivable', value: money(d.cashReceivable), accent: C.green },
     { label: 'Cash in Hand', value: money(d.cashInHand), accent: C.orange },
     { label: 'Net Balance', value: money(d.netBalance), accent: C.blue },
   ];
@@ -184,23 +184,23 @@ export function buildSections(
       numericCols: [1, 2],
     });
 
-    // Merged detail: party-wise receivables, party-wise payables, and sale /
-    // purchase totals — all inside the Trial Balance report.
-    const rec = azSort(computeReceivables(data, period));
-    sections.push({
-      title: 'Receivables (party-wise)',
-      head: ['Party', 'Amount Receivable'],
-      rows: rec.length ? rec.map((r) => [r.name, money(r.balance)]) : [['No receivables', money(0)]],
-      foot: ['Total Receivable', money(rec.reduce((a, r) => a + r.balance, 0))],
-      numericCols: [1],
-    });
-
+    // Merged detail: PAYABLES first, then receivables (client order), plus sale
+    // / purchase totals — all inside the Trial Balance report.
     const pay = azSort(computePayables(data, period));
     sections.push({
       title: 'Payables (party-wise)',
       head: ['Party', 'Amount Payable'],
       rows: pay.length ? pay.map((r) => [r.name, money(r.balance)]) : [['No payables', money(0)]],
       foot: ['Total Payable', money(pay.reduce((a, r) => a + r.balance, 0))],
+      numericCols: [1],
+    });
+
+    const rec = azSort(computeReceivables(data, period));
+    sections.push({
+      title: 'Receivables (party-wise)',
+      head: ['Party', 'Amount Receivable'],
+      rows: rec.length ? rec.map((r) => [r.name, money(r.balance)]) : [['No receivables', money(0)]],
+      foot: ['Total Receivable', money(rec.reduce((a, r) => a + r.balance, 0))],
       numericCols: [1],
     });
 
@@ -229,18 +229,7 @@ export function buildSections(
     const totalRec = rec.reduce((a, r) => a + r.balance, 0);
     const totalPay = pay.reduce((a, r) => a + r.balance, 0);
 
-    // RECEIVABLES first, A→Z: Party | Amount | Status.
-    sections.push({
-      title: 'RECEIVABLES (A - Z)',
-      head: ['Party', 'Amount', 'Status'],
-      rows: rec.length
-        ? rec.map((r) => [r.name, money(r.balance), 'Receivable'])
-        : [['No receivables', money(0), '—']],
-      foot: ['Total Receivable', money(totalRec), ''],
-      numericCols: [1],
-    });
-
-    // PAYABLES next, A→Z: Party | Amount | Status.
+    // PAYABLES first, A→Z: Party | Amount | Status (client order).
     sections.push({
       title: 'PAYABLES (A - Z)',
       head: ['Party', 'Amount', 'Status'],
@@ -248,6 +237,17 @@ export function buildSections(
         ? pay.map((r) => [r.name, money(r.balance), 'Payable'])
         : [['No payables', money(0), '—']],
       foot: ['Total Payable', money(totalPay), ''],
+      numericCols: [1],
+    });
+
+    // RECEIVABLES next, A→Z: Party | Amount | Status.
+    sections.push({
+      title: 'RECEIVABLES (A - Z)',
+      head: ['Party', 'Amount', 'Status'],
+      rows: rec.length
+        ? rec.map((r) => [r.name, money(r.balance), 'Receivable'])
+        : [['No receivables', money(0), '—']],
+      foot: ['Total Receivable', money(totalRec), ''],
       numericCols: [1],
     });
 

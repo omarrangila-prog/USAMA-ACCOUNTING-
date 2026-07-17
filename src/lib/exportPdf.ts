@@ -110,15 +110,20 @@ export function buildReportPdf(opts: {
       body: section.rows.map((r) => r.map(String)),
       foot: section.foot ? [section.foot.map(String)] : undefined,
       margin: { left: M, right: M },
-      // Ultra-compact Excel worksheet: thin grid lines on EVERY cell, minimal
-      // padding, tight rows, consistent font. Center-align columns so values line
-      // up under headings; first column (labels/dates) left-aligned. Totals
-      // row emphasised. No extra whitespace.
-      styles: { fontSize: 8.5, cellPadding: { top: 2, bottom: 2, left: 4, right: 4 }, textColor: DARK as any, lineColor: GRID, lineWidth: 0.4, halign: 'center', valign: 'middle', minCellHeight: 0 },
-      headStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', fontSize: 8, lineColor: GRID, lineWidth: 0.4, halign: 'center', cellPadding: { top: 2.5, bottom: 2.5, left: 4, right: 4 } },
-      footStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', lineColor: GRID, lineWidth: 0.4, halign: 'center', cellPadding: { top: 2, bottom: 2, left: 4, right: 4 } },
+      // Ultra-compact accounting register: thin grid on EVERY cell, tiny padding,
+      // tight rows. Names/dates LEFT, numeric columns RIGHT (accountant standard).
+      // Table hugs its content width (no wasted horizontal space).
+      tableWidth: 'wrap',
+      styles: { fontSize: 8.5, cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 }, textColor: DARK as any, lineColor: GRID, lineWidth: 0.4, halign: 'left', valign: 'middle', minCellHeight: 0, overflow: 'linebreak' },
+      headStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', fontSize: 8, lineColor: GRID, lineWidth: 0.4, halign: 'center', cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
+      footStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', lineColor: GRID, lineWidth: 0.4, cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 } },
       alternateRowStyles: { fillColor: [250, 251, 252] },
-      columnStyles: { 0: { halign: 'left' } },
+      // First column left; every numeric column right-aligned.
+      columnStyles: (() => {
+        const cs: Record<number, any> = { 0: { halign: 'left' } };
+        (section.numericCols ?? []).forEach((c) => { cs[c] = { halign: 'right' }; });
+        return cs;
+      })(),
       theme: 'grid',
     });
     // @ts-expect-error lastAutoTable is set by the plugin
