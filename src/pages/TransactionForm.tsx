@@ -117,12 +117,12 @@ export function TransactionForm({ kind, embedded = false, onSaved, defaultParty 
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const enterAdvance = (next?: () => void) => (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (next) next();
-      else submit();
-    }
+  // Enter → next field (or submit on the last). Shift+Enter → previous field.
+  const enterAdvance = (next?: () => void, prev?: () => void) => (e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (e.shiftKey) { prev?.(); return; }
+    if (next) next(); else submit();
   };
 
   return (
@@ -180,7 +180,7 @@ export function TransactionForm({ kind, embedded = false, onSaved, defaultParty 
               className={cx('input', touched && qty <= 0 && 'invalid')}
               placeholder="0" value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              onKeyDown={enterAdvance(() => rateRef.current?.focus())}
+              onKeyDown={enterAdvance(() => rateRef.current?.focus(), () => bondRef.current?.focus())}
             />
           </div>
           <div className="field">
@@ -191,7 +191,7 @@ export function TransactionForm({ kind, embedded = false, onSaved, defaultParty 
               className={cx('input', touched && rt <= 0 && 'invalid')}
               placeholder="0" value={rate}
               onChange={(e) => setRate(e.target.value)}
-              onKeyDown={enterAdvance(() => noteRef.current?.focus())}
+              onKeyDown={enterAdvance(() => noteRef.current?.focus(), () => qtyRef.current?.focus())}
             />
           </div>
         </div>
@@ -200,7 +200,7 @@ export function TransactionForm({ kind, embedded = false, onSaved, defaultParty 
           <label>{t('f.note')} <span className="faint">({t('f.optional')})</span></label>
           <input ref={noteRef} className="input" placeholder="Description / details" value={note}
             onChange={(e) => setNote(e.target.value)}
-            onKeyDown={enterAdvance()} />
+            onKeyDown={enterAdvance(undefined, () => rateRef.current?.focus())} />
         </div>
 
         <div className={cx('amount-preview', isSale && 'green')}>

@@ -7,9 +7,10 @@ export interface ShortcutMap {
   onCashPaid?: () => void; // F5
   onLedger?: () => void; // F6
   onReports?: () => void; // F7
-  onSearch?: () => void; // Ctrl/Cmd+K
+  onSearch?: () => void; // Ctrl/Cmd+K or Ctrl/Cmd+F
   onSave?: () => void; // Ctrl/Cmd+S
   onPrint?: () => void; // Ctrl/Cmd+P
+  onNew?: () => void; // Ctrl/Cmd+N — new transaction
 }
 
 /** Global keyboard shortcuts. Ignores typing inside inputs for the F-keys' safety. */
@@ -18,7 +19,8 @@ export function useShortcuts(map: ShortcutMap) {
     const handler = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
 
-      if (mod && e.key.toLowerCase() === 'k') {
+      // Ctrl/Cmd+K or Ctrl/Cmd+F → focus search / command palette.
+      if (mod && (e.key.toLowerCase() === 'k' || e.key.toLowerCase() === 'f')) {
         e.preventDefault();
         map.onSearch?.();
         return;
@@ -31,6 +33,14 @@ export function useShortcuts(map: ShortcutMap) {
       if (mod && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         map.onPrint?.();
+        return;
+      }
+      // Ctrl/Cmd+N → new transaction. (Browsers open a new window on Ctrl+N, so
+      // preventDefault is essential — it may still be intercepted by some
+      // browsers before reaching us; F2/F3 remain the reliable "new" keys.)
+      if (mod && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        map.onNew?.();
         return;
       }
 

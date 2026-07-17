@@ -30,6 +30,7 @@ export function AppShell() {
     onSearch: () => setPaletteOpen(true),
     onPrint: () => window.print(),
     onSave: () => { /* pages auto-save on submit; surfaced as a no-op */ },
+    onNew: () => nav('/purchase?new=1'), // Ctrl/Cmd+N → start a new transaction
   });
 
   return (

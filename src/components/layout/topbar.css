@@ -118,6 +118,20 @@
 }
 .user-name { font-size: 13px; font-weight: 600; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Laptop / Chromebook range (11"–14", ~1280–1440px). At 1280 the full-size
+   row overflowed the right edge (user-btn clipped). Tighten spacing, shrink the
+   search box, and drop the business-name text (avatar stays) so everything fits
+   without horizontal scroll while remaining fully usable. */
+@media (max-width: 1440px) {
+  .topbar { gap: 8px; padding: 0 10px; }
+  .search-btn { min-width: 0; flex: 1 1 120px; max-width: 260px; }
+  .tool-group { gap: 0; }
+}
+@media (max-width: 1360px) {
+  .user-name { display: none; }        /* keep the avatar, drop the long name */
+  .search-btn kbd { display: none; }   /* the ⌘K hint isn't essential here */
+}
+
 /* Reveal the hamburger when the sidebar goes off-canvas. Further responsive
    tweaks for the top bar live in styles/mobile.css to avoid conflicting rules. */
 @media (max-width: 960px) {

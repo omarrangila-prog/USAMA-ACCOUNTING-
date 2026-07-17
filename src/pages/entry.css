@@ -1,4 +1,12 @@
-.entry-layout { display: grid; grid-template-columns: 380px 1fr; gap: 18px; align-items: start; }
+.entry-layout { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 18px; align-items: start; }
+/* minmax(0,1fr): without the 0 min, a grid column defaults to min-width:auto and
+   a wide table forces the whole layout past the viewport. This keeps the table
+   column shrinkable so its own .table-wrap scrolls instead of overflowing. */
+.entry-layout > * { min-width: 0; }
+/* The card holding the table must also be shrinkable, and its table-wrap must
+   fill (not exceed) it so a wide table scrolls inside rather than stretching. */
+.entry-layout > .card { min-width: 0; overflow: hidden; }
+.entry-layout .table-wrap { width: 100%; }
 @media (max-width: 1080px) { .entry-layout { grid-template-columns: 1fr; } }
 
 .entry-form { position: sticky; top: 84px; }
