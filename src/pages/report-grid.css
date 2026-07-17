@@ -1,0 +1,71 @@
+/* Excel-style accounting worksheet grid for on-screen reports.
+   Thin borders on every cell, compact rows, consistent font, totals at bottom.
+   Presentation only — no data/logic changes. */
+
+.rpt-card {
+  padding: 12px 14px;
+}
+.rpt-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text, #1f2430);
+  margin-bottom: 8px;
+  letter-spacing: 0.01em;
+}
+
+.rpt-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  table-layout: auto;
+}
+.rpt-grid th,
+.rpt-grid td {
+  border: 1px solid var(--rpt-line, #cfd4dc);
+  padding: 5px 9px;
+  line-height: 1.35;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.rpt-grid thead th {
+  background: var(--rpt-head, #f1f3f6);
+  font-weight: 700;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-soft, #4b5563);
+}
+.rpt-grid tbody tr:nth-child(even) td {
+  background: var(--rpt-alt, #fafbfc);
+}
+.rpt-grid tfoot td {
+  background: var(--rpt-head, #f1f3f6);
+  font-weight: 700;
+  border-top: 2px solid var(--rpt-line-strong, #9aa2ae);
+}
+/* Alignment helpers */
+.rpt-grid .l { text-align: left; }
+.rpt-grid .r { text-align: right; font-variant-numeric: tabular-nums; }
+.rpt-grid .c { text-align: center; }
+.rpt-grid .mono { font-variant-numeric: tabular-nums; }
+.rpt-grid .neg { color: var(--red, #dc3c3c); }
+.rpt-grid .pos { color: var(--green, #10a066); }
+.rpt-grid .muted { color: var(--text-soft, #6b7280); white-space: normal; }
+/* Action cell (delete) has no border stress */
+.rpt-grid td.actions-cell { border: 1px solid var(--rpt-line, #cfd4dc); text-align: center; }
+
+@media (prefers-color-scheme: dark) {
+  .rpt-grid th, .rpt-grid td { border-color: #3a4150; }
+  .rpt-grid thead th, .rpt-grid tfoot td { background: #232936; color: #c2c8d2; }
+  .rpt-grid tbody tr:nth-child(even) td { background: #1e232e; }
+  .rpt-grid tfoot td { border-top-color: #5b6373; }
+}
+
+/* Print: force the crisp grid, drop shadows/rounding, compact rows on A4. */
+@media print {
+  .rpt-card { padding: 0; box-shadow: none; border: none; }
+  .rpt-grid { font-size: 10.5px; }
+  .rpt-grid th, .rpt-grid td { padding: 3px 6px; border-color: #000; }
+  .rpt-grid thead th, .rpt-grid tfoot td { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .no-print { display: none !important; }
+}

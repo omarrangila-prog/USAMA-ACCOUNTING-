@@ -29,6 +29,9 @@ const DARK: [number, number, number] = [24, 28, 38];
 const SOFT: [number, number, number] = [120, 128, 140];
 const GREEN: [number, number, number] = [16, 150, 100];
 const LINE: [number, number, number] = [232, 235, 240];
+// Excel-style worksheet colours: visible grey grid lines + light grey header.
+const GRID: [number, number, number] = [180, 186, 196];
+const HEAD: [number, number, number] = [238, 240, 244];
 
 export function buildReportPdf(opts: {
   title: string;
@@ -107,14 +110,15 @@ export function buildReportPdf(opts: {
       body: section.rows.map((r) => r.map(String)),
       foot: section.foot ? [section.foot.map(String)] : undefined,
       margin: { left: M, right: M },
-      // Center-align every column (header + body + foot) so values line up
-      // under their headings. The first column (labels) stays left-aligned.
-      styles: { fontSize: 9.5, cellPadding: 7, textColor: DARK as any, lineColor: LINE, lineWidth: 0.5, halign: 'center' },
-      headStyles: { fillColor: [255, 255, 255], textColor: SOFT as any, fontStyle: 'bold', fontSize: 8.5, lineWidth: { bottom: 0.8 } as any, halign: 'center' },
-      footStyles: { fillColor: [246, 250, 248], textColor: GREEN as any, fontStyle: 'bold', lineWidth: { top: 0.8 } as any, halign: 'center' },
+      // Excel-style worksheet: thin grid lines on EVERY cell, compact rows,
+      // consistent font. Center-align columns so values line up under headings;
+      // the first column (labels/dates) stays left-aligned. Totals row emphasised.
+      styles: { fontSize: 9, cellPadding: 4, textColor: DARK as any, lineColor: GRID, lineWidth: 0.5, halign: 'center', valign: 'middle' },
+      headStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', fontSize: 8.5, lineColor: GRID, lineWidth: 0.5, halign: 'center' },
+      footStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', lineColor: GRID, lineWidth: 0.5, halign: 'center' },
       alternateRowStyles: { fillColor: [250, 251, 252] },
       columnStyles: { 0: { halign: 'left' } },
-      theme: 'plain',
+      theme: 'grid',
     });
     // @ts-expect-error lastAutoTable is set by the plugin
     y = doc.lastAutoTable.finalY + 22;

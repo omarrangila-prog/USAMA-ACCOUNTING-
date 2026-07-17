@@ -34,9 +34,16 @@ export function azSortByName<T extends { name: string }>(rows: T[]): T[] {
 }
 
 /**
- * Newest entry first: latest date on top, oldest at the bottom. Same-day rows
- * fall back to creation order (newest created first).
+ * Date-wise, OLDEST → NEWEST: earliest date on top, latest at the bottom.
+ * Same-day rows keep creation order (oldest created first). Used by the
+ * Purchase / Sale / Stock report registers per the client spec.
  */
+function oldestFirst<T extends { date: string; createdAt: number }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : a.createdAt - b.createdAt
+  );
+}
+/** Newest first — retained ONLY for the Cash sheet (Cash Book order unchanged). */
 function newestFirst<T extends { date: string; createdAt: number }>(rows: T[]): T[] {
   return [...rows].sort((a, b) =>
     a.date > b.date ? -1 : a.date < b.date ? 1 : b.createdAt - a.createdAt
@@ -103,7 +110,7 @@ export function buildSections(
   }
 
   if (want('purchase')) {
-    const rows = newestFirst(data.purchases.filter((p) => p.month === period.month && p.year === period.year));
+    const rows = oldestFirst(data.purchases.filter((p) => p.month === period.month && p.year === period.year));
     sections.push({
       title: 'Purchase Report',
       head: ['Date', 'Party', 'Bond', 'Qty', 'Rate', 'Amount', 'Description'],
@@ -117,7 +124,7 @@ export function buildSections(
   }
 
   if (want('sale')) {
-    const rows = newestFirst(data.sales.filter((s) => s.month === period.month && s.year === period.year));
+    const rows = oldestFirst(data.sales.filter((s) => s.month === period.month && s.year === period.year));
     sections.push({
       title: 'Sale Report',
       head: ['Date', 'Party', 'Bond', 'Qty', 'Rate', 'Amount', 'Profit', 'Description'],
@@ -304,7 +311,7 @@ export function buildSections(
   }
 
   if (want('expenses')) {
-    const rows = newestFirst((data.expenses ?? []).filter((e) => e.month === period.month && e.year === period.year));
+    const rows = oldestFirst((data.expenses ?? []).filter((e) => e.month === period.month && e.year === period.year));
     if (rows.length) {
       const totalExp = rows.filter((e) => e.kind === 'expense').reduce((a, e) => a + e.amount, 0);
       const totalInc = rows.filter((e) => e.kind === 'income').reduce((a, e) => a + e.amount, 0);
@@ -404,7 +411,7 @@ export function exportReportExcel(data: DataSet, period: Period): void {
     name: 'Purchases',
     rows: [
       ['Date', 'Party', 'Bond', 'Qty', 'Rate', 'Amount', 'Mode', 'Description'],
-      ...newestFirst(data.purchases.filter((p) => p.month === period.month && p.year === period.year))
+      ...oldestFirst(data.purchases.filter((p) => p.month === period.month && p.year === period.year))
         .map((p) => [p.date, partyName(data, p.partyId), bondName(data, p.bondTypeId), p.quantity, p.rate, p.amount, p.payment, describePurchase(data, p)]),
     ],
   });
@@ -412,7 +419,7 @@ export function exportReportExcel(data: DataSet, period: Period): void {
     name: 'Sales',
     rows: [
       ['Date', 'Party', 'Bond', 'Qty', 'Rate', 'Amount', 'Profit', 'Mode', 'Description'],
-      ...newestFirst(data.sales.filter((s) => s.month === period.month && s.year === period.year))
+      ...oldestFirst(data.sales.filter((s) => s.month === period.month && s.year === period.year))
         .map((s) => [s.date, partyName(data, s.partyId), bondName(data, s.bondTypeId), s.quantity, s.rate, s.amount, saleProfitLive(data, s, period), s.receipt, describeSale(data, s)]),
     ],
   });
