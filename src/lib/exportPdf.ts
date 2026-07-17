@@ -99,11 +99,14 @@ export function buildReportPdf(opts: {
   // --- Sections: one report per page, each filled to the page bottom with
   //     empty bordered grid rows so it prints as a COMPLETE Excel worksheet. ---
   const pageH = doc.internal.pageSize.getHeight();
-  const FOOTER_SPACE = 10;       // minimal bottom reserve — grid runs to the edge
-  const ROW_H = 12.6;            // ACTUAL rendered row height (slightly over so the
-                                 // fill never spills onto a 2nd page)
+  const FOOTER_SPACE = 12;       // bottom reserve for the page footer line
   const numCols = (s: PdfSection) => s.head.length;
   const blankRow = (n: number) => Array.from({ length: n }, () => '');
+  const usableW = pageW - M * 2;
+  // Shared table styling so the header, data and blank-fill tables look identical.
+  // overflow:'ellipsize' → long text truncates instead of wrapping, so EVERY row
+  // is exactly one line high (uniform cell sizes, no surprise pagination).
+  const baseStyles = { fontSize: 8.5, cellPadding: { top: 1.4, bottom: 1.4, left: 4, right: 4 }, textColor: DARK as any, lineColor: GRID, lineWidth: 0.4, halign: 'left' as const, valign: 'middle' as const, overflow: 'ellipsize' as const };
 
   opts.sections.forEach((section, idx) => {
     // Each report begins on its own fresh page (the first uses the header area).
@@ -116,50 +119,46 @@ export function buildReportPdf(opts: {
     y += 12;
 
     const realCols = numCols(section);
-    // Real columns take a natural share of the page; the REMAINING width is
-    // filled with extra empty bordered columns so the grid reaches the right
-    // edge like a blank Excel sheet. ~40pt per spare column.
-    const usableW = pageW - M * 2;
-    const REAL_W = 62;                                     // avg width budget / real col
-    const SPARE_W = 40;
-    const extraCols = Math.max(0, Math.floor((usableW - realCols * REAL_W) / SPARE_W));
+    // Fixed, EVEN column widths that fill the full page width. The first column
+    // (names/dates) gets 1.6× a normal column so long party names don't wrap;
+    // every other real column is equal. Extra empty columns (only when there's
+    // real leftover room) are equal too — so cells are uniform and numbers never
+    // wrap. This makes each report a clean, evenly-gridded worksheet.
+    const FIRST_MULT = 1.6;
+    const MIN_COL = 46;                                   // min width for a data column
+    // Decide spare columns: add equal empty columns only if the real columns
+    // would otherwise be very wide (few columns). Cap so cells stay uniform.
+    const naturalReal = usableW / (realCols - 1 + FIRST_MULT);
+    let extraCols = 0;
+    if (naturalReal > 130) extraCols = Math.min(10, Math.round((naturalReal - 90) / 60) + realCols);
+    const totalUnits = (realCols - 1 + FIRST_MULT) + extraCols;
+    let unit = usableW / totalUnits;
+    if (unit < MIN_COL) { extraCols = 0; unit = usableW / (realCols - 1 + FIRST_MULT); }
     const cols = realCols + extraCols;
     const pad = (arr: string[]) => [...arr, ...blankRow(extraCols)];
 
-    // Body = data rows, then the totals row (if any) right after the data.
+    const colStyles = (): Record<number, any> => {
+      const cs: Record<number, any> = { 0: { halign: 'left', cellWidth: unit * FIRST_MULT } };
+      for (let c = 1; c < cols; c++) cs[c] = { cellWidth: unit };
+      (section.numericCols ?? []).forEach((c) => { cs[c] = { ...cs[c], halign: 'right' }; });
+      return cs;
+    };
+
+    // --- Pass 1: header + real data (+ totals row right after the data) ---
     const dataRows = section.rows.map((r) => pad(r.map(String)));
     const totalRowIdx = section.foot ? dataRows.length : -1;
     if (section.foot) dataRows.push(pad(section.foot.map(String)));
-
-    // How many BLANK rows fit between the totals and the page bottom → the sheet
-    // stays a full bordered grid ALL THE WAY DOWN with no leftover space, even
-    // with only a few records. ceil (+ tiny epsilon) so the last row reaches the
-    // very edge rather than stopping a row short.
-    const gridTop = y + ROW_H;                       // after the header row
-    const avail = pageH - FOOTER_SPACE - gridTop;
-    // Floor so the grid NEVER spills onto a 2nd page; ROW_H is set slightly over
-    // the real height so the last row still sits right at the bottom edge.
-    const fitRows = Math.floor(avail / ROW_H);
-    const blanks = Math.max(0, fitRows - dataRows.length);
-    for (let i = 0; i < blanks; i++) dataRows.push(blankRow(cols));
 
     autoTable(doc, {
       startY: y,
       head: [pad(section.head)],
       body: dataRows,
       margin: { left: M, right: M },
-      tableWidth: 'auto',       // span the full page width
-      styles: { fontSize: 8.5, cellPadding: { top: 1, bottom: 1, left: 3, right: 3 }, textColor: DARK as any, lineColor: GRID, lineWidth: 0.4, halign: 'left', valign: 'middle', minCellHeight: ROW_H - 2, overflow: 'linebreak' },
-      headStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', fontSize: 8, lineColor: GRID, lineWidth: 0.4, halign: 'center', cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
-      alternateRowStyles: { fillColor: [255, 255, 255] }, // uniform white — like a printed sheet
-      columnStyles: (() => {
-        const cs: Record<number, any> = { 0: { halign: 'left' } };
-        (section.numericCols ?? []).forEach((c) => { cs[c] = { halign: 'right' }; });
-        // Extra spare columns get a fixed narrow width so they tile to the edge.
-        for (let c = realCols; c < cols; c++) cs[c] = { cellWidth: SPARE_W };
-        return cs;
-      })(),
-      // Emphasise the totals row (bold + grey) without a separate foot band.
+      tableWidth: usableW,
+      styles: baseStyles,
+      headStyles: { fillColor: HEAD, textColor: DARK as any, fontStyle: 'bold', fontSize: 8, lineColor: GRID, lineWidth: 0.4, halign: 'center' },
+      alternateRowStyles: { fillColor: [255, 255, 255] },
+      columnStyles: colStyles(),
       didParseCell: (d) => {
         if (d.section === 'body' && d.row.index === totalRowIdx && d.column.index < realCols) {
           d.cell.styles.fontStyle = 'bold';
@@ -168,8 +167,37 @@ export function buildReportPdf(opts: {
       },
       theme: 'grid',
     });
-    // @ts-expect-error lastAutoTable is set by the plugin
-    y = doc.lastAutoTable.finalY;
+    // @ts-expect-error plugin sets lastAutoTable
+    const lat = doc.lastAutoTable;
+    // Measured per-row height from the real table (header + rows) → precise fill.
+    const rowH = (lat.finalY - y) / (dataRows.length + 1);
+    let afterY = lat.finalY;
+
+    // --- Pass 2: fill the REMAINING page height with equal empty grid rows,
+    //     using the MEASURED row height so it fills exactly to the bottom with
+    //     no gap and never spills onto a second page. ---
+    const remaining = pageH - FOOTER_SPACE - afterY;
+    // Blank rows render a touch taller than the header-inclusive average, so use
+    // a conservative per-row height (rowH + 1pt) and floor — the grid fills to
+    // the bottom yet NEVER spills onto a second page. Hard-cap by the max rows
+    // that can physically fit so autoTable can't paginate the blank table.
+    const blankH = rowH + 1.5;
+    const blanks = blankH > 0 ? Math.max(0, Math.floor((remaining - 2) / blankH)) : 0;
+    if (blanks > 0) {
+      autoTable(doc, {
+        startY: afterY,
+        body: Array.from({ length: blanks }, () => blankRow(cols)),
+        margin: { left: M, right: M, bottom: 0 },
+        tableWidth: usableW,
+        styles: baseStyles,
+        columnStyles: colStyles(),
+        pageBreak: 'avoid',      // keep the blank fill on this page — no spill
+        theme: 'grid',
+      });
+      // @ts-expect-error plugin sets lastAutoTable
+      afterY = doc.lastAutoTable.finalY;
+    }
+    y = afterY;
   });
 
   // --- Footer on every page ---
