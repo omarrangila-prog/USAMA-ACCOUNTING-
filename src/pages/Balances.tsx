@@ -4,7 +4,7 @@ import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
-import { Combo } from '@/components/ui/Combo';
+import { Combo, type ComboHandle } from '@/components/ui/Combo';
 import { computeReceivables, computePayables } from '@/lib/accounting';
 import { previewCashEntry } from '@/lib/cashSafeguard';
 import { exportReportPdf } from '@/lib/reportBuilder';
@@ -181,6 +181,11 @@ function AddBalanceModal({
   const [reason, setReason] = useState('');
   const [date, setDate] = useState(defaultDateForPeriod(store.period));
   const [busy, setBusy] = useState(false);
+  // Keyboard-flow refs: Party (combo) → Amount → Reason → Save. The combo's
+  // onDone advances to Amount; Enter on Amount → Reason; Enter on Reason → save.
+  const partyRef = useRef<ComboHandle>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
+  const reasonRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -195,12 +200,29 @@ function AddBalanceModal({
     }
   }, [open, editId]);
 
+  // Auto-focus the Party field the moment the form opens (rapid keyboard entry
+  // always starts on Party — Date keeps its sensible default and stays reachable
+  // via Shift+Tab).
+  useEffect(() => {
+    if (!open) return;
+    const id = setTimeout(() => partyRef.current?.focus(), 40);
+    return () => clearTimeout(id);
+  }, [open, editId]);
+
   const partyOptions = store.parties.map((p) => ({ id: p.id, label: p.name, sub: p.phone }));
   const amt = Number(amount) || 0;
 
+  // Clear the fields for the NEXT entry and return focus to Party — continuous
+  // high-speed entry, exactly like a traditional accounting register.
+  const resetForNext = () => {
+    setPartyId(''); setAmount(''); setReason('');
+    setDate(defaultDateForPeriod(store.period));
+    setTimeout(() => partyRef.current?.focus(), 40);
+  };
+
   const submit = async () => {
-    if (!partyId) { toast.error('Select a party.'); return; }
-    if (amt <= 0) { toast.error('Enter a positive amount.'); return; }
+    if (!partyId) { toast.error('Select a party.'); partyRef.current?.focus(); return; }
+    if (amt <= 0) { toast.error('Enter a positive amount.'); amountRef.current?.focus(); return; }
     setBusy(true);
     try {
       // +ve => receivable, -ve => payable
@@ -211,7 +233,14 @@ function AddBalanceModal({
       const ok = editId
         ? await store.updatePartyAdjustment(editId, input)
         : await store.addPartyAdjustment(input);
-      if (ok) onClose();
+      if (ok) {
+        if (isEdit) { onClose(); }
+        else {
+          // Rapid entry: keep the form open, reset it, and jump back to Party.
+          toast.success(isRec ? 'Receivable added' : 'Payable added');
+          resetForNext();
+        }
+      }
     } finally { setBusy(false); }
   };
 
@@ -226,7 +255,7 @@ function AddBalanceModal({
         <>
           <button className="btn" onClick={onClose}>Cancel</button>
           <button className={isRec ? 'btn btn-green' : 'btn btn-danger'} onClick={submit} disabled={busy || !partyId || amt <= 0}>
-            <Icon name="save" size={16} /> {isEdit ? 'Save Changes' : (isRec ? 'Add Receivable' : 'Add Payable')}
+            <Icon name="save" size={16} /> {isEdit ? 'Save Changes' : (isRec ? 'Add & New' : 'Add & New')}
           </button>
         </>
       }
@@ -234,23 +263,27 @@ function AddBalanceModal({
       <div className="form-grid">
         <div className="field">
           <label>Date</label>
-          <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+          <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); partyRef.current?.focus(); } }} />
         </div>
         <div className="field">
           <label>Party</label>
-          <Combo value={partyId} options={partyOptions} placeholder="Select or create party" allowCreate
+          <Combo ref={partyRef} value={partyId} options={partyOptions} placeholder="Select or create party" allowCreate
             onChange={setPartyId}
-            onCreate={async (name) => (await store.addParty({ name, openingBalance: 0 })).id} />
+            onCreate={async (name) => (await store.addParty({ name, openingBalance: 0 })).id}
+            onDone={() => setTimeout(() => amountRef.current?.focus(), 0)} />
         </div>
         <div className="field">
           <label>{isRec ? 'Amount they owe you' : 'Amount you owe them'}</label>
-          <input type="number" min="0" inputMode="numeric" className="input" placeholder="0" value={amount}
-            onChange={(e) => setAmount(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
+          <input ref={amountRef} type="number" min="0" inputMode="numeric" className="input" placeholder="0" value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); reasonRef.current?.focus(); } }} />
         </div>
         <div className="field">
           <label>Reason / note</label>
-          <input className="input" placeholder="e.g. Old balance, loan, advance" value={reason}
-            onChange={(e) => setReason(e.target.value)} />
+          <input ref={reasonRef} className="input" placeholder="e.g. Old balance, loan, advance" value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }} />
         </div>
         <div className={cx('amount-preview', isRec && 'green')}>
           <span className="amt-label">{isRec ? 'Receivable' : 'Payable'}</span>

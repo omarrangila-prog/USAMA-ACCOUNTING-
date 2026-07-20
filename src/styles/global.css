@@ -180,6 +180,27 @@ textarea.input { height: auto; padding: 10px 13px; resize: vertical; }
 }
 .input.invalid { border-color: var(--red); box-shadow: 0 0 0 3.5px var(--red-soft); }
 
+/* ---------- Visible keyboard focus indicator ----------
+   Every interactive control shows a clear ring when reached by keyboard
+   (Tab / arrows) — but NOT on mouse click (:focus-visible), so mouse users
+   don't see rings. Required for 100% keyboard-only operation. */
+:focus-visible {
+  outline: none;
+}
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible,
+.btn:focus-visible,
+.combo-trigger:focus-visible,
+.segment button:focus-visible,
+select:focus-visible,
+input[type='date']:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3.5px var(--blue-soft);
+  border-radius: var(--radius-sm);
+}
+
 /* ---------- Segmented control ---------- */
 .segment {
   display: inline-flex;
