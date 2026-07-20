@@ -187,6 +187,18 @@ function AddBalanceModal({
   const amountRef = useRef<HTMLInputElement>(null);
   const reasonRef = useRef<HTMLInputElement>(null);
 
+  // Focus the Party trigger, retrying across a few frames so it wins the race
+  // against the modal/Combo mount and the field-reset re-render (no mouse, no
+  // flicker). Shared by open-focus and the after-save "new blank" reset.
+  // Focus the Party trigger exactly ONCE, on the next frame after the modal has
+  // painted. A single focus() call — never a retry loop: repeatedly re-focusing
+  // fought the Combo's own focus handling and bounced focus, which replayed
+  // buffered keystrokes (typing "b" produced "bbb"). One clean call = start on
+  // Party, no flicker, no duplicated characters.
+  const focusParty = () => {
+    setTimeout(() => partyRef.current?.focus(), 50);
+  };
+
   useEffect(() => {
     if (!open) return;
     if (editId) {
@@ -202,11 +214,10 @@ function AddBalanceModal({
 
   // Auto-focus the Party field the moment the form opens (rapid keyboard entry
   // always starts on Party — Date keeps its sensible default and stays reachable
-  // via Shift+Tab).
+  // via Shift+Tab). Edit mode leaves focus alone so the user can review first.
   useEffect(() => {
-    if (!open) return;
-    const id = setTimeout(() => partyRef.current?.focus(), 40);
-    return () => clearTimeout(id);
+    if (!open || editId) return;
+    focusParty();
   }, [open, editId]);
 
   const partyOptions = store.parties.map((p) => ({ id: p.id, label: p.name, sub: p.phone }));
@@ -217,7 +228,7 @@ function AddBalanceModal({
   const resetForNext = () => {
     setPartyId(''); setAmount(''); setReason('');
     setDate(defaultDateForPeriod(store.period));
-    setTimeout(() => partyRef.current?.focus(), 40);
+    focusParty();
   };
 
   const submit = async () => {
