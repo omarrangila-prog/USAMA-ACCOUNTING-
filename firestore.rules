@@ -1,14 +1,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Login has been removed — the app runs as a single shared workspace under
-    // users/bond-workspace/…  Since there is no authentication, this path is
-    // open. This is intended for a single-tenant, in-house deployment only.
+    // Multi-client workspaces. The app has no Firebase Auth sign-in — the login
+    // PIN selects which workspace to load (see src/config/clients.ts), and each
+    // client's data is fully isolated under users/{workspace}/…
     //
-    // ⚠️  Anyone with the project's web config can read/write this workspace.
-    //     If you later need multi-user access control, re-introduce Firebase
-    //     Auth and scope by request.auth.uid instead.
-    match /users/bond-workspace/{collection}/{docId} {
+    //   users/bond-workspace/…  → existing client (live data — unchanged)
+    //   users/client-b/…        → new client B
+    //   users/client-c/…        → new client C
+    //   …add more clients simply by using a new workspace id
+    //
+    // ⚠️  Because there is still no authentication, these paths are open: anyone
+    //     with the project's web config can read/write. This matches the prior
+    //     single-tenant trust model, now extended to every client workspace. If
+    //     you later need real access control, re-introduce Firebase Auth and
+    //     scope each workspace to its owner's request.auth.uid.
+    match /users/{workspace}/{collection}/{docId} {
       allow read, write: if true;
     }
   }

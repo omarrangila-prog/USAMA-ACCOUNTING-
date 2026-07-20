@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { clientForPin } from '@/config/clients';
+import { setActiveWorkspace } from '@/store/authStore';
 import './pinlock.css';
 
-/** The 4-digit access PIN. */
-const PIN = '4444';
 const SESSION_KEY = 'bond.unlocked';
 
 /** Whether the app is already unlocked for this browser session. */
@@ -11,9 +11,11 @@ export function isUnlocked(): boolean {
 }
 
 /**
- * 4-digit PIN gate shown before the app. On the correct PIN it unlocks for the
- * rest of the browser session (sessionStorage), so a refresh re-locks only when
- * the tab/window is closed.
+ * PIN gate shown before the app. The entered PIN selects WHICH client workspace
+ * to load (see src/config/clients.ts): a correct PIN records its workspace for
+ * the session and unlocks the app; that workspace is then what the data store
+ * binds to. An unknown PIN is rejected. Unlock lasts the browser session, so a
+ * refresh keeps the same client, and closing the tab re-locks.
  */
 export function PinLock({ onUnlock }: { onUnlock: () => void }) {
   const [digits, setDigits] = useState(['', '', '', '']);
@@ -23,7 +25,10 @@ export function PinLock({ onUnlock }: { onUnlock: () => void }) {
   useEffect(() => { inputs.current[0]?.focus(); }, []);
 
   const submit = (code: string) => {
-    if (code === PIN) {
+    const client = clientForPin(code);
+    if (client) {
+      // Route this session to the matching client's isolated workspace.
+      setActiveWorkspace(client.workspace);
       try { sessionStorage.setItem(SESSION_KEY, '1'); } catch { /* ignore */ }
       onUnlock();
     } else {

@@ -14,12 +14,19 @@ interface Props {
 }
 
 export function Topbar({ onMenu, onSearch }: Props) {
-  const { mockMode } = useAuth();
+  const { mockMode, user, signOut } = useAuth();
   const { period, setPeriod, online, dataset, settings } = useData();
   const { lang, setLang } = useI18n();
   const [moreOpen, setMoreOpen] = useState(false);
 
   const years = Array.from({ length: 7 }, (_, i) => new Date().getFullYear() - 4 + i);
+
+  // Log out of the current client and return to the PIN screen so another
+  // client can log in. Clears the session workspace + unlock flag, then reloads.
+  const switchClient = async () => {
+    await signOut();
+    window.location.reload();
+  };
 
   return (
     <header className="topbar no-print glass">
@@ -93,6 +100,9 @@ export function Topbar({ onMenu, onSearch }: Props) {
         <button className="btn btn-ghost btn-icon" title="Refresh" onClick={() => window.location.reload()}>
           <Icon name="refresh" size={17} />
         </button>
+        <button className="btn btn-ghost btn-icon" title="Log out / switch client" onClick={switchClient}>
+          <Icon name="lock" size={17} />
+        </button>
       </div>
 
       {/* Compact overflow menu on small screens */}
@@ -108,15 +118,16 @@ export function Topbar({ onMenu, onSearch }: Props) {
               <button onClick={() => { setMoreOpen(false); exportReportPdf(dataset(), settings, period, 'all'); toast.success('PDF exported'); }}><Icon name="pdf" size={16} /> {lang === 'ur' ? 'پی ڈی ایف' : 'Export PDF'}</button>
               <button onClick={() => { setMoreOpen(false); exportReportExcel(dataset(), period); toast.success('Excel exported'); }}><Icon name="excel" size={16} /> {lang === 'ur' ? 'ایکسل' : 'Export Excel'}</button>
               <button onClick={() => { setMoreOpen(false); window.location.reload(); }}><Icon name="refresh" size={16} /> {lang === 'ur' ? 'ری فریش' : 'Refresh'}</button>
+              <button onClick={() => { setMoreOpen(false); switchClient(); }}><Icon name="lock" size={16} /> {lang === 'ur' ? 'لاگ آؤٹ' : 'Log out'}</button>
             </div>
           </>
         )}
       </div>
 
       <div className="user-menu">
-        <div className="user-btn" title={settings.businessName || 'Owner'}>
+        <div className="user-btn" title={`${settings.businessName || 'Owner'}${user?.displayName ? ' · ' + user.displayName : ''} — click Log out to switch client`}>
           <span className="avatar">{(settings.businessName || 'B')[0].toUpperCase()}</span>
-          <span className="user-name">{settings.businessName || 'Owner'}</span>
+          <span className="user-name">{settings.businessName || user?.displayName || 'Owner'}</span>
         </div>
       </div>
     </header>
