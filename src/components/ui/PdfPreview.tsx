@@ -17,8 +17,13 @@ interface Props {
  * viewer provides zoom + page navigation + scroll). Adds Download, Print and
  * Close. Nothing downloads until the user chooses to.
  */
+/** Zoom steps offered in the preview toolbar (percent; 0 = fit to page width). */
+const ZOOM_STEPS = [50, 75, 100, 125, 150, 200, 300];
+
 export function PdfPreview({ makeDoc, title, fileName, onClose }: Props) {
   const [url, setUrl] = useState<string | null>(null);
+  // null = "Fit" (let the viewer fit the page); a number = explicit zoom %.
+  const [zoom, setZoom] = useState<number | null>(null);
   const docRef = useRef<jsPDF | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const printConfirm = usePrintConfirm();
@@ -52,6 +57,22 @@ export function PdfPreview({ makeDoc, title, fileName, onClose }: Props) {
   const download = () => docRef.current?.save(fileName);
   const openInTab = () => { if (url) { const w = window.open(url, '_blank'); if (!w) window.location.href = url; } };
 
+  // Zoom: the built-in PDF viewer honours a "#zoom=" fragment. Changing the
+  // fragment (and remounting the frame via its key) re-renders at that zoom.
+  // "Fit" uses page-width so the whole report is visible.
+  const zoomSrc = url ? `${url}#toolbar=1&view=FitH&zoom=${zoom ?? 'page-width'}` : '';
+  const stepZoom = (dir: 1 | -1) => {
+    setZoom((z) => {
+      const cur = z ?? 100;
+      const idx = ZOOM_STEPS.findIndex((s) => s >= cur);
+      const at = idx < 0 ? ZOOM_STEPS.length - 1 : idx;
+      const next = at + dir;
+      if (next < 0) return ZOOM_STEPS[0];
+      if (next >= ZOOM_STEPS.length) return ZOOM_STEPS[ZOOM_STEPS.length - 1];
+      return ZOOM_STEPS[next];
+    });
+  };
+
   /**
    * Print straight from the preview — no download required. Routes through the
    * shared print helper, which opens the native print dialog on a jsPDF doc
@@ -73,6 +94,18 @@ export function PdfPreview({ makeDoc, title, fileName, onClose }: Props) {
             <strong>{title}</strong>
           </div>
           <div className="row" style={{ gap: 6 }}>
+            {!isMobile && (
+              <div className="pdfpv-zoom" role="group" aria-label="Zoom">
+                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => stepZoom(-1)} title="Zoom out" aria-label="Zoom out">−</button>
+                <span className="zoom-level">{zoom ? `${zoom}%` : 'Fit'}</span>
+                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => stepZoom(1)} title="Zoom in" aria-label="Zoom in">+</button>
+                {zoom !== null && (
+                  <button className="btn btn-ghost btn-sm" onClick={() => setZoom(null)} title="Fit to page width">
+                    Reset
+                  </button>
+                )}
+              </div>
+            )}
             <button className="btn btn-sm" onClick={print} title="Print">
               <Icon name="print" size={15} /> Print
             </button>
@@ -104,11 +137,14 @@ export function PdfPreview({ makeDoc, title, fileName, onClose }: Props) {
               </button>
             </div>
           ) : (
-            <iframe ref={iframeRef} src={url} title={title} className="pdfpv-frame" />
+            /* `key` includes the zoom so changing it remounts the frame and
+               the viewer re-renders at the new zoom level. */
+            <iframe key={zoom ?? 'fit'} ref={iframeRef} src={zoomSrc} title={title} className="pdfpv-frame" />
           )}
         </div>
         <div className="pdfpv-foot faint">
-          Zoom &amp; page controls are in the viewer toolbar above the document.
+          Use the zoom controls above (or the viewer's own toolbar) to inspect the
+          report · Esc closes
         </div>
       </div>
       {printConfirm.dialog}

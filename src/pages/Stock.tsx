@@ -32,15 +32,46 @@ type StockTxn = {
   note: string;
 };
 
+/** Stock summary ordering (display only — never changes any figures). */
+type StockSort = 'denom-desc' | 'denom-asc' | 'az' | 'za';
+const SORT_LABELS: Record<StockSort, string> = {
+  'denom-desc': 'Denomination: High → Low',
+  'denom-asc': 'Denomination: Low → High',
+  az: 'Name: A → Z',
+  za: 'Name: Z → A',
+};
+
+/** Numeric value of a bond name ("Rs. 1500" / "1,500" → 1500) for denomination sorting. */
+function denomValue(name: string): number {
+  const n = Number(String(name).replace(/[^0-9.]/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function Stock() {
   const t = useT();
   const store = useData();
   const { period, dataset, settings, bondTypes } = store;
   const data = dataset();
   const cur = settings.currency;
-  const movement = useMemo(() => computeBondMovement(data, period), [data, period]);
+  const movementRaw = useMemo(() => computeBondMovement(data, period), [data, period]);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [toDelete, setToDelete] = useState<StockTxn | null>(null);
+  const [sort, setSort] = useState<StockSort>('denom-desc');
+
+  // Sorting is PRESENTATION ONLY — the same rows from computeBondMovement, just
+  // ordered. No quantity, rate or total is recalculated.
+  const movement = useMemo(() => {
+    const rows = [...movementRaw];
+    rows.sort((a, b) => {
+      switch (sort) {
+        case 'denom-desc': return denomValue(b.bondTypeName) - denomValue(a.bondTypeName);
+        case 'denom-asc': return denomValue(a.bondTypeName) - denomValue(b.bondTypeName);
+        case 'az': return a.bondTypeName.localeCompare(b.bondTypeName, undefined, { numeric: true });
+        case 'za': return b.bondTypeName.localeCompare(a.bondTypeName, undefined, { numeric: true });
+      }
+    });
+    return rows;
+  }, [movementRaw, sort]);
 
   const bondName = (id: string) => bondTypes.find((b) => b.id === id)?.name ?? '—';
   const inPeriod = (r: { month: number; year: number }) => r.month === period.month && r.year === period.year;
@@ -96,7 +127,23 @@ export function Stock() {
 
       {/* Per-bond summary (restyled Excel worksheet) */}
       <div className="card rpt-card">
-        <div className="rpt-title">Stock Summary · {movement.length} bond{movement.length === 1 ? '' : 's'}</div>
+        <div className="rpt-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span>Stock Summary · {movement.length} bond{movement.length === 1 ? '' : 's'}</span>
+          <span className="spacer" style={{ flex: 1 }} />
+          <label className="faint" style={{ fontSize: 12, fontWeight: 600 }} htmlFor="stock-sort">Sort</label>
+          <select
+            id="stock-sort"
+            className="select"
+            style={{ width: 'auto', height: 32, fontSize: 12.5 }}
+            value={sort}
+            onChange={(e) => setSort(e.target.value as StockSort)}
+            aria-label="Sort stock summary"
+          >
+            {(Object.keys(SORT_LABELS) as StockSort[]).map((k) => (
+              <option key={k} value={k}>{SORT_LABELS[k]}</option>
+            ))}
+          </select>
+        </div>
         {movement.length === 0 ? (
           <div className="empty">No bond types yet. Add one via a Purchase entry.</div>
         ) : (

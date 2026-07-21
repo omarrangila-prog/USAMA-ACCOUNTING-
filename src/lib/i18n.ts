@@ -21,6 +21,7 @@ const DICT: Dict = {
   'nav.stock': ['Stock', 'اسٹاک'],
   'nav.parties': ['Parties', 'پارٹیاں'],
   'nav.bondTypes': ['Bond Types', 'بانڈ اقسام'],
+  'nav.masters': ['Parties & Bond Types', 'پارٹیاں اور بانڈ اقسام'],
   'nav.receivable': ['Receivable', 'وصول طلب'],
   'nav.payable': ['Payable', 'قابل ادا'],
   'nav.ledger': ['Ledger', 'کھاتہ'],

@@ -14,6 +14,7 @@ import { Stock } from '@/pages/Stock';
 import { Balances } from '@/pages/Balances';
 import { TrialBalance } from '@/pages/TrialBalance';
 import { Reports } from '@/pages/Reports';
+import { Masters } from '@/pages/Masters';
 
 function Splash() {
   return (
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="/receivable" element={<Balances kind="receivable" />} />
           <Route path="/payable" element={<Balances kind="payable" />} />
           <Route path="/trial-balance" element={<TrialBalance />} />
+          <Route path="/masters" element={<Masters />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
