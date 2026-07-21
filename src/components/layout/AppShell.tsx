@@ -64,17 +64,19 @@ export function AppShell() {
   };
 
   useShortcuts({
-    // DOS-style form shortcuts — jump straight to any transaction form.
-    onSale: () => goForm('/sale?new=1'),          // F1
-    onPurchase: () => goForm('/purchase?new=1'),  // F2
-    onReceivable: () => goForm('/receivable?new=1'), // F3
-    onPayable: () => goForm('/payable?new=1'),    // F4
+    // DOS-style form shortcuts — open the SAME small entry modals that the Cash
+    // Book's own buttons open (no separate pages). Deep-link params tell the
+    // Cash Book which modal to pop; entries appear right there.
+    onSale: () => goForm('/?trade=sale'),         // F1 → New Sale modal
+    onPurchase: () => goForm('/?trade=purchase'), // F2 → New Purchase modal
+    onReceivable: () => goForm('/?cash=received'),// F3 → Cash Receivable modal
+    onPayable: () => goForm('/?cash=paid'),       // F4 → Cash Payable modal
     onLedger: () => goForm('/'),                  // F6
     onReports: () => goForm('/reports'),          // F7
     onSearch: () => setPaletteOpen(true),
     onPrint: () => window.print(),
     onSave: () => { /* pages auto-save on submit; surfaced as a no-op */ },
-    onNew: () => goForm('/sale?new=1'),           // Ctrl/Cmd+N → new transaction
+    onNew: () => goForm('/?trade=sale'),          // Ctrl/Cmd+N → new transaction
   });
 
   return (

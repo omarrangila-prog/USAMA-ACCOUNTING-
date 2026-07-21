@@ -44,6 +44,7 @@ export function CashModal({
   const [busy, setBusy] = useState(false);
   const partyRef = useRef<ComboHandle>(null);
   const amountRef = useRef<HTMLInputElement>(null);
+  const noteRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!direction) return;
@@ -57,7 +58,9 @@ export function CashModal({
       setPartyId(defaultParty); setAmount(''); setNote('');
       setDate(defaultDateForPeriod(store.period));
     }
-    setTimeout(() => amountRef.current?.focus(), 40);
+    // Keyboard flow starts on Party (Party → Amount → Description → Save). When
+    // editing or with a pre-filled party, jump straight to Amount.
+    setTimeout(() => ((editId || defaultParty) ? amountRef.current?.focus() : partyRef.current?.focus()), 40);
   }, [direction, defaultParty, editId]);
 
   const isReceived = direction === 'received';
@@ -118,12 +121,14 @@ export function CashModal({
         <div className="field">
           <label>Amount</label>
           <input ref={amountRef} type="number" min="0" inputMode="numeric" className="input" placeholder="0" value={amount}
-            onChange={(e) => setAmount(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
+            onChange={(e) => setAmount(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); noteRef.current?.focus(); } }} />
         </div>
         <div className="field">
           <label>Description <span className="faint">(optional)</span></label>
-          <input className="input" placeholder="Details / note" value={note}
-            onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
+          <input ref={noteRef} className="input" placeholder="Details / note" value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }} />
         </div>
       </div>
     </Modal>

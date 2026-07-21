@@ -72,13 +72,21 @@ export function CashBook() {
   const printConfirm = usePrintConfirm();
   const [toDelete, setToDelete] = useState<Pick<TxnBookRow, 'collection' | 'refId'> | null>(null);
 
-  // Deep-links: "?cash=received|paid" opens the cash modal directly (keyboard
-  // shortcuts). Entries made from ANY page still appear here automatically.
+  // Deep-links open the SAME small entry modals the Cash Book buttons open, so
+  // the F-key shortcuts (F1–F4) and the buttons are identical:
+  //   ?cash=received|paid  → Cash Receivable / Cash Payable modal (F3 / F4)
+  //   ?trade=sale|purchase → New Sale / New Purchase modal        (F1 / F2)
+  // Entries made from any page still appear here automatically.
   useEffect(() => {
     const c = params.get('cash');
+    const trade = params.get('trade');
     if (c === 'received' || c === 'paid') {
       setCashModal(c);
       params.delete('cash');
+      setParams(params, { replace: true });
+    } else if (trade === 'sale' || trade === 'purchase') {
+      setTradeModal(trade);
+      params.delete('trade');
       setParams(params, { replace: true });
     }
   }, [params]);
