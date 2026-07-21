@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { CommandPalette } from '../CommandPalette';
+import { ConfirmDialog } from '../ui/Modal';
 import { useShortcuts } from '@/hooks/useShortcuts';
+import { useFormGuard } from '@/store/formGuard';
 import { MISCONFIGURED_PROD } from '@/firebase/config';
 import './appshell.css';
 
@@ -47,18 +49,32 @@ export function AppShell() {
     else setCollapsed((v) => !v);
   };
 
+  // Unsaved-changes guard: if the open entry form has typed-but-unsaved data,
+  // a form-switch shortcut asks to confirm before leaving. The pending target
+  // is held until the user confirms (Enter) or cancels (Esc).
+  const dirty = useFormGuard((s) => s.dirty);
+  const [pendingNav, setPendingNav] = useState<string | null>(null);
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+
+  // Navigate to a form, but confirm first when there are unsaved changes.
+  const goForm = (path: string) => {
+    if (dirtyRef.current) setPendingNav(path);
+    else nav(path);
+  };
+
   useShortcuts({
     // DOS-style form shortcuts — jump straight to any transaction form.
-    onSale: () => nav('/sale?new=1'),          // F1
-    onPurchase: () => nav('/purchase?new=1'),  // F2
-    onReceivable: () => nav('/receivable?new=1'), // F3
-    onPayable: () => nav('/payable?new=1'),    // F4
-    onLedger: () => nav('/'),                  // F6
-    onReports: () => nav('/reports'),          // F7
+    onSale: () => goForm('/sale?new=1'),          // F1
+    onPurchase: () => goForm('/purchase?new=1'),  // F2
+    onReceivable: () => goForm('/receivable?new=1'), // F3
+    onPayable: () => goForm('/payable?new=1'),    // F4
+    onLedger: () => goForm('/'),                  // F6
+    onReports: () => goForm('/reports'),          // F7
     onSearch: () => setPaletteOpen(true),
     onPrint: () => window.print(),
     onSave: () => { /* pages auto-save on submit; surfaced as a no-op */ },
-    onNew: () => nav('/sale?new=1'),           // Ctrl/Cmd+N → new transaction
+    onNew: () => goForm('/sale?new=1'),           // Ctrl/Cmd+N → new transaction
   });
 
   return (
@@ -84,6 +100,16 @@ export function AppShell() {
       </div>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+
+      <ConfirmDialog
+        open={!!pendingNav}
+        title="Leave this form?"
+        message="You have unsaved changes on this form. Leaving will discard them."
+        confirmLabel="Discard & continue"
+        danger
+        onConfirm={() => { const p = pendingNav; setPendingNav(null); useFormGuard.getState().setDirty(false); if (p) nav(p); }}
+        onCancel={() => setPendingNav(null)}
+      />
     </div>
   );
 }

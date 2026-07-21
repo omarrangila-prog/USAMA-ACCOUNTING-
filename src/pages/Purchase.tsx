@@ -6,7 +6,8 @@ import { Icon } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import { TransactionForm } from './TransactionForm';
 import { EditTransactionModal } from './EditTransactionModal';
-import { formatMoney, formatNumber, formatDate } from '@/lib/utils';
+import { formatMoney, formatNumber, formatDate, cx } from '@/lib/utils';
+import { useTableKeys } from '@/hooks/useTableKeys';
 import type { Purchase as PurchaseRec } from '@/types';
 import './entry.css';
 
@@ -25,10 +26,18 @@ export function Purchase() {
     [data.purchases, period]
   );
 
+  const locked = isMonthLocked();
+  // Keyboard row control: ↑/↓ select, Ctrl+E / Enter edit, Delete removes.
+  const { selected, setSelected } = useTableKeys<PurchaseRec>({
+    rows,
+    onEdit: (r) => setToEdit(r),
+    onDelete: (r) => setToDelete(r.id),
+    disabled: locked,
+  });
+
   const partyName = (id: string) => (id ? (data.parties.find((p) => p.id === id)?.name ?? '—') : 'Cash (no party)');
   const bondName = (id: string) => data.bondTypes.find((b) => b.id === id)?.name ?? '—';
   const total = rows.reduce((a, r) => a + r.amount, 0);
-  const locked = isMonthLocked();
 
   return (
     <div>
@@ -55,8 +64,8 @@ export function Purchase() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id}>
+                  {rows.map((r, i) => (
+                    <tr key={r.id} className={cx(i === selected && 'row-selected')} onClick={() => setSelected(i)}>
                       <td data-label="Date">{formatDate(r.date)}</td>
                       <td data-label="Party"><strong>{partyName(r.partyId)}</strong></td>
                       <td data-label="Bond">Rs. {bondName(r.bondTypeId)}</td>

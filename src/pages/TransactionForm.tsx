@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useData } from '@/store/dataStore';
+import { useFormGuard } from '@/store/formGuard';
 import { Combo, type ComboHandle } from '@/components/ui/Combo';
 import { Icon } from '@/components/ui/Icon';
 import { formatMoney, periodOf, cx, defaultDateForPeriod } from '@/lib/utils';
@@ -77,6 +78,15 @@ export function TransactionForm({ kind, embedded = false, onSaved, defaultParty 
 
   // Focus the first field on mount for immediate keyboard entry.
   useEffect(() => { partyRef.current?.focus(); }, [kind]);
+
+  // Mark the form "dirty" whenever the user has entered transaction data that
+  // isn't saved yet, so a form-switch shortcut (F1–F4) can warn first. Date and
+  // an unchanged pre-filled party don't count as unsaved work; bond/qty/rate/
+  // note do. Cleared on save and on unmount.
+  const setDirty = useFormGuard((s) => s.setDirty);
+  const isDirty = !!(bondTypeId || quantity || rate || note);
+  useEffect(() => { setDirty(isDirty); }, [isDirty, setDirty]);
+  useEffect(() => () => setDirty(false), [setDirty]);
 
   // F1/F2 deep-link "?new=1": when the shortcut lands on an already-open Sale/
   // Purchase page (no remount), re-focus Party and clear the param so repeat

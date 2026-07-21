@@ -8,6 +8,7 @@ import { TransactionForm } from './TransactionForm';
 import { EditTransactionModal } from './EditTransactionModal';
 import { formatMoney, formatNumber, formatDate, cx } from '@/lib/utils';
 import { saleProfitLive } from '@/lib/accounting';
+import { useTableKeys } from '@/hooks/useTableKeys';
 import type { Sale as SaleRec } from '@/types';
 import './entry.css';
 
@@ -26,6 +27,15 @@ export function Sale() {
     [data.sales, period]
   );
 
+  const locked = isMonthLocked();
+  // Keyboard row control: ↑/↓ select, Ctrl+E / Enter edit, Delete removes.
+  const { selected, setSelected } = useTableKeys<SaleRec>({
+    rows,
+    onEdit: (r) => setToEdit(r),
+    onDelete: (r) => setToDelete(r.id),
+    disabled: locked,
+  });
+
   const partyName = (id: string) => (id ? (data.parties.find((p) => p.id === id)?.name ?? '—') : 'Cash (no party)');
   const bondName = (id: string) => data.bondTypes.find((b) => b.id === id)?.name ?? '—';
   // LIVE profit per sale (amount − current avg cost × qty) — same logic as the
@@ -33,7 +43,6 @@ export function Sale() {
   const profitOf = (s: SaleRec) => saleProfitLive(data, s, period);
   const total = rows.reduce((a, r) => a + r.amount, 0);
   const profit = rows.reduce((a, r) => a + profitOf(r), 0);
-  const locked = isMonthLocked();
 
   return (
     <div>
@@ -61,8 +70,8 @@ export function Sale() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id}>
+                  {rows.map((r, i) => (
+                    <tr key={r.id} className={cx(i === selected && 'row-selected')} onClick={() => setSelected(i)}>
                       <td data-label="Date">{formatDate(r.date)}</td>
                       <td data-label="Party"><strong>{partyName(r.partyId)}</strong></td>
                       <td data-label="Bond">Rs. {bondName(r.bondTypeId)}</td>

@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Icon } from './Icon';
 import './modal.css';
 
@@ -59,6 +59,21 @@ interface ConfirmProps {
 export function ConfirmDialog({
   open, title, message, confirmLabel = 'Confirm', danger, onConfirm, onCancel,
 }: ConfirmProps) {
+  // Fully keyboard-accessible confirm: the confirm button auto-focuses when the
+  // dialog opens, Enter activates it (default/safe action), ←/→ move between the
+  // two buttons, and Esc cancels (handled by <Modal>). No mouse required.
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (open) setTimeout(() => confirmRef.current?.focus(), 30);
+  }, [open]);
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); onConfirm(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); cancelRef.current?.focus(); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); confirmRef.current?.focus(); }
+  };
+
   return (
     <Modal
       open={open}
@@ -67,8 +82,8 @@ export function ConfirmDialog({
       width={420}
       footer={
         <>
-          <button className="btn" onClick={onCancel}>Cancel</button>
-          <button className={danger ? 'btn btn-danger' : 'btn btn-primary'} onClick={onConfirm}>
+          <button ref={cancelRef} className="btn" onClick={onCancel} onKeyDown={onKey}>Cancel</button>
+          <button ref={confirmRef} className={danger ? 'btn btn-danger' : 'btn btn-primary'} onClick={onConfirm} onKeyDown={onKey}>
             {confirmLabel}
           </button>
         </>

@@ -253,6 +253,11 @@ table.grid tbody td {
 }
 table.grid tbody tr:hover { background: rgba(59, 130, 246, 0.05); }
 table.grid tbody tr:last-child td { border-bottom: none; }
+/* Keyboard-selected row (↑/↓ selection) — clear highlight + left accent bar so
+   the accountant always sees which row Ctrl+E / Delete will act on. */
+table.grid tbody tr.row-selected { background: var(--blue-soft); }
+table.grid tbody tr.row-selected td { box-shadow: inset 0 0 0 9999px rgba(59, 130, 246, 0.10); }
+table.grid tbody tr.row-selected td:first-child { box-shadow: inset 3px 0 0 0 var(--blue), inset 0 0 0 9999px rgba(59, 130, 246, 0.10); }
 table.grid tfoot td {
   padding: 12px 14px;
   font-weight: 700;
