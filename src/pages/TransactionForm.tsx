@@ -35,7 +35,7 @@ export function TransactionForm({ kind, embedded = false, onSaved, defaultParty 
 
   // ?party= deep-link (from the Ledger "Add Transaction" chooser) pre-selects
   // the party so the user isn't asked to pick it again.
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const [date, setDate] = useState(() => defaultDateForPeriod(period));
   const [partyId, setPartyId] = useState(defaultParty ?? params.get('party') ?? '');
   const [bondTypeId, setBondTypeId] = useState('');
@@ -77,6 +77,17 @@ export function TransactionForm({ kind, embedded = false, onSaved, defaultParty 
 
   // Focus the first field on mount for immediate keyboard entry.
   useEffect(() => { partyRef.current?.focus(); }, [kind]);
+
+  // F1/F2 deep-link "?new=1": when the shortcut lands on an already-open Sale/
+  // Purchase page (no remount), re-focus Party and clear the param so repeat
+  // presses keep working.
+  useEffect(() => {
+    if (params.get('new') === '1') {
+      setTimeout(() => partyRef.current?.focus(), 20);
+      params.delete('new');
+      setParams(params, { replace: true });
+    }
+  }, [params]);
 
   const submit = async () => {
     setTouched(true);

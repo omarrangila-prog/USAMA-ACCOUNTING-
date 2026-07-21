@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
@@ -26,6 +26,17 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
   const [addOpen, setAddOpen] = useState(false);
   const [adjToEdit, setAdjToEdit] = useState<string | null>(null);
   const [adjToDelete, setAdjToDelete] = useState<string | null>(null);
+
+  // F3 (Receivable) / F4 (Payable) deep-link "?new=1" opens the entry form from
+  // anywhere in the app. Clear the param so a refresh doesn't reopen it.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (params.get('new') === '1') {
+      setAddOpen(true);
+      params.delete('new');
+      setParams(params, { replace: true });
+    }
+  }, [params]);
 
   const rows = useMemo(
     () => (isRec ? computeReceivables(data, period) : computePayables(data, period)),

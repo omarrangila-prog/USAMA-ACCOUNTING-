@@ -48,16 +48,17 @@ export function AppShell() {
   };
 
   useShortcuts({
-    onPurchase: () => nav('/purchase?new=1'),
-    onSale: () => nav('/sale?new=1'),
-    onCashReceived: () => nav('/?cash=received'),
-    onCashPaid: () => nav('/?cash=paid'),
-    onLedger: () => nav('/'),
-    onReports: () => nav('/reports'),
+    // DOS-style form shortcuts — jump straight to any transaction form.
+    onSale: () => nav('/sale?new=1'),          // F1
+    onPurchase: () => nav('/purchase?new=1'),  // F2
+    onReceivable: () => nav('/receivable?new=1'), // F3
+    onPayable: () => nav('/payable?new=1'),    // F4
+    onLedger: () => nav('/'),                  // F6
+    onReports: () => nav('/reports'),          // F7
     onSearch: () => setPaletteOpen(true),
     onPrint: () => window.print(),
     onSave: () => { /* pages auto-save on submit; surfaced as a no-op */ },
-    onNew: () => nav('/purchase?new=1'), // Ctrl/Cmd+N → start a new transaction
+    onNew: () => nav('/sale?new=1'),           // Ctrl/Cmd+N → new transaction
   });
 
   return (

@@ -1,59 +1,75 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 export interface ShortcutMap {
-  onPurchase?: () => void; // F2
-  onSale?: () => void; // F3
-  onCashReceived?: () => void; // F4
-  onCashPaid?: () => void; // F5
-  onLedger?: () => void; // F6
-  onReports?: () => void; // F7
-  onSearch?: () => void; // Ctrl/Cmd+K or Ctrl/Cmd+F
-  onSave?: () => void; // Ctrl/Cmd+S
-  onPrint?: () => void; // Ctrl/Cmd+P
-  onNew?: () => void; // Ctrl/Cmd+N — new transaction
+  onSale?: () => void;         // F1 — open Sale form
+  onPurchase?: () => void;     // F2 — open Purchase form
+  onReceivable?: () => void;   // F3 — open Receivable form
+  onPayable?: () => void;      // F4 — open Payable form
+  onLedger?: () => void;       // F6 — party ledger (kept; no conflict)
+  onReports?: () => void;      // F7 — reports (kept; no conflict)
+  onSearch?: () => void;       // Ctrl/Cmd+K or Ctrl/Cmd+F
+  onSave?: () => void;         // Ctrl/Cmd+S
+  onPrint?: () => void;        // Ctrl/Cmd+P
+  onNew?: () => void;          // Ctrl/Cmd+N — new transaction
 }
 
-/** Global keyboard shortcuts. Ignores typing inside inputs for the F-keys' safety. */
+/**
+ * Global keyboard shortcuts, DOS-accounting style. The four transaction forms
+ * are on dedicated function keys so an accountant can jump to any of them from
+ * anywhere without the mouse:
+ *
+ *   F1 → Sale   F2 → Purchase   F3 → Receivable   F4 → Payable
+ *
+ * Safety:
+ *  - `preventDefault()` stops the browser's own F-key actions (F1 Help, etc.).
+ *  - A key-repeat guard (`e.repeat` + a pressed-set) makes sure a held key fires
+ *    the action exactly once, never twice from OS auto-repeat.
+ *  - The listener subscribes ONCE and reads handlers live from a ref, so it is
+ *    never re-added on re-render — no duplicate listeners, no double-fire.
+ */
 export function useShortcuts(map: ShortcutMap) {
+  const mapRef = useRef(map);
+  mapRef.current = map;
+
   useEffect(() => {
+    const held = new Set<string>();
+
     const handler = (e: KeyboardEvent) => {
+      const m = mapRef.current;
       const mod = e.metaKey || e.ctrlKey;
 
-      // Ctrl/Cmd+K or Ctrl/Cmd+F → focus search / command palette.
       if (mod && (e.key.toLowerCase() === 'k' || e.key.toLowerCase() === 'f')) {
-        e.preventDefault();
-        map.onSearch?.();
-        return;
+        e.preventDefault(); m.onSearch?.(); return;
       }
-      if (mod && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        map.onSave?.();
-        return;
-      }
-      if (mod && e.key.toLowerCase() === 'p') {
-        e.preventDefault();
-        map.onPrint?.();
-        return;
-      }
-      // Ctrl/Cmd+N → new transaction. (Browsers open a new window on Ctrl+N, so
-      // preventDefault is essential — it may still be intercepted by some
-      // browsers before reaching us; F2/F3 remain the reliable "new" keys.)
-      if (mod && e.key.toLowerCase() === 'n') {
-        e.preventDefault();
-        map.onNew?.();
-        return;
-      }
+      if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); m.onSave?.(); return; }
+      if (mod && e.key.toLowerCase() === 'p') { e.preventDefault(); m.onPrint?.(); return; }
+      if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); m.onNew?.(); return; }
 
-      switch (e.key) {
-        case 'F2': e.preventDefault(); map.onPurchase?.(); break;
-        case 'F3': e.preventDefault(); map.onSale?.(); break;
-        case 'F4': e.preventDefault(); map.onCashReceived?.(); break;
-        case 'F5': e.preventDefault(); map.onCashPaid?.(); break;
-        case 'F6': e.preventDefault(); map.onLedger?.(); break;
-        case 'F7': e.preventDefault(); map.onReports?.(); break;
+      // Function-key form shortcuts. Guard against OS/browser auto-repeat so a
+      // held key opens a form only once.
+      const fnActions: Record<string, (() => void) | undefined> = {
+        F1: m.onSale,
+        F2: m.onPurchase,
+        F3: m.onReceivable,
+        F4: m.onPayable,
+        F6: m.onLedger,
+        F7: m.onReports,
+      };
+      if (e.key in fnActions) {
+        e.preventDefault();          // block browser Help / find / etc.
+        if (e.repeat || held.has(e.key)) return; // fire once per physical press
+        held.add(e.key);
+        fnActions[e.key]?.();
       }
     };
+
+    const onUp = (e: KeyboardEvent) => { held.delete(e.key); };
+
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [map]);
+    window.addEventListener('keyup', onUp);
+    return () => {
+      window.removeEventListener('keydown', handler);
+      window.removeEventListener('keyup', onUp);
+    };
+  }, []);
 }
