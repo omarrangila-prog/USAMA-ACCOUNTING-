@@ -230,7 +230,7 @@ export function CashBook() {
             <button className="btn btn-green" onClick={() => setTradeModal('sale')}>
               <Icon name="sale" size={16} /> Sale
             </button>
-            <button className="btn btn-primary" onClick={() => setTradeModal('purchase')}>
+            <button className="btn btn-danger" onClick={() => setTradeModal('purchase')}>
               <Icon name="purchase" size={16} /> Purchase
             </button>
             <button className="btn btn-green" onClick={() => setCashModal('received')}>
