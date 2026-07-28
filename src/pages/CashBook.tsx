@@ -71,6 +71,9 @@ export function CashBook() {
   const [editRecord, setEditRecord] = useState<{ kind: 'purchase' | 'sale'; rec: Purchase | Sale | null } | null>(null);
   const printConfirm = usePrintConfirm();
   const [toDelete, setToDelete] = useState<Pick<TxnBookRow, 'collection' | 'refId'> | null>(null);
+  // Tabbing on the Cash Book starts on the Purchase button, so Tab walks
+  // Purchase → Sale → Cash Receivable → Cash Payable in order.
+  const purchaseBtnRef = useRef<HTMLButtonElement>(null);
 
   // Deep-links open the SAME small entry modals the Cash Book buttons open, so
   // the F-key shortcuts (F1–F4) and the buttons are identical:
@@ -90,6 +93,18 @@ export function CashBook() {
       setParams(params, { replace: true });
     }
   }, [params]);
+
+  // Land keyboard focus on the Purchase button when the Cash Book opens, so the
+  // first Tab moves Purchase → Sale → Cash Receivable → Cash Payable. Skip it if
+  // a modal is being opened via a deep-link (?cash/?trade) or a party ledger is
+  // being viewed, so we never steal focus from an entry form.
+  useEffect(() => {
+    if (params.get('cash') || params.get('trade') || params.get('party')) return;
+    const id = setTimeout(() => purchaseBtnRef.current?.focus(), 60);
+    return () => clearTimeout(id);
+    // Run once on mount for this page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const rows = useMemo(() => computeTransactionBook(data, period), [data, period]);
   const sum = useMemo(() => computeCashBookSummary(data, period), [data, period]);
@@ -227,7 +242,7 @@ export function CashBook() {
             />
           </div>
           <div className="cb-entry-buttons">
-            <button className="btn btn-danger" onClick={() => setTradeModal('purchase')}>
+            <button ref={purchaseBtnRef} className="btn btn-danger" onClick={() => setTradeModal('purchase')}>
               <Icon name="purchase" size={16} /> Purchase
             </button>
             <button className="btn btn-green" onClick={() => setTradeModal('sale')}>
