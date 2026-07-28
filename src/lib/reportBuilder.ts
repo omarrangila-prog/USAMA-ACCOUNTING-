@@ -16,6 +16,7 @@ import {
   describeSale,
   saleProfitLive,
   describeCash,
+  computeProfitByBond,
 } from './accounting';
 import { buildReportPdf, money, type PdfSection, type PdfSummaryCard } from './exportPdf';
 import { exportWorkbook, type Sheet } from './exportExcel';
@@ -91,10 +92,17 @@ export function buildSections(
   const want = (id: ReportId) => which === 'all' || which === id;
 
   if (want('stock')) {
-    const stock = computeStock(data, period);
+    // Alphabetical (A→Z) so items never appear in a random order. Each row also
+    // shows realised Profit for that bond, with a Total Profit at the bottom.
+    const profitByBond = computeProfitByBond(data, period);
+    const profitOf = (id: string) => profitByBond.find((p) => p.bondTypeId === id)?.profit ?? 0;
+    const stock = [...computeStock(data, period)].sort((a, b) =>
+      a.bondTypeName.localeCompare(b.bondTypeName, undefined, { numeric: true })
+    );
+    const totalProfit = round2(stock.reduce((a, s) => a + profitOf(s.bondTypeId), 0));
     sections.push({
       title: 'Stock Report',
-      head: ['Bond', 'Opening', 'Purchased', 'Sold', 'Closing', 'Avg Cost', 'Value'],
+      head: ['Bond', 'Opening', 'Purchased', 'Sold', 'Closing', 'Avg Cost', 'Value', 'Profit'],
       rows: stock.map((s) => [
         s.bondTypeName,
         formatNumber(s.openingQty),
@@ -103,9 +111,15 @@ export function buildSections(
         formatNumber(s.closingQty),
         formatNumber(s.avgCost),
         money(s.closingValue),
+        money(profitOf(s.bondTypeId)),
       ]),
-      foot: ['Total', '', '', '', formatNumber(stock.reduce((a, s) => a + s.closingQty, 0)), '', money(stock.reduce((a, s) => a + s.closingValue, 0))],
-      numericCols: [1, 2, 3, 4, 5, 6],
+      foot: [
+        'Total', '', '', '',
+        formatNumber(stock.reduce((a, s) => a + s.closingQty, 0)), '',
+        money(stock.reduce((a, s) => a + s.closingValue, 0)),
+        money(totalProfit),
+      ],
+      numericCols: [1, 2, 3, 4, 5, 6, 7],
     });
   }
 
@@ -399,12 +413,18 @@ export function exportReportPdf(
 
 export function exportReportExcel(data: DataSet, period: Period): void {
   const sheets: Sheet[] = [];
-  const stock = computeStock(data, period);
+  // Alphabetical (A→Z) + a Profit column with a Total Profit row.
+  const profitByBond = computeProfitByBond(data, period);
+  const profitOf = (id: string) => profitByBond.find((p) => p.bondTypeId === id)?.profit ?? 0;
+  const stock = [...computeStock(data, period)].sort((a, b) =>
+    a.bondTypeName.localeCompare(b.bondTypeName, undefined, { numeric: true })
+  );
   sheets.push({
     name: 'Stock',
     rows: [
-      ['Bond', 'Opening', 'Purchased', 'Sold', 'Closing', 'Avg Cost', 'Value'],
-      ...stock.map((s) => [s.bondTypeName, s.openingQty, s.purchasedQty, s.soldQty, s.closingQty, s.avgCost, s.closingValue]),
+      ['Bond', 'Opening', 'Purchased', 'Sold', 'Closing', 'Avg Cost', 'Value', 'Profit'],
+      ...stock.map((s) => [s.bondTypeName, s.openingQty, s.purchasedQty, s.soldQty, s.closingQty, s.avgCost, s.closingValue, profitOf(s.bondTypeId)]),
+      ['Total', '', '', '', stock.reduce((a, s) => a + s.closingQty, 0), '', stock.reduce((a, s) => a + s.closingValue, 0), round2(stock.reduce((a, s) => a + profitOf(s.bondTypeId), 0))],
     ],
   });
   sheets.push({

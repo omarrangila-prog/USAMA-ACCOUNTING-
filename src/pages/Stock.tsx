@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react';
 import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
-import { computeBondMovement } from '@/lib/accounting';
+import { computeBondMovement, computeStock, computeProfitByBond } from '@/lib/accounting';
 import { exportReportPdf } from '@/lib/reportBuilder';
-import { formatNumber, formatDate, cx } from '@/lib/utils';
+import { formatNumber, formatMoney, formatDate, cx } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
 import { toast } from '@/store/toast';
 import { AdjustStock } from './AdjustStock';
@@ -56,12 +56,22 @@ export function Stock() {
   const movementRaw = useMemo(() => computeBondMovement(data, period), [data, period]);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [toDelete, setToDelete] = useState<StockTxn | null>(null);
-  const [sort, setSort] = useState<StockSort>('denom-desc');
+  // Default: alphabetical (A→Z) so items never appear in a random order.
+  const [sort, setSort] = useState<StockSort>('az');
 
-  // Sorting is PRESENTATION ONLY — the same rows from computeBondMovement, just
-  // ordered. No quantity, rate or total is recalculated.
+  // Join each bond's movement with its closing stock VALUE and realised PROFIT
+  // (same engine helpers used everywhere — no new calculation). Sorting is
+  // PRESENTATION ONLY; no quantity, value, profit or total is recalculated.
   const movement = useMemo(() => {
-    const rows = [...movementRaw];
+    const stock = computeStock(data, period);
+    const profits = computeProfitByBond(data, period);
+    const valueOf = (id: string) => stock.find((s) => s.bondTypeId === id)?.closingValue ?? 0;
+    const profitOf = (id: string) => profits.find((p) => p.bondTypeId === id)?.profit ?? 0;
+    const rows = movementRaw.map((m) => ({
+      ...m,
+      closingValue: valueOf(m.bondTypeId),
+      profit: profitOf(m.bondTypeId),
+    }));
     rows.sort((a, b) => {
       switch (sort) {
         case 'denom-desc': return denomValue(b.bondTypeName) - denomValue(a.bondTypeName);
@@ -71,7 +81,7 @@ export function Stock() {
       }
     });
     return rows;
-  }, [movementRaw, sort]);
+  }, [movementRaw, data, period, sort]);
 
   const bondName = (id: string) => bondTypes.find((b) => b.id === id)?.name ?? '—';
   const inPeriod = (r: { month: number; year: number }) => r.month === period.month && r.year === period.year;
@@ -96,8 +106,14 @@ export function Stock() {
   }, [data.purchases, data.sales, data.stockAdjustments, period]);
 
   const totals = movement.reduce(
-    (a, m) => ({ bought: a.bought + m.purchasedQty, sold: a.sold + m.soldQty, net: a.net + m.netQty }),
-    { bought: 0, sold: 0, net: 0 }
+    (a, m) => ({
+      bought: a.bought + m.purchasedQty,
+      sold: a.sold + m.soldQty,
+      net: a.net + m.netQty,
+      value: a.value + m.closingValue,
+      profit: a.profit + m.profit,
+    }),
+    { bought: 0, sold: 0, net: 0, value: 0, profit: 0 }
   );
 
   const doDelete = async () => {
@@ -153,9 +169,11 @@ export function Stock() {
                 <tr>
                   <th className="l">Bond Type</th>
                   <th className="r">Purchase Qty</th>
-                  <th className="r">Sale Qty</th>
-                  <th className="r">Remaining Stock</th>
-                  <th className="r">Avg Buy Rate</th>
+                  <th className="r">Sold Qty</th>
+                  <th className="r">Closing Qty</th>
+                  <th className="r">Avg Cost</th>
+                  <th className="r">Stock Value</th>
+                  <th className="r">Profit</th>
                 </tr>
               </thead>
               <tbody>
@@ -166,6 +184,8 @@ export function Stock() {
                     <td className="r mono">{formatNumber(m.soldQty)}</td>
                     <td className={cx('r mono', m.netQty < 0 && 'neg')}>{formatNumber(m.netQty)}</td>
                     <td className="r mono">{m.avgBuyRate ? formatNumber(m.avgBuyRate) : ''}</td>
+                    <td className="r mono">{formatMoney(m.closingValue, cur)}</td>
+                    <td className={cx('r mono', m.profit < 0 && 'neg')}>{formatMoney(m.profit, cur)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -176,6 +196,8 @@ export function Stock() {
                   <td className="r mono">{formatNumber(totals.sold)}</td>
                   <td className={cx('r mono', totals.net < 0 && 'neg')}>{formatNumber(totals.net)}</td>
                   <td className="r"></td>
+                  <td className="r mono">{formatMoney(totals.value, cur)}</td>
+                  <td className={cx('r mono', totals.profit < 0 && 'neg')}>{formatMoney(totals.profit, cur)}</td>
                 </tr>
               </tfoot>
             </table>
