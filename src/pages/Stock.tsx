@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useData } from '@/store/dataStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
-import { computeBondMovement, computeStock, computeProfitByBond } from '@/lib/accounting';
+import { computeBondMovement, computeStock, computeProfitByBond, cumulativeDataset } from '@/lib/accounting';
 import { exportReportPdf } from '@/lib/reportBuilder';
 import { formatNumber, formatMoney, formatDate, cx } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
@@ -51,7 +51,8 @@ export function Stock() {
   const t = useT();
   const store = useData();
   const { period, dataset, settings, bondTypes } = store;
-  const data = dataset();
+  // Continue across months (all prior + current), same formulas.
+  const data = useMemo(() => cumulativeDataset(dataset(), period), [dataset, period]);
   const cur = settings.currency;
   const movementRaw = useMemo(() => computeBondMovement(data, period), [data, period]);
   const [adjustOpen, setAdjustOpen] = useState(false);

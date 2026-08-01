@@ -8,7 +8,7 @@ import {
 } from '@/lib/reportBuilder';
 import { PdfPreview } from '@/components/ui/PdfPreview';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
-import { computePartyBalances, partyTradeTotals, partyCashTotals } from '@/lib/accounting';
+import { computePartyBalances, partyTradeTotals, partyCashTotals, cumulativeDataset } from '@/lib/accounting';
 import { formatMoney, monthName, cx } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
 import { toast } from '@/store/toast';
@@ -30,7 +30,8 @@ const REPORTS: { id: ReportId; icon: IconName; desc: string; accent: string }[] 
 export function Reports() {
   const t = useT();
   const { period, dataset, settings, isMonthClosed, closeMonth, deleteParty } = useData();
-  const data = dataset();
+  // Reports continue across months (all prior + current), same formulas.
+  const data = useMemo(() => cumulativeDataset(dataset(), period), [dataset, period]);
   const cur = settings.currency;
   const [confirmClose, setConfirmClose] = useState(false);
   const [preview, setPreview] = useState<{ which: 'all' | ReportId; title: string } | null>(null);

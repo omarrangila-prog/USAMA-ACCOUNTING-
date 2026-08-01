@@ -17,6 +17,7 @@ import {
   saleProfitLive,
   describeCash,
   computeProfitByBond,
+  cumulativeDataset,
 } from './accounting';
 import { buildReportPdf, money, type PdfSection, type PdfSummaryCard } from './exportPdf';
 import { exportWorkbook, type Sheet } from './exportExcel';
@@ -374,12 +375,16 @@ export type ReportId =
 
 /** Build the report jsPDF doc WITHOUT downloading (used for in-app preview). */
 export function buildReportDoc(
-  data: DataSet,
+  rawData: DataSet,
   settings: Settings,
   period: Period,
   which: 'all' | ReportId = 'all',
   onlyPartyId?: string,
 ) {
+  // Reports CONTINUE across months: use the dataset trimmed & stamped to the
+  // selected period, so every figure includes all prior + current records
+  // (same formulas, wider range). July's totals flow into August, etc.
+  const data = cumulativeDataset(rawData, period);
   const partyName = onlyPartyId ? data.parties.find((p) => p.id === onlyPartyId)?.name : undefined;
   return buildReportPdf({
     title: partyName ? `${partyName} — Ledger` : which === 'all' ? 'Monthly Report' : reportTitle(which),
@@ -411,7 +416,8 @@ export function exportReportPdf(
   buildReportDoc(data, settings, period, which).save(reportFileName(period, which));
 }
 
-export function exportReportExcel(data: DataSet, period: Period): void {
+export function exportReportExcel(rawData: DataSet, period: Period): void {
+  const data = cumulativeDataset(rawData, period); // continue across months
   const sheets: Sheet[] = [];
   // Alphabetical (A→Z) + a Profit column with a Total Profit row.
   const profitByBond = computeProfitByBond(data, period);

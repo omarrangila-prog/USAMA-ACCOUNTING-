@@ -66,6 +66,33 @@ const upToPeriod = (r: { month: number; year: number }, p: Period) =>
   r.year * 12 + r.month <= p.year * 12 + p.month;
 
 /**
+ * Return a dataset that makes every screen/report CONTINUE across months: keep
+ * only records on or before `period`, and stamp their month/year to `period` so
+ * the existing per-month (`inPeriod`) logic treats them all as the current
+ * month. This changes NO formula — Cash in Hand, Profit, Receivable/Payable are
+ * computed by the exact same functions; they just see all prior + current
+ * records. July's totals therefore flow into August automatically.
+ *
+ * closings/opening are left as-is (they are carry-forward snapshots, not
+ * transactions).
+ */
+export function cumulativeDataset(data: DataSet, period: Period): DataSet {
+  const keep = <T extends { month: number; year: number }>(rows: T[] | undefined): T[] =>
+    (rows ?? [])
+      .filter((r) => upToPeriod(r, period))
+      .map((r) => ({ ...r, month: period.month, year: period.year }));
+  return {
+    ...data,
+    purchases: keep(data.purchases),
+    sales: keep(data.sales),
+    cash: keep(data.cash),
+    expenses: keep(data.expenses),
+    stockAdjustments: keep(data.stockAdjustments),
+    partyAdjustments: keep(data.partyAdjustments),
+  };
+}
+
+/**
  * Opening stock qty + avg cost for a bond. Prefers the prior month's closing
  * snapshot; if none exists and this is the migration period, uses the imported
  * opening stock from the old Excel data.
@@ -735,7 +762,7 @@ export function computeCashBookSummary(data: DataSet, period: Period, cumulative
     receivable: fin.netReceivable,
     payable: fin.netPayable,
     // Net Profit = trading − expenses (same single source of truth everywhere).
-    profit: computeProfitLoss(data, period),
+    profit: computeProfitLoss(data, period, cumulative),
     txnCount: computeTransactionBook(data, period, cumulative).length,
   };
 }
@@ -960,17 +987,21 @@ export function computeTrialBalance(data: DataSet, period: Period): TrialBalance
  * sales). Expenses and other income are NOT included (client rule), and profit
  * is never folded into Receivable/Payable.
  */
-export function computeProfitLoss(data: DataSet, period: Period): number {
+export function computeProfitLoss(data: DataSet, period: Period, cumulative = false): number {
   // Profit = trading profit ONLY = Sales − Cost of Sales. (Expense/Income
   // feature removed from the UI, so nothing else affects Profit.)
   // Single source of truth for the Profit figure across every screen/report.
-  return computeTradingProfit(data, period);
+  // Formula is UNCHANGED — `cumulative` only widens the date range (used by the
+  // Cash Book) so profit matches its cumulative sales figure.
+  return computeTradingProfit(data, period, cumulative);
 }
 
 /** Trading-only profit (before expenses/income), for reporting clarity. */
-export function computeTradingProfit(data: DataSet, period: Period): number {
+export function computeTradingProfit(data: DataSet, period: Period, cumulative = false): number {
+  const within = (r: { month: number; year: number }) =>
+    cumulative ? upToPeriod(r, period) : inPeriod(r, period);
   return round2(
-    data.sales.filter((s) => inPeriod(s, period)).reduce((a, s) => a + saleProfitLive(data, s, period), 0)
+    data.sales.filter((s) => within(s)).reduce((a, s) => a + saleProfitLive(data, s, period), 0)
   );
 }
 
