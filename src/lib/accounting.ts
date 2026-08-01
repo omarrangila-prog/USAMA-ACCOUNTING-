@@ -61,6 +61,10 @@ function isOpeningPeriod(opening: OpeningBalances | null | undefined, p: Period)
 const inPeriod = (r: { month: number; year: number }, p: Period) =>
   r.month === p.month && r.year === p.year;
 
+/** True when a record's period is on or before `p` (cumulative "up to & including"). */
+const upToPeriod = (r: { month: number; year: number }, p: Period) =>
+  r.year * 12 + r.month <= p.year * 12 + p.month;
+
 /**
  * Opening stock qty + avg cost for a bond. Prefers the prior month's closing
  * snapshot; if none exists and this is the migration period, uses the imported
@@ -358,21 +362,30 @@ export function partyCashTotals(data: DataSet, partyId: string, period: Period):
  * Sales & Purchases do NOT affect Receivable/Payable — they belong to the Total
  * Sales / Purchases figures only.
  */
-export function computePartyBalances(data: DataSet, period: Period): PartyBalance[] {
+export function computePartyBalances(data: DataSet, period: Period, cumulative = false): PartyBalance[] {
   return data.parties.map((party) => {
-    const opening = openingPartyBalance(party, period, data.closings, data.opening);
+    // Selected-month mode carries the prior closing as an opening snapshot.
+    // Cumulative mode starts from the party's base opening balance and applies
+    // EVERY cash/adjustment up to & including the period — a true running total
+    // that continues across months (used by the Cash Book). Both agree in a
+    // single-month workspace.
+    const within = (r: { month: number; year: number }) =>
+      cumulative ? upToPeriod(r, period) : inPeriod(r, period);
+    const opening = cumulative
+      ? (party.openingBalance ?? 0)
+      : openingPartyBalance(party, period, data.closings, data.opening);
     let balance = opening;
 
     // Cash Receivable (received) => +receivable; Cash Payable (paid) => -payable.
     data.cash
-      .filter((c) => c.partyId === party.id && inPeriod(c, period))
+      .filter((c) => c.partyId === party.id && within(c))
       .forEach((c) => {
         if (c.direction === 'received') balance += c.amount;
         else balance -= c.amount;
       });
     // Manual party adjustments: +receivable / -payable.
     (data.partyAdjustments ?? [])
-      .filter((a) => a.partyId === party.id && inPeriod(a, period))
+      .filter((a) => a.partyId === party.id && within(a))
       .forEach((a) => (balance += a.amount));
 
     return { partyId: party.id, name: party.name, opening, balance: round2(balance) };
@@ -453,21 +466,28 @@ export function partyDropdownOptions(data: DataSet, period: Period): PartyOption
     });
 }
 
-/** Net cash position from cash transactions in the period. */
-export function computeCashInHand(data: DataSet, period: Period): number {
+/**
+ * Net cash position from cash transactions. `cumulative = false` (default): the
+ * selected month only. `cumulative = true`: all cash movements up to & including
+ * the period, so Cash in Hand continues across months (used by the Cash Book).
+ */
+export function computeCashInHand(data: DataSet, period: Period, cumulative = false): number {
+  const within = (r: { month: number; year: number }) =>
+    cumulative ? upToPeriod(r, period) : inPeriod(r, period);
   let cash = 0;
-  // Opening cash from the migration snapshot, applied from the opening period on
-  // (it's a carried-in balance, not a transaction, so it never affects profit).
-  if (data.opening?.openingCash && isOpeningPeriod(data.opening, period)) {
+  // Opening cash from the migration snapshot. In selected-month mode it applies
+  // only in its own period; in cumulative mode it applies from that period on.
+  if (data.opening?.openingCash &&
+      (cumulative ? upToPeriod(data.opening.asOf, period) : isOpeningPeriod(data.opening, period))) {
     cash += data.opening.openingCash;
   }
   data.purchases
-    .filter((p) => inPeriod(p, period) && p.payment === 'cash')
+    .filter((p) => within(p) && p.payment === 'cash')
     .forEach((p) => (cash -= p.amount));
   data.sales
-    .filter((s) => inPeriod(s, period) && s.receipt === 'cash')
+    .filter((s) => within(s) && s.receipt === 'cash')
     .forEach((s) => (cash += s.amount));
-  data.cash.filter((c) => inPeriod(c, period)).forEach((c) => {
+  data.cash.filter((c) => within(c)).forEach((c) => {
     if (c.direction === 'received') cash += c.amount;
     else cash -= c.amount;
   });
@@ -503,11 +523,11 @@ export interface Financials {
   netParty: number;        // netReceivable - netPayable (informational)
   cashInHand: number;      // === rawCash — physical cash only
 }
-export function computeFinancials(data: DataSet, period: Period): Financials {
-  const balances = computePartyBalances(data, period);
+export function computeFinancials(data: DataSet, period: Period, cumulative = false): Financials {
+  const balances = computePartyBalances(data, period, cumulative);
   const netReceivable = round2(balances.reduce((a, b) => (b.balance > 0 ? a + b.balance : a), 0));
   const netPayable = round2(balances.reduce((a, b) => (b.balance < 0 ? a + Math.abs(b.balance) : a), 0));
-  const rawCash = computeCashInHand(data, period);
+  const rawCash = computeCashInHand(data, period, cumulative);
   const netParty = round2(netReceivable - netPayable);
   return {
     rawCash,
@@ -581,7 +601,17 @@ export interface TxnBookRow {
   cashDelta: number;   // signed effect on physical cash (0 = non-cash row)
 }
 
-export function computeTransactionBook(data: DataSet, period: Period): TxnBookRow[] {
+/**
+ * Build the transaction list for a period.
+ *
+ * `cumulative = false` (default): only the selected month — used by the reports.
+ * `cumulative = true`: every entry from the start THROUGH the selected month, so
+ *   the Cash Book "continues" across months (July shows July; August shows
+ *   July + August). Only the Cash Book screen passes true.
+ */
+export function computeTransactionBook(data: DataSet, period: Period, cumulative = false): TxnBookRow[] {
+  const within = (r: { month: number; year: number }) =>
+    cumulative ? upToPeriod(r, period) : inPeriod(r, period);
   const rows: TxnBookRow[] = [];
   const seq: Record<string, number> = {};
   const voucher = (prefix: string) => {
@@ -589,7 +619,7 @@ export function computeTransactionBook(data: DataSet, period: Period): TxnBookRo
     return `${prefix}-${String(seq[prefix]).padStart(2, '0')}`;
   };
 
-  data.purchases.filter((p) => inPeriod(p, period)).forEach((p) =>
+  data.purchases.filter((p) => within(p)).forEach((p) =>
     rows.push({
       id: 'purchase:' + p.id, refId: p.id, collection: 'purchases',
       date: p.date, createdAt: p.createdAt, voucher: voucher('PUR'), type: 'Purchase',
@@ -598,7 +628,7 @@ export function computeTransactionBook(data: DataSet, period: Period): TxnBookRo
       amount: p.amount, cashDelta: p.payment === 'cash' ? -p.amount : 0,
     })
   );
-  data.sales.filter((s) => inPeriod(s, period)).forEach((s) =>
+  data.sales.filter((s) => within(s)).forEach((s) =>
     rows.push({
       id: 'sale:' + s.id, refId: s.id, collection: 'sales',
       date: s.date, createdAt: s.createdAt, voucher: voucher('SAL'), type: 'Sale',
@@ -607,7 +637,7 @@ export function computeTransactionBook(data: DataSet, period: Period): TxnBookRo
       amount: s.amount, cashDelta: s.receipt === 'cash' ? s.amount : 0,
     })
   );
-  data.cash.filter((c) => inPeriod(c, period)).forEach((c) => {
+  data.cash.filter((c) => within(c)).forEach((c) => {
     const received = c.direction === 'received';
     rows.push({
       id: 'cash:' + c.id, refId: c.id, collection: 'cashTransactions',
@@ -618,7 +648,7 @@ export function computeTransactionBook(data: DataSet, period: Period): TxnBookRo
       amount: c.amount, cashDelta: received ? c.amount : -c.amount,
     });
   });
-  (data.expenses ?? []).filter((e) => inPeriod(e, period)).forEach((e) => {
+  (data.expenses ?? []).filter((e) => within(e)).forEach((e) => {
     const income = e.kind === 'income';
     rows.push({
       id: 'expense:' + e.id, refId: e.id, collection: 'expenses',
@@ -631,7 +661,7 @@ export function computeTransactionBook(data: DataSet, period: Period): TxnBookRo
       amount: e.amount, cashDelta: 0,
     });
   });
-  (data.partyAdjustments ?? []).filter((a) => inPeriod(a, period)).forEach((a) =>
+  (data.partyAdjustments ?? []).filter((a) => within(a)).forEach((a) =>
     rows.push({
       id: 'adjustment:' + a.id, refId: a.id, collection: 'partyAdjustments',
       date: a.date, createdAt: a.createdAt, voucher: voucher('ADJ'), type: 'Adjustment',
@@ -671,18 +701,28 @@ export interface CashBookSummary {
   txnCount: number;
 }
 
-export function computeCashBookSummary(data: DataSet, period: Period): CashBookSummary {
+/**
+ * `cumulative = false` (default): figures for the selected month only — used by
+ * the reports and Trial Balance so their per-month totals are unchanged.
+ * `cumulative = true`: figures accumulated from the start THROUGH the selected
+ * month, so the Cash Book "continues" across months. Only the Cash Book screen
+ * passes true. Receivable/Payable already carry over via opening balances, so
+ * they stay as-is either way.
+ */
+export function computeCashBookSummary(data: DataSet, period: Period, cumulative = false): CashBookSummary {
+  const within = (r: { month: number; year: number }) =>
+    cumulative ? upToPeriod(r, period) : inPeriod(r, period);
   const totalSales = round2(
-    data.sales.filter((s) => inPeriod(s, period)).reduce((a, s) => a + s.amount, 0)
+    data.sales.filter((s) => within(s)).reduce((a, s) => a + s.amount, 0)
   );
   const totalPurchases = round2(
-    data.purchases.filter((p) => inPeriod(p, period)).reduce((a, p) => a + p.amount, 0)
+    data.purchases.filter((p) => within(p)).reduce((a, p) => a + p.amount, 0)
   );
-  const cashRows = data.cash.filter((c) => inPeriod(c, period));
+  const cashRows = data.cash.filter((c) => within(c));
   const totalReceived = round2(cashRows.filter((c) => c.direction === 'received').reduce((a, c) => a + c.amount, 0));
   const totalPaid = round2(cashRows.filter((c) => c.direction === 'paid').reduce((a, c) => a + c.amount, 0));
 
-  const fin = computeFinancials(data, period);
+  const fin = computeFinancials(data, period, cumulative);
 
   return {
     totalSales,
@@ -696,7 +736,7 @@ export function computeCashBookSummary(data: DataSet, period: Period): CashBookS
     payable: fin.netPayable,
     // Net Profit = trading − expenses (same single source of truth everywhere).
     profit: computeProfitLoss(data, period),
-    txnCount: computeTransactionBook(data, period).length,
+    txnCount: computeTransactionBook(data, period, cumulative).length,
   };
 }
 

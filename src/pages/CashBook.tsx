@@ -106,8 +106,11 @@ export function CashBook() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const rows = useMemo(() => computeTransactionBook(data, period), [data, period]);
-  const sum = useMemo(() => computeCashBookSummary(data, period), [data, period]);
+  // Cash Book shows data CUMULATIVELY — every entry from the start through the
+  // selected month — so months continue instead of resetting (July shows July;
+  // August shows July + August). Cash in Hand accumulates the same way.
+  const rows = useMemo(() => computeTransactionBook(data, period, true), [data, period]);
+  const sum = useMemo(() => computeCashBookSummary(data, period, true), [data, period]);
   const movement = useMemo(() => computeBondMovement(data, period), [data, period]);
 
   // Running cash balance under the client formula (Sale +, Purchase −,
