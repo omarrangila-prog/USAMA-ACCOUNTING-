@@ -40,6 +40,24 @@ export interface DataSet {
   expenses?: Expense[];
   stockAdjustments?: StockAdjustment[];
   partyAdjustments?: PartyAdjustment[];
+  /**
+   * One-time Profit Closing baselines. Each dated record's `amount` is
+   * SUBTRACTED from the calculated trading profit for periods on/after its date,
+   * so a closing brings reported Profit to 0 at that point and new sales then
+   * accumulate from 0 again. Underlying sales/purchases are never modified.
+   */
+  profitClosings?: ProfitClosing[];
+}
+
+export interface ProfitClosing {
+  id: string;
+  date: string;
+  month: number;
+  year: number;
+  amount: number;   // subtracted from trading profit (a closing offset)
+  note?: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 /** Net effect of expenses/income in a period: income - expense. */
@@ -988,12 +1006,23 @@ export function computeTrialBalance(data: DataSet, period: Period): TrialBalance
  * is never folded into Receivable/Payable.
  */
 export function computeProfitLoss(data: DataSet, period: Period, cumulative = false): number {
-  // Profit = trading profit ONLY = Sales − Cost of Sales. (Expense/Income
-  // feature removed from the UI, so nothing else affects Profit.)
-  // Single source of truth for the Profit figure across every screen/report.
-  // Formula is UNCHANGED — `cumulative` only widens the date range (used by the
-  // Cash Book) so profit matches its cumulative sales figure.
-  return computeTradingProfit(data, period, cumulative);
+  // Profit = trading profit (Sales − Cost of Sales) MINUS any one-time Profit
+  // Closing baselines dated on/before this period. The trading-profit formula is
+  // UNCHANGED; a closing simply offsets the accumulated profit to 0 at its date
+  // (new sales then accumulate from 0). Single source of truth for the Profit
+  // figure across every screen/report — so Dashboard, Business Summary, Profit
+  // Report and all PDFs/prints show the same closed figure.
+  const trading = computeTradingProfit(data, period, cumulative);
+  return round2(trading - profitClosingOffset(data, period));
+}
+
+/** Sum of Profit Closing baselines effective on/before `period`. */
+export function profitClosingOffset(data: DataSet, period: Period): number {
+  return round2(
+    (data.profitClosings ?? [])
+      .filter((c) => upToPeriod(c, period))
+      .reduce((a, c) => a + c.amount, 0)
+  );
 }
 
 /** Trading-only profit (before expenses/income), for reporting clarity. */

@@ -29,6 +29,7 @@ export type CollectionName =
   | 'expenses'
   | 'stockAdjustments'
   | 'partyAdjustments'
+  | 'profitClosings'
   | 'openingBalances';
 
 function path(uid: string, name: CollectionName) {

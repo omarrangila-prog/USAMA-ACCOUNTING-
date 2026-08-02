@@ -27,6 +27,7 @@ import {
 } from '@/firebase/dataAccess';
 import {
   type DataSet,
+  type ProfitClosing,
   computeStock,
   computePartyBalances,
   computeFinancials,
@@ -60,6 +61,7 @@ interface DataStore {
   expenses: Expense[];
   stockAdjustments: StockAdjustment[];
   partyAdjustments: PartyAdjustment[];
+  profitClosings: ProfitClosing[];
   opening: OpeningBalances | null;
   settings: Settings;
 
@@ -243,6 +245,7 @@ export const useData = create<DataStore>((set, get) => ({
   expenses: [],
   stockAdjustments: [],
   partyAdjustments: [],
+  profitClosings: [],
   opening: null,
   settings: DEFAULT_SETTINGS,
 
@@ -283,6 +286,7 @@ export const useData = create<DataStore>((set, get) => ({
       sub<Expense>('expenses', 'expenses'),
       sub<StockAdjustment>('stockAdjustments', 'stockAdjustments'),
       sub<PartyAdjustment>('partyAdjustments', 'partyAdjustments'),
+      sub<ProfitClosing>('profitClosings', 'profitClosings'),
       subscribeCollection<Settings & { id: string }>(userUid, 'settings', (rows) => {
         const s = rows.find((r) => r.id === 'app');
         if (s) set({ settings: { ...DEFAULT_SETTINGS, ...s } });
@@ -319,6 +323,7 @@ export const useData = create<DataStore>((set, get) => ({
       expenses: s.expenses,
       stockAdjustments: s.stockAdjustments,
       partyAdjustments: s.partyAdjustments,
+      profitClosings: s.profitClosings,
     };
   },
 
