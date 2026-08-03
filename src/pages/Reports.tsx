@@ -9,7 +9,7 @@ import {
 } from '@/lib/reportBuilder';
 import { PdfPreview } from '@/components/ui/PdfPreview';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
-import { computePartyBalances, partyTradeTotals, partyCashTotals, computeProfitLoss } from '@/lib/accounting';
+import { computePartyBalances, partyTradeTotals, partyCashTotals, computeProfitLoss, yearDataset, YEAR_PERIOD } from '@/lib/accounting';
 import { formatMoney, monthName, cx, MONTHS, round2 } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
 import { toast } from '@/store/toast';
@@ -38,15 +38,28 @@ export function Reports() {
   const [partyToDelete, setPartyToDelete] = useState<{ id: string; name: string } | null>(null);
   const printConfirm = usePrintConfirm();
 
+  // Report scope selector: a specific month (1-12) or 'year' (whole year merged).
+  // Independent of the top-bar; defaults to the top-bar's current month.
+  const [scope, setScope] = useState<number | 'year'>(period.month);
+  const isYear = scope === 'year';
+  // The period every report/preview on this page uses when a month is selected.
+  const rPeriod = isYear ? period : { month: scope as number, year: period.year };
+  const scopeLabel = isYear ? `Full Year ${period.year}` : `${monthName(rPeriod.month)} ${period.year}`;
+
   const closed = isMonthClosed();
+
+  // Scoped dataset/period the on-page tables use: the whole year aggregated when
+  // 'All Year' is picked, otherwise the selected month.
+  const rData = useMemo(() => (isYear ? yearDataset(data, period.year) : data), [isYear, data, period.year]);
+  const rp = isYear ? YEAR_PERIOD(period.year) : rPeriod;
 
   // On-page party ledger: every party (A→Z) with buying/selling + cash + balance.
   const ledger = useMemo(() => {
-    const balances = computePartyBalances(data, period);
-    return azSortByName(data.parties).map((p) => {
+    const balances = computePartyBalances(rData, rp);
+    return azSortByName(rData.parties).map((p) => {
       const bal = balances.find((b) => b.partyId === p.id)?.balance ?? 0;
-      const trade = partyTradeTotals(data, p.id, period);
-      const cash = partyCashTotals(data, p.id, period);
+      const trade = partyTradeTotals(rData, p.id, rp);
+      const cash = partyCashTotals(rData, p.id, rp);
       return {
         id: p.id, name: p.name,
         purchased: trade.purchased, sold: trade.sold,
@@ -55,7 +68,7 @@ export function Reports() {
         status: bal > 0.005 ? 'Receivable' : bal < -0.005 ? 'Payable' : 'Settled',
       };
     });
-  }, [data, period]);
+  }, [rData, rp]);
 
   // Financial-year summary: each month's Sales, Purchases and Profit (same
   // per-month engine functions), plus a year total. Months with no activity are
@@ -78,19 +91,17 @@ export function Reports() {
     return { rows, total };
   }, [data, period.year]);
 
-  const generate = () => {
-    setPreview({ which: 'all', title: `Monthly Report — ${monthName(period.month)} ${period.year}` });
+  // Open the preview for a report honoring the selected scope (month or year).
+  const openPreview = (which: 'all' | ReportId, baseTitle: string) => {
+    setPreview({ which, title: `${baseTitle} — ${scopeLabel}`, year: isYear });
   };
-
-  const generateYear = () => {
-    setPreview({ which: 'all', title: `Annual Report — Financial Year ${period.year}`, year: true });
-  };
+  const generate = () => openPreview('all', isYear ? 'Annual Report' : 'Monthly Report');
 
   /** Open the native print dialog directly on a report — no download needed. */
   const printReport = (which: 'all' | ReportId) => {
     printConfirm.print({
-      makeDoc: () => buildReportDoc(data, settings, period, which),
-      fileName: reportFileName(period, which),
+      makeDoc: () => isYear ? buildYearReportDoc(data, settings, period.year, which) : buildReportDoc(data, settings, rPeriod, which),
+      fileName: isYear ? yearReportFileName(period.year, which) : reportFileName(rPeriod, which),
     });
   };
 
@@ -103,16 +114,26 @@ export function Reports() {
     <div>
       <PageHeader
         title={t('p.reportsTitle')}
-        subtitle={`Generate professional reports for ${monthName(period.month)} ${period.year}`}
+        subtitle={`Reports for ${scopeLabel}`}
         actions={
           <>
+            <select
+              className="select"
+              style={{ width: 'auto' }}
+              value={String(scope)}
+              onChange={(e) => setScope(e.target.value === 'year' ? 'year' : Number(e.target.value))}
+              aria-label="Report month"
+              title="Choose a month, or All Year for one merged annual report"
+            >
+              {MONTHS.map((m, i) => (
+                <option key={m} value={i + 1}>{m} {period.year}</option>
+              ))}
+              <option value="year">All Year {period.year}</option>
+            </select>
             <button className="btn btn-primary" onClick={generate}>
               <Icon name="reports" size={16} /> Generate Report
             </button>
-            <button className="btn" onClick={generateYear} title={`One PDF summing the whole financial year ${period.year}`}>
-              <Icon name="calendar" size={16} /> Full Year PDF
-            </button>
-            <button className="btn" onClick={() => { exportReportExcel(data, period); toast.success('Excel exported'); }}>
+            <button className="btn" onClick={() => { isYear ? exportReportExcel(yearDataset(data, period.year), YEAR_PERIOD(period.year)) : exportReportExcel(data, rPeriod); toast.success('Excel exported'); }}>
               <Icon name="excel" size={16} /> Export Excel
             </button>
           </>
@@ -165,7 +186,7 @@ export function Reports() {
               {/* Default click = Preview */}
               <button
                 className="rt-main"
-                onClick={() => setPreview({ which: r.id, title: reportTitle(r.id) })}
+                onClick={() => openPreview(r.id, reportTitle(r.id))}
                 title="Preview"
               >
                 <span className="rt-icon" style={{ background: r.accent }}>
@@ -178,7 +199,7 @@ export function Reports() {
               </button>
               <div className="rt-actions no-print">
                 <button className="btn btn-ghost btn-icon btn-sm" title="Preview"
-                  onClick={() => setPreview({ which: r.id, title: reportTitle(r.id) })}>
+                  onClick={() => openPreview(r.id, reportTitle(r.id))}>
                   <Icon name="search" size={15} />
                 </button>
                 <button className="btn btn-ghost btn-icon btn-sm" title="Print"
@@ -295,10 +316,10 @@ export function Reports() {
         makeDoc={preview
           ? (preview.year
               ? () => buildYearReportDoc(data, settings, period.year, preview.which)
-              : () => buildReportDoc(data, settings, period, preview.which))
+              : () => buildReportDoc(data, settings, rPeriod, preview.which))
           : null}
         title={preview?.title ?? ''}
-        fileName={preview?.year ? yearReportFileName(period.year, preview.which) : reportFileName(period, preview?.which ?? 'all')}
+        fileName={preview?.year ? yearReportFileName(period.year, preview.which) : reportFileName(rPeriod, preview?.which ?? 'all')}
         onClose={() => setPreview(null)}
       />
       {printConfirm.dialog}
