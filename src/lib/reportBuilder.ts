@@ -70,17 +70,20 @@ function bondName(data: DataSet, id: string): string {
 
 export function summaryCards(data: DataSet, period: Period): PdfSummaryCard[] {
   const d = computeDashboard(data, period);
+  // Average cost per bond currently in stock (value ÷ qty). Guarded for 0 qty.
+  const avgCost = d.closingStockQty !== 0 ? round2(d.closingStockValue / d.closingStockQty) : 0;
   return [
     { label: 'Total Purchase', value: money(d.totalPurchase), accent: C.blue },
     { label: 'Total Sale', value: money(d.totalSale), accent: C.green },
-    { label: 'Closing Stock', value: money(d.closingStockValue), accent: C.purple },
     { label: 'Profit / Loss', value: money(d.profitLoss), accent: d.profitLoss >= 0 ? C.green : C.red },
     { label: 'Payable', value: money(d.cashPayable), accent: C.red },
     { label: 'Receivable', value: money(d.cashReceivable), accent: C.green },
     { label: 'Cash in Hand', value: money(d.cashInHand), accent: C.orange },
-    // 'Stock on Hand' = current closing stock value carried forward (replaces the
-    // old 'Net Balance' net-worth figure, per client request).
-    { label: 'Stock on Hand', value: money(d.closingStockValue), accent: C.blue },
+    // All stock figures on hand (replaces the old 'Net Balance' net-worth line):
+    // how much stock (qty), its value, and the average cost per unit.
+    { label: 'Stock on Hand (Qty)', value: formatNumber(d.closingStockQty), accent: C.blue },
+    { label: 'Stock Value', value: money(d.closingStockValue), accent: C.purple },
+    { label: 'Avg Cost', value: money(avgCost), accent: C.blue },
   ];
 }
 
@@ -361,14 +364,14 @@ export function buildSections(
       rows: [
         ['Total Purchase', money(d.totalPurchase)],
         ['Total Sale', money(d.totalSale)],
-        ['Closing Stock Qty', formatNumber(d.closingStockQty)],
-        ['Closing Stock Value', money(d.closingStockValue)],
+        ['Stock on Hand (Qty)', formatNumber(d.closingStockQty)],
+        ['Stock Value', money(d.closingStockValue)],
+        ['Avg Cost', money(d.closingStockQty !== 0 ? round2(d.closingStockValue / d.closingStockQty) : 0)],
         ['Cash Receivable', money(d.cashReceivable)],
         ['Cash Payable', money(d.cashPayable)],
         ['Total Expense', money(d.totalExpense)],
         ['Total Income', money(d.totalIncome)],
         ['Cash in Hand', money(d.cashInHand)],
-        ['Stock on Hand', money(d.closingStockValue)],
         ['Profit / Loss', money(d.profitLoss)],
         ['Trial Balance', d.trialBalanced ? 'Balanced' : 'Out of Balance'],
       ],
