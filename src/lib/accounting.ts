@@ -47,6 +47,13 @@ export interface DataSet {
    * accumulate from 0 again. Underlying sales/purchases are never modified.
    */
   profitClosings?: ProfitClosing[];
+  /**
+   * One-time Net Balance closings. Each dated record's `amount` is SUBTRACTED
+   * from the calculated Net Balance for periods on/after its date, so a closing
+   * brings the reported Net Balance to 0 at that point. Underlying cash / stock /
+   * receivable / payable are never modified — only the net-worth display line.
+   */
+  netBalanceClosings?: ProfitClosing[];
 }
 
 export interface ProfitClosing {
@@ -54,7 +61,7 @@ export interface ProfitClosing {
   date: string;
   month: number;
   year: number;
-  amount: number;   // subtracted from trading profit (a closing offset)
+  amount: number;   // subtracted from the target figure (a closing offset)
   note?: string;
   createdAt: number;
   updatedAt: number;
@@ -1060,6 +1067,15 @@ export function profitClosingOffset(data: DataSet, period: Period, cumulative = 
   );
 }
 
+/** Sum of Net Balance closings dated IN `period` (per-month, like profit). */
+export function netBalanceClosingOffset(data: DataSet, period: Period): number {
+  return round2(
+    (data.netBalanceClosings ?? [])
+      .filter((c) => inPeriod(c, period))
+      .reduce((a, c) => a + c.amount, 0)
+  );
+}
+
 /** Trading-only profit (before expenses/income), for reporting clarity. */
 export function computeTradingProfit(data: DataSet, period: Period, cumulative = false): number {
   const within = (r: { month: number; year: number }) =>
@@ -1111,8 +1127,10 @@ export function computeDashboard(data: DataSet, period: Period): DashboardStats 
     cashReceivable: fin.netReceivable,
     cashPayable: fin.netPayable,
     cashInHand,
-    // Net worth = cash + bank + stock + net party position (receivable − payable).
-    netBalance: round2(cashInHand + bank + closingStockValue + fin.netParty),
+    // Net worth = cash + bank + stock + net party position (receivable − payable),
+    // MINUS any one-time Net Balance closing dated in this month (offsets the
+    // displayed net-worth line to 0 without touching cash/stock/receivable/payable).
+    netBalance: round2(cashInHand + bank + closingStockValue + fin.netParty - netBalanceClosingOffset(data, period)),
     profitLoss: computeProfitLoss(data, period),
     totalExpense: exp.expense,
     totalIncome: exp.income,

@@ -30,6 +30,7 @@ export type CollectionName =
   | 'stockAdjustments'
   | 'partyAdjustments'
   | 'profitClosings'
+  | 'netBalanceClosings'
   | 'openingBalances';
 
 function path(uid: string, name: CollectionName) {

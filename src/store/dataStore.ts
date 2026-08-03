@@ -62,6 +62,7 @@ interface DataStore {
   stockAdjustments: StockAdjustment[];
   partyAdjustments: PartyAdjustment[];
   profitClosings: ProfitClosing[];
+  netBalanceClosings: ProfitClosing[];
   opening: OpeningBalances | null;
   settings: Settings;
 
@@ -246,6 +247,7 @@ export const useData = create<DataStore>((set, get) => ({
   stockAdjustments: [],
   partyAdjustments: [],
   profitClosings: [],
+  netBalanceClosings: [],
   opening: null,
   settings: DEFAULT_SETTINGS,
 
@@ -287,6 +289,7 @@ export const useData = create<DataStore>((set, get) => ({
       sub<StockAdjustment>('stockAdjustments', 'stockAdjustments'),
       sub<PartyAdjustment>('partyAdjustments', 'partyAdjustments'),
       sub<ProfitClosing>('profitClosings', 'profitClosings'),
+      sub<ProfitClosing>('netBalanceClosings', 'netBalanceClosings'),
       subscribeCollection<Settings & { id: string }>(userUid, 'settings', (rows) => {
         const s = rows.find((r) => r.id === 'app');
         if (s) set({ settings: { ...DEFAULT_SETTINGS, ...s } });
@@ -324,6 +327,7 @@ export const useData = create<DataStore>((set, get) => ({
       stockAdjustments: s.stockAdjustments,
       partyAdjustments: s.partyAdjustments,
       profitClosings: s.profitClosings,
+      netBalanceClosings: s.netBalanceClosings,
     };
   },
 
