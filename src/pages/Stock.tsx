@@ -80,7 +80,12 @@ export function Stock() {
         case 'za': return b.bondTypeName.localeCompare(a.bondTypeName, undefined, { numeric: true });
       }
     });
-    return rows;
+    // Clean report: hide bonds with NO activity and NO closing stock this month
+    // (all of purchase/sale/closing/value/profit are zero). Anything with any
+    // closing stock stays visible so Closing Stock is always shown.
+    return rows.filter((m) =>
+      m.purchasedQty !== 0 || m.soldQty !== 0 || m.netQty !== 0 || m.closingValue !== 0 || m.profit !== 0
+    );
   }, [movementRaw, data, period, sort]);
 
   const bondName = (id: string) => bondTypes.find((b) => b.id === id)?.name ?? '—';
@@ -115,6 +120,13 @@ export function Stock() {
     }),
     { bought: 0, sold: 0, net: 0, value: 0, profit: 0 }
   );
+
+  // Clean report: hide a whole column when every value in it is zero. (Avg Cost
+  // and Stock Value collapse together in a zero-cost carried month; Profit hides
+  // when there's no realised profit this month.)
+  const showValue = movement.some((m) => m.closingValue !== 0);
+  const showAvgCost = movement.some((m) => m.avgBuyRate !== 0);
+  const showProfit = movement.some((m) => m.profit !== 0);
 
   const doDelete = async () => {
     const r = toDelete;
@@ -171,9 +183,9 @@ export function Stock() {
                   <th className="r">Purchase Qty</th>
                   <th className="r">Sold Qty</th>
                   <th className="r">Closing Qty</th>
-                  <th className="r">Avg Cost</th>
-                  <th className="r">Stock Value</th>
-                  <th className="r">Profit</th>
+                  {showAvgCost && <th className="r">Avg Cost</th>}
+                  {showValue && <th className="r">Stock Value</th>}
+                  {showProfit && <th className="r">Profit</th>}
                 </tr>
               </thead>
               <tbody>
@@ -183,9 +195,9 @@ export function Stock() {
                     <td className="r mono">{formatNumber(m.purchasedQty)}</td>
                     <td className="r mono">{formatNumber(m.soldQty)}</td>
                     <td className={cx('r mono', m.netQty < 0 && 'neg')}>{formatNumber(m.netQty)}</td>
-                    <td className="r mono">{m.avgBuyRate ? formatNumber(m.avgBuyRate) : ''}</td>
-                    <td className="r mono">{formatMoney(m.closingValue, cur)}</td>
-                    <td className={cx('r mono', m.profit < 0 && 'neg')}>{formatMoney(m.profit, cur)}</td>
+                    {showAvgCost && <td className="r mono">{m.avgBuyRate ? formatNumber(m.avgBuyRate) : ''}</td>}
+                    {showValue && <td className="r mono">{formatMoney(m.closingValue, cur)}</td>}
+                    {showProfit && <td className={cx('r mono', m.profit < 0 && 'neg')}>{formatMoney(m.profit, cur)}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -195,9 +207,9 @@ export function Stock() {
                   <td className="r mono">{formatNumber(totals.bought)}</td>
                   <td className="r mono">{formatNumber(totals.sold)}</td>
                   <td className={cx('r mono', totals.net < 0 && 'neg')}>{formatNumber(totals.net)}</td>
-                  <td className="r"></td>
-                  <td className="r mono">{formatMoney(totals.value, cur)}</td>
-                  <td className={cx('r mono', totals.profit < 0 && 'neg')}>{formatMoney(totals.profit, cur)}</td>
+                  {showAvgCost && <td className="r"></td>}
+                  {showValue && <td className="r mono">{formatMoney(totals.value, cur)}</td>}
+                  {showProfit && <td className={cx('r mono', totals.profit < 0 && 'neg')}>{formatMoney(totals.profit, cur)}</td>}
                 </tr>
               </tfoot>
             </table>

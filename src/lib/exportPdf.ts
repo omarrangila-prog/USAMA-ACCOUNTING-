@@ -144,8 +144,20 @@ export function buildReportPdf(opts: {
       return cs;
     };
 
+    // Clean report: drop data rows where EVERY numeric column is zero/blank (an
+    // all-zero row carries no information). The label/text columns are ignored
+    // for this test, and the totals row is never dropped.
+    const numericCols = section.numericCols ?? [];
+    const isZeroCell = (v: string | number) => {
+      const s = String(v).replace(/[^0-9.\-]/g, '');
+      return s === '' || Number(s) === 0;
+    };
+    const meaningfulRows = numericCols.length
+      ? section.rows.filter((r) => numericCols.some((c) => !isZeroCell(r[c])))
+      : section.rows;
+
     // --- Pass 1: header + real data (+ totals row right after the data) ---
-    const dataRows = section.rows.map((r) => pad(r.map(String)));
+    const dataRows = meaningfulRows.map((r) => pad(r.map(String)));
     const totalRowIdx = section.foot ? dataRows.length : -1;
     if (section.foot) dataRows.push(pad(section.foot.map(String)));
 
