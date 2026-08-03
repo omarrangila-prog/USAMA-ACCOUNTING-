@@ -67,10 +67,17 @@ export function Stock() {
     const profits = computeProfitByBond(data, period);
     const valueOf = (id: string) => stock.find((s) => s.bondTypeId === id)?.closingValue ?? 0;
     const profitOf = (id: string) => profits.find((p) => p.bondTypeId === id)?.profit ?? 0;
+    // Purchase VALUE (Rs) per bond this period — how much was spent buying it
+    // (same source as Purchase Qty, just the amount). Presentation only.
+    const purchaseValueOf = (id: string) =>
+      data.purchases
+        .filter((p) => p.bondTypeId === id && p.month === period.month && p.year === period.year)
+        .reduce((a, p) => a + p.amount, 0);
     const rows = movementRaw.map((m) => ({
       ...m,
       closingValue: valueOf(m.bondTypeId),
       profit: profitOf(m.bondTypeId),
+      purchaseValue: purchaseValueOf(m.bondTypeId),
     }));
     rows.sort((a, b) => {
       switch (sort) {
@@ -113,12 +120,13 @@ export function Stock() {
   const totals = movement.reduce(
     (a, m) => ({
       bought: a.bought + m.purchasedQty,
+      boughtValue: a.boughtValue + m.purchaseValue,
       sold: a.sold + m.soldQty,
       net: a.net + m.netQty,
       value: a.value + m.closingValue,
       profit: a.profit + m.profit,
     }),
-    { bought: 0, sold: 0, net: 0, value: 0, profit: 0 }
+    { bought: 0, boughtValue: 0, sold: 0, net: 0, value: 0, profit: 0 }
   );
 
   // Clean report: hide a whole column when every value in it is zero. (Avg Cost
@@ -127,6 +135,7 @@ export function Stock() {
   const showValue = movement.some((m) => m.closingValue !== 0);
   const showAvgCost = movement.some((m) => m.avgBuyRate !== 0);
   const showProfit = movement.some((m) => m.profit !== 0);
+  const showPurchaseValue = movement.some((m) => m.purchaseValue !== 0);
 
   const doDelete = async () => {
     const r = toDelete;
@@ -181,6 +190,7 @@ export function Stock() {
                 <tr>
                   <th className="l">Bond Type</th>
                   <th className="r">Purchase Qty</th>
+                  {showPurchaseValue && <th className="r">Purchase Value</th>}
                   <th className="r">Sold Qty</th>
                   <th className="r">Closing Qty</th>
                   {showAvgCost && <th className="r">Avg Cost</th>}
@@ -193,6 +203,7 @@ export function Stock() {
                   <tr key={m.bondTypeId}>
                     <td className="l">Rs. {m.bondTypeName}</td>
                     <td className="r mono">{formatNumber(m.purchasedQty)}</td>
+                    {showPurchaseValue && <td className="r mono">{m.purchaseValue ? formatMoney(m.purchaseValue, cur) : ''}</td>}
                     <td className="r mono">{formatNumber(m.soldQty)}</td>
                     <td className={cx('r mono', m.netQty < 0 && 'neg')}>{formatNumber(m.netQty)}</td>
                     {showAvgCost && <td className="r mono">{m.avgBuyRate ? formatNumber(m.avgBuyRate) : ''}</td>}
@@ -205,6 +216,7 @@ export function Stock() {
                 <tr>
                   <td className="l">Total</td>
                   <td className="r mono">{formatNumber(totals.bought)}</td>
+                  {showPurchaseValue && <td className="r mono">{formatMoney(totals.boughtValue, cur)}</td>}
                   <td className="r mono">{formatNumber(totals.sold)}</td>
                   <td className={cx('r mono', totals.net < 0 && 'neg')}>{formatNumber(totals.net)}</td>
                   {showAvgCost && <td className="r"></td>}

@@ -84,8 +84,7 @@ export function summaryCards(data: DataSet, period: Period): PdfSummaryCard[] {
     { label: 'Stock on Hand (Qty)', value: formatNumber(d.closingStockQty), accent: C.blue },
     { label: 'Stock Value', value: money(d.closingStockValue), accent: C.purple },
   ];
-  // Only show Avg Cost when it's meaningful (non-zero) — hides 'Avg Cost: Rs 0'.
-  if (avgCost !== 0) cards.push({ label: 'Avg Cost', value: money(avgCost), accent: C.blue });
+  void avgCost; // Avg Cost card removed per client request.
   return cards;
 }
 
