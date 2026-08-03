@@ -401,9 +401,26 @@ export function buildReportDoc(
   });
 }
 
-/** Build + download a single party's ledger statement PDF. */
+/** Build + download a single party's ledger statement PDF (one month). */
 export function buildPartyLedgerDoc(data: DataSet, settings: Settings, period: Period, partyId: string) {
   return buildReportDoc(data, settings, period, 'ledger', partyId);
+}
+
+/**
+ * Single party's ledger for the WHOLE financial year (all months merged). Uses
+ * yearDataset so every month's entries for that party appear in one statement.
+ */
+export function buildPartyLedgerYearDoc(data: DataSet, settings: Settings, year: number, partyId: string) {
+  const yData = yearDataset(data, year);
+  const partyName = yData.parties.find((p) => p.id === partyId)?.name;
+  return buildReportPdf({
+    title: partyName ? `${partyName} — Ledger (FY ${year})` : `Ledger — FY ${year}`,
+    settings,
+    month: YEAR_PERIOD(year).month,
+    year,
+    summary: [],
+    sections: buildSections(yData, YEAR_PERIOD(year), 'ledger', partyId),
+  });
 }
 
 /**

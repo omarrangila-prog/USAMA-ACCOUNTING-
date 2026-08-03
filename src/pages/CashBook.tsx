@@ -8,7 +8,7 @@ import { Combo } from '@/components/ui/Combo';
 import { TradeModal, CashModal } from '@/components/TransactionModals';
 import { EditTransactionModal } from '@/pages/EditTransactionModal';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
-import { buildPartyLedgerDoc, reportFileName } from '@/lib/reportBuilder';
+import { buildPartyLedgerDoc, buildPartyLedgerYearDoc, reportFileName } from '@/lib/reportBuilder';
 import type { CashDirection, Purchase, Sale } from '@/types';
 import {
   computeTransactionBook,
@@ -237,19 +237,26 @@ export function CashBook() {
     }
   };
 
-  /** Print / download the currently-viewed single party's ledger. */
-  const partyLedgerFile = () =>
-    `ledger-${data.parties.find((p) => p.id === viewParty)?.name ?? 'party'}-${reportFileName(period, 'ledger').replace(/^bond-ledger-/, '')}`;
+  /** Print / download the currently-viewed single party's ledger. Honors the
+   *  This Month / Full Year toggle — Full Year prints every month for the party
+   *  in one statement (fixes the "empty PDF" when the party's activity is in a
+   *  different month than the selected top-bar month). */
+  const partyLedgerFile = () => {
+    const pn = data.parties.find((p) => p.id === viewParty)?.name ?? 'party';
+    return ledgerYearView
+      ? `ledger-${pn}-FY${period.year}.pdf`
+      : `ledger-${pn}-${reportFileName(period, 'ledger').replace(/^bond-ledger-/, '')}`;
+  };
+  const makeLedgerDoc = () => ledgerYearView
+    ? buildPartyLedgerYearDoc(data, settings, period.year, viewParty)
+    : buildPartyLedgerDoc(data, settings, period, viewParty);
   const printPartyLedger = () => {
     if (!viewParty) return;
-    printConfirm.print({
-      makeDoc: () => buildPartyLedgerDoc(data, settings, period, viewParty),
-      fileName: partyLedgerFile(),
-    });
+    printConfirm.print({ makeDoc: makeLedgerDoc, fileName: partyLedgerFile() });
   };
   const downloadPartyLedger = () => {
     if (!viewParty) return;
-    buildPartyLedgerDoc(data, settings, period, viewParty).save(partyLedgerFile());
+    makeLedgerDoc().save(partyLedgerFile());
     toast.success('Ledger PDF downloaded');
   };
 
