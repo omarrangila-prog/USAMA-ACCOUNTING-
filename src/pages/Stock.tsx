@@ -87,12 +87,9 @@ export function Stock() {
         case 'za': return b.bondTypeName.localeCompare(a.bondTypeName, undefined, { numeric: true });
       }
     });
-    // Clean report: hide bonds with NO activity and NO closing stock this month
-    // (all of purchase/sale/closing/value/profit are zero). Anything with any
-    // closing stock stays visible so Closing Stock is always shown.
-    return rows.filter((m) =>
-      m.purchasedQty !== 0 || m.soldQty !== 0 || m.netQty !== 0 || m.closingValue !== 0 || m.profit !== 0
-    );
+    // Stock summary = what's LEFT on hand: show a bond only if it still has
+    // closing stock (netQty > 0). Fully-sold bonds (nothing left) are hidden.
+    return rows.filter((m) => m.netQty > 0);
   }, [movementRaw, data, period, sort]);
 
   const bondName = (id: string) => bondTypes.find((b) => b.id === id)?.name ?? '—';
