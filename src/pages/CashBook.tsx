@@ -146,9 +146,15 @@ export function CashBook() {
   const partyLedger = useMemo(() => {
     if (!viewParty) return null;
     const entries = computeLedger(data, viewParty, period);
+    // Seed the running balance from the carried-forward opening, but DON'T show
+    // the "Opening Balance" row itself (the client doesn't want that line in the
+    // ledger). The balance still continues correctly across months.
     let run = 0;
-    // Accumulate chronologically, then reverse so the newest row is on top.
     const rows = entries
+      .filter((e) => {
+        if (e.refType === 'opening') { run += e.debit - e.credit; return false; }
+        return true;
+      })
       .map((e) => {
         run += e.debit - e.credit;            // debit => receivable, credit => payable
         return { entry: e, running: run };
@@ -177,16 +183,24 @@ export function CashBook() {
     let run = 0;
     const groups = months.map((m) => {
       const p = { month: m, year: period.year };
-      // computeLedger includes an "Opening Balance" line; keep only the first
-      // month's opening (subsequent months continue the running balance).
-      const raw = computeLedger(data, viewParty, p).filter((e) => e.refType !== 'opening' || m === months[0]);
-      const rows = raw.map((e) => {
-        run += e.debit - e.credit;
-        return { entry: e, running: run };
-      });
+      // Seed the running balance from each month's opening, but NEVER show the
+      // "Opening Balance" row (the client doesn't want that line). Only real
+      // transactions are listed; the balance still carries across months.
+      const rows = computeLedger(data, viewParty, p)
+        .filter((e) => {
+          if (e.refType === 'opening') { run += e.debit - e.credit; return false; }
+          return true;
+        })
+        .map((e) => {
+          run += e.debit - e.credit;
+          return { entry: e, running: run };
+        });
       return { month: m, rows: rows.reverse() };   // newest-first within the month
     });
-    return { groups: groups.reverse(), name: data.parties.find((p) => p.id === viewParty)?.name ?? '', balance: run };
+    // Hide months that have no real transactions (only an opening) so an empty
+    // month doesn't render a blank ledger section.
+    const nonEmpty = groups.filter((g) => g.rows.length > 0);
+    return { groups: nonEmpty.reverse(), name: data.parties.find((p) => p.id === viewParty)?.name ?? '', balance: run };
   }, [viewParty, data, period]);
 
   const typeClass = (t: TxnBookType) =>

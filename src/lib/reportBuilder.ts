@@ -294,15 +294,22 @@ export function buildSections(
     ledgerParties.forEach((party) => {
       const entries = computeLedger(data, party.id, period);
       const hasMovement = entries.some((e) => e.refType !== 'opening');
-      // Skip empty parties only in the "all parties" ledger; a single-party
-      // print always renders even when there's no movement.
-      if (!onlyPartyId && !hasMovement && (entries[0]?.debit ?? 0) === 0 && (entries[0]?.credit ?? 0) === 0) return;
+      // Skip parties with no real transactions this month (a lone Opening
+      // Balance is not a transaction) — for BOTH single- and all-party prints,
+      // so an empty month never renders a blank ledger.
+      if (!hasMovement) return;
+      // Seed the running balance from the carried-forward opening, then DROP the
+      // "Opening Balance" row (the client doesn't want that line in the ledger).
       let running = 0;
-      const totalDebit = entries.reduce((a, e) => a + e.debit, 0);
-      const totalCredit = entries.reduce((a, e) => a + e.credit, 0);
+      const realEntries = entries.filter((e) => {
+        if (e.refType === 'opening') { running += e.debit - e.credit; return false; }
+        return true;
+      });
+      const totalDebit = realEntries.reduce((a, e) => a + e.debit, 0);
+      const totalCredit = realEntries.reduce((a, e) => a + e.credit, 0);
       // Statement style: Date · Tafseel · Debit(-) · Credit(+) · Balance (+/-)
       // Build rows with the running balance accumulated chronologically.
-      const statementRows = entries.map((e) => {
+      const statementRows = realEntries.map((e) => {
         running += e.debit - e.credit;
         // Sale/Purchase are memo rows: show the amount in Tafseel; balance flat.
         const tafseel = e.memo ? `${e.description} — ${money(e.memo)}` : e.description;
