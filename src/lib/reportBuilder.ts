@@ -78,7 +78,9 @@ export function summaryCards(data: DataSet, period: Period): PdfSummaryCard[] {
     { label: 'Payable', value: money(d.cashPayable), accent: C.red },
     { label: 'Receivable', value: money(d.cashReceivable), accent: C.green },
     { label: 'Cash in Hand', value: money(d.cashInHand), accent: C.orange },
-    { label: 'Net Balance', value: money(d.netBalance), accent: C.blue },
+    // 'Stock on Hand' = current closing stock value carried forward (replaces the
+    // old 'Net Balance' net-worth figure, per client request).
+    { label: 'Stock on Hand', value: money(d.closingStockValue), accent: C.blue },
   ];
 }
 
@@ -366,7 +368,7 @@ export function buildSections(
         ['Total Expense', money(d.totalExpense)],
         ['Total Income', money(d.totalIncome)],
         ['Cash in Hand', money(d.cashInHand)],
-        ['Net Balance', money(d.netBalance)],
+        ['Stock on Hand', money(d.closingStockValue)],
         ['Profit / Loss', money(d.profitLoss)],
         ['Trial Balance', d.trialBalanced ? 'Balanced' : 'Out of Balance'],
       ],
@@ -438,6 +440,45 @@ export function buildYearReportDoc(data: DataSet, settings: Settings, year: numb
     year,
     summary: summaryCards(yData, yPeriod),
     sections: buildSections(yData, yPeriod, which),
+  });
+}
+
+/** Months (1-12) of `year` that have any transaction, in order. */
+function monthsWithData(data: DataSet, year: number): number[] {
+  const set = new Set<number>();
+  const add = (rows: { month: number; year: number }[] | undefined) =>
+    (rows ?? []).forEach((r) => { if (r.year === year) set.add(r.month); });
+  add(data.purchases); add(data.sales); add(data.cash);
+  add(data.expenses); add(data.stockAdjustments); add(data.partyAdjustments);
+  return [...set].sort((a, b) => a - b);
+}
+
+/**
+ * YEAR, GROUPED MONTH-WISE: one PDF where each month that has data is its own
+ * set of sections (July Trial Balance, August Trial Balance, …) stacked on the
+ * page under a month heading. Reuses the EXACT existing per-month section
+ * builders — no formula, layout or column change — just repeated per month with
+ * the month name prefixed to each section title. Only months with data appear.
+ */
+export function buildYearGroupedDoc(data: DataSet, settings: Settings, year: number, which: 'all' | ReportId = 'all') {
+  const months = monthsWithData(data, year);
+  const sections: PdfSection[] = [];
+  for (const m of months) {
+    const period = { month: m, year };
+    const monthSections = buildSections(data, period, which);
+    // Prefix each section's title with the month so every month is a clear,
+    // separately-headed block. (Empty months are skipped above.)
+    for (const s of monthSections) {
+      sections.push({ ...s, title: `${monthName(m)} ${year} — ${s.title}` });
+    }
+  }
+  return buildReportPdf({
+    title: `${which === 'all' ? 'Annual Report' : reportTitle(which)} — Financial Year ${year} (Month-wise)`,
+    settings,
+    month: 12,
+    year,
+    summary: [], // month-wise view: figures live in each month's own sections
+    sections: sections.length ? sections : buildSections(data, YEAR_PERIOD(year), which),
   });
 }
 

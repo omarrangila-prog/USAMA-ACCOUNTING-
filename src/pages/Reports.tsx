@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import {
-  exportReportPdf, exportReportExcel, reportTitle, buildReportDoc, buildYearReportDoc,
+  exportReportPdf, exportReportExcel, reportTitle, buildReportDoc, buildYearReportDoc, buildYearGroupedDoc,
   reportFileName, yearReportFileName, azSortByName, type ReportId,
 } from '@/lib/reportBuilder';
 import { PdfPreview } from '@/components/ui/PdfPreview';
@@ -100,7 +100,7 @@ export function Reports() {
   /** Open the native print dialog directly on a report — no download needed. */
   const printReport = (which: 'all' | ReportId) => {
     printConfirm.print({
-      makeDoc: () => isYear ? buildYearReportDoc(data, settings, period.year, which) : buildReportDoc(data, settings, rPeriod, which),
+      makeDoc: () => isYear ? buildYearGroupedDoc(data, settings, period.year, which) : buildReportDoc(data, settings, rPeriod, which),
       fileName: isYear ? yearReportFileName(period.year, which) : reportFileName(rPeriod, which),
     });
   };
@@ -315,7 +315,7 @@ export function Reports() {
       <PdfPreview
         makeDoc={preview
           ? (preview.year
-              ? () => buildYearReportDoc(data, settings, period.year, preview.which)
+              ? () => buildYearGroupedDoc(data, settings, period.year, preview.which)
               : () => buildReportDoc(data, settings, rPeriod, preview.which))
           : null}
         title={preview?.title ?? ''}
