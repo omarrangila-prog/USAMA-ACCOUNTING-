@@ -50,4 +50,13 @@ describe('Profit Closing adjustment', () => {
     // Sep view: trading = 500k + 120k = 620k, minus closing 500k = 120k (the new profit only).
     expect(computeProfitLoss(data, { month: 9, year: 2026 }, true)).toBe(120000);
   });
+
+  it('per-month: a July closing zeros JULY only and does NOT bleed into August', () => {
+    // July sale 500k, closing dated July. Per-month (cumulative=false, how reports run).
+    const julClosing: ProfitClosing = { id: 'pcJul', date: '2026-07-31', month: 7, year: 2026, amount: 500000, createdAt: now, updatedAt: now };
+    const data: DataSet = { ...base, profitClosings: [julClosing] };
+    const JUL = { month: 7, year: 2026 };
+    expect(computeProfitLoss(data, JUL)).toBe(0);        // July: 500k − 500k closing = 0
+    expect(computeProfitLoss(data, AUG)).toBe(0);        // Aug: no Aug sales, no Aug closing → 0 (NOT −500k)
+  });
 });

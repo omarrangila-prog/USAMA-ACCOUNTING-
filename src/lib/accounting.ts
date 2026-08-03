@@ -1013,14 +1013,21 @@ export function computeProfitLoss(data: DataSet, period: Period, cumulative = fa
   // figure across every screen/report — so Dashboard, Business Summary, Profit
   // Report and all PDFs/prints show the same closed figure.
   const trading = computeTradingProfit(data, period, cumulative);
-  return round2(trading - profitClosingOffset(data, period));
+  return round2(trading - profitClosingOffset(data, period, cumulative));
 }
 
-/** Sum of Profit Closing baselines effective on/before `period`. */
-export function profitClosingOffset(data: DataSet, period: Period): number {
+/**
+ * Sum of Profit Closing baselines that apply to `period`. Per-month (the default)
+ * only counts closings dated IN this month, so a July closing offsets July's
+ * profit and does NOT bleed into August. Cumulative counts all closings up to
+ * the period (used only by the cumulative Cash-Book view).
+ */
+export function profitClosingOffset(data: DataSet, period: Period, cumulative = false): number {
+  const within = (c: { month: number; year: number }) =>
+    cumulative ? upToPeriod(c, period) : inPeriod(c, period);
   return round2(
     (data.profitClosings ?? [])
-      .filter((c) => upToPeriod(c, period))
+      .filter(within)
       .reduce((a, c) => a + c.amount, 0)
   );
 }
