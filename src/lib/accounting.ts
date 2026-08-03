@@ -110,6 +110,34 @@ export function cumulativeDataset(data: DataSet, period: Period): DataSet {
   };
 }
 
+/** The synthetic single period used to aggregate a whole year (month 12). */
+export const YEAR_PERIOD = (year: number): Period => ({ month: 12, year });
+
+/**
+ * Aggregate a whole FINANCIAL YEAR into one period: keep only that year's records
+ * and stamp them all to a single period (Dec), so the existing per-month report
+ * functions sum the entire year into one Trial Balance / Stock / P&L. Same
+ * formulas — only the grouping window changes. `profitClosings` are kept as-is
+ * (they already carry their own dates and net against the year total).
+ */
+export function yearDataset(data: DataSet, year: number): DataSet {
+  const p = YEAR_PERIOD(year);
+  const keep = <T extends { month: number; year: number }>(rows: T[] | undefined): T[] =>
+    (rows ?? []).filter((r) => r.year === year).map((r) => ({ ...r, month: p.month, year }));
+  return {
+    ...data,
+    purchases: keep(data.purchases),
+    sales: keep(data.sales),
+    cash: keep(data.cash),
+    expenses: keep(data.expenses),
+    stockAdjustments: keep(data.stockAdjustments),
+    partyAdjustments: keep(data.partyAdjustments),
+    // Stamp closings' profit-closing offsets into the year period so the year
+    // Net Profit reflects them too.
+    profitClosings: (data.profitClosings ?? []).filter((c) => c.year === year).map((c) => ({ ...c, month: p.month, year })),
+  };
+}
+
 /**
  * Opening stock qty + avg cost for a bond. Prefers the prior month's closing
  * snapshot; if none exists and this is the migration period, uses the imported

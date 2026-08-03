@@ -17,6 +17,8 @@ import {
   saleProfitLive,
   describeCash,
   computeProfitByBond,
+  yearDataset,
+  YEAR_PERIOD,
 } from './accounting';
 import { buildReportPdf, money, type PdfSection, type PdfSummaryCard } from './exportPdf';
 import { exportWorkbook, type Sheet } from './exportExcel';
@@ -397,9 +399,32 @@ export function buildPartyLedgerDoc(data: DataSet, settings: Settings, period: P
   return buildReportDoc(data, settings, period, 'ledger', partyId);
 }
 
+/**
+ * FULL-YEAR aggregated report: one PDF that sums the entire financial year into a
+ * single Trial Balance / Stock / P&L (all months merged). Uses yearDataset so the
+ * existing per-month report builders aggregate the whole year — same formulas.
+ */
+export function buildYearReportDoc(data: DataSet, settings: Settings, year: number, which: 'all' | ReportId = 'all') {
+  const yData = yearDataset(data, year);
+  const yPeriod = YEAR_PERIOD(year);
+  return buildReportPdf({
+    title: `${which === 'all' ? 'Annual Report' : reportTitle(which)} — Financial Year ${year}`,
+    settings,
+    month: yPeriod.month,
+    year,
+    summary: summaryCards(yData, yPeriod),
+    sections: buildSections(yData, yPeriod, which),
+  });
+}
+
 export function reportFileName(period: Period, which: 'all' | ReportId = 'all'): string {
   const w = which === 'all' ? 'monthly' : which;
   return `bond-${w}-${period.year}-${String(period.month).padStart(2, '0')}.pdf`;
+}
+
+export function yearReportFileName(year: number, which: 'all' | ReportId = 'all'): string {
+  const w = which === 'all' ? 'annual' : which;
+  return `bond-${w}-FY${year}.pdf`;
 }
 
 export function exportReportPdf(

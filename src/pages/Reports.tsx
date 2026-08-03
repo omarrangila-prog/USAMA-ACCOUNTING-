@@ -4,7 +4,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import {
-  exportReportPdf, exportReportExcel, reportTitle, buildReportDoc, reportFileName, azSortByName, type ReportId,
+  exportReportPdf, exportReportExcel, reportTitle, buildReportDoc, buildYearReportDoc,
+  reportFileName, yearReportFileName, azSortByName, type ReportId,
 } from '@/lib/reportBuilder';
 import { PdfPreview } from '@/components/ui/PdfPreview';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
@@ -33,7 +34,7 @@ export function Reports() {
   const data = dataset();
   const cur = settings.currency;
   const [confirmClose, setConfirmClose] = useState(false);
-  const [preview, setPreview] = useState<{ which: 'all' | ReportId; title: string } | null>(null);
+  const [preview, setPreview] = useState<{ which: 'all' | ReportId; title: string; year?: boolean } | null>(null);
   const [partyToDelete, setPartyToDelete] = useState<{ id: string; name: string } | null>(null);
   const printConfirm = usePrintConfirm();
 
@@ -81,6 +82,10 @@ export function Reports() {
     setPreview({ which: 'all', title: `Monthly Report — ${monthName(period.month)} ${period.year}` });
   };
 
+  const generateYear = () => {
+    setPreview({ which: 'all', title: `Annual Report — Financial Year ${period.year}`, year: true });
+  };
+
   /** Open the native print dialog directly on a report — no download needed. */
   const printReport = (which: 'all' | ReportId) => {
     printConfirm.print({
@@ -103,6 +108,9 @@ export function Reports() {
           <>
             <button className="btn btn-primary" onClick={generate}>
               <Icon name="reports" size={16} /> Generate Report
+            </button>
+            <button className="btn" onClick={generateYear} title={`One PDF summing the whole financial year ${period.year}`}>
+              <Icon name="calendar" size={16} /> Full Year PDF
             </button>
             <button className="btn" onClick={() => { exportReportExcel(data, period); toast.success('Excel exported'); }}>
               <Icon name="excel" size={16} /> Export Excel
@@ -284,9 +292,13 @@ export function Reports() {
       />
 
       <PdfPreview
-        makeDoc={preview ? () => buildReportDoc(data, settings, period, preview.which) : null}
+        makeDoc={preview
+          ? (preview.year
+              ? () => buildYearReportDoc(data, settings, period.year, preview.which)
+              : () => buildReportDoc(data, settings, period, preview.which))
+          : null}
         title={preview?.title ?? ''}
-        fileName={reportFileName(period, preview?.which ?? 'all')}
+        fileName={preview?.year ? yearReportFileName(period.year, preview.which) : reportFileName(period, preview?.which ?? 'all')}
         onClose={() => setPreview(null)}
       />
       {printConfirm.dialog}

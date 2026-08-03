@@ -67,6 +67,8 @@ export function CashBook() {
   const [viewParty, setViewParty] = useState(params.get('party') ?? ''); // view ONE party's ledger
   const [ledgerYearView, setLedgerYearView] = useState(false); // full-year grouped ledger
   const [filter, setFilter] = useState<TxnBookType | 'all'>('all');
+  const [dateFrom, setDateFrom] = useState(''); // optional date-range filter
+  const [dateTo, setDateTo] = useState('');
   // Edit / delete a single transaction row.
   const [editCashId, setEditCashId] = useState<string | null>(null);
   const [editRecord, setEditRecord] = useState<{ kind: 'purchase' | 'sale'; rec: Purchase | Sale | null } | null>(null);
@@ -129,7 +131,12 @@ export function CashBook() {
       .reverse();
   }, [rows]);
 
-  const shown = filter === 'all' ? withRunning : withRunning.filter((x) => x.row.type === filter);
+  // Optional date-range filter on the transaction list (empty = whole month).
+  const shown = withRunning.filter((x) =>
+    (filter === 'all' || x.row.type === filter) &&
+    (!dateFrom || x.row.date >= dateFrom) &&
+    (!dateTo || x.row.date <= dateTo)
+  );
 
   const partyOptions = data.parties.map((p) => ({ id: p.id, label: p.name, sub: p.phone }));
 
@@ -449,7 +456,7 @@ export function CashBook() {
         ) : (
           /* ---- Full Cash Book view (all parties) ---- */
           <>
-            <div className="cashbook-filters no-print">
+            <div className="cashbook-filters no-print" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               {FILTERS.map((f) => (
                 <button
                   key={f}
@@ -459,6 +466,14 @@ export function CashBook() {
                   {f === 'all' ? 'All' : f}
                 </button>
               ))}
+              <span className="spacer" style={{ flex: 1 }} />
+              <label className="faint" style={{ fontSize: 12 }}>From</label>
+              <input type="date" className="input" style={{ width: 'auto', height: 32 }} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="From date" />
+              <label className="faint" style={{ fontSize: 12 }}>To</label>
+              <input type="date" className="input" style={{ width: 'auto', height: 32 }} value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="To date" />
+              {(dateFrom || dateTo) && (
+                <button className="btn btn-sm btn-ghost" onClick={() => { setDateFrom(''); setDateTo(''); }} title="Clear date range">Clear</button>
+              )}
             </div>
 
             {shown.length === 0 ? (
