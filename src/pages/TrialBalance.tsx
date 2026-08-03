@@ -5,7 +5,7 @@ import { CashInHandCard } from '@/components/ui/CashInHandCard';
 import { Icon } from '@/components/ui/Icon';
 import { PdfPreview } from '@/components/ui/PdfPreview';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
-import { computeBusinessSummary, computeProfitByBond, cumulativeDataset } from '@/lib/accounting';
+import { computeBusinessSummary, computeProfitByBond } from '@/lib/accounting';
 import { buildReportDoc, reportFileName, exportReportPdf } from '@/lib/reportBuilder';
 import { formatMoney, formatNumber, cx } from '@/lib/utils';
 import { toast } from '@/store/toast';
@@ -16,8 +16,7 @@ import { toast } from '@/store/toast';
  */
 export function TrialBalance() {
   const { period, dataset, settings } = useData();
-  // Continue across months (all prior + current), same formulas.
-  const data = useMemo(() => cumulativeDataset(dataset(), period), [dataset, period]);
+  const data = dataset();
   const cur = settings.currency;
   const [preview, setPreview] = useState(false);
   const printConfirm = usePrintConfirm();

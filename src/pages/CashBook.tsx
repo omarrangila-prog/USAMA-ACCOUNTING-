@@ -16,7 +16,6 @@ import {
   computeBondMovement,
   computeLedger,
   partyTradeTotals,
-  cumulativeDataset,
   type TxnBookType,
   type TxnBookRow,
 } from '@/lib/accounting';
@@ -107,15 +106,12 @@ export function CashBook() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Cash Book shows data CUMULATIVELY — every entry from the start through the
-  // selected month — so months continue instead of resetting (July shows July;
-  // August shows July + August). `cdata` is the dataset trimmed & stamped to the
-  // selected period; the SAME compute functions/formulas then see all prior +
-  // current records. No formula changes — only the date range widens.
-  const cdata = useMemo(() => cumulativeDataset(data, period), [data, period]);
-  const rows = useMemo(() => computeTransactionBook(cdata, period), [cdata, period]);
-  const sum = useMemo(() => computeCashBookSummary(cdata, period), [cdata, period]);
-  const movement = useMemo(() => computeBondMovement(cdata, period), [cdata, period]);
+  // Per-month view: each month (Cash Book, lists, stock, summary) shows only its
+  // OWN entries, so a new month starts fresh. Stock quantity & avg-cost still
+  // carry physically via the prior month's closing snapshot (computeStock).
+  const rows = useMemo(() => computeTransactionBook(data, period), [data, period]);
+  const sum = useMemo(() => computeCashBookSummary(data, period), [data, period]);
+  const movement = useMemo(() => computeBondMovement(data, period), [data, period]);
 
   // Running cash balance under the client formula (Sale +, Purchase −,
   // Received +, Paid −; adjustments/expense don't move cash). The balance is
@@ -141,8 +137,7 @@ export function CashBook() {
   // opening + cash + manual adjustments; sale/purchase are reference (memo) only.
   const partyLedger = useMemo(() => {
     if (!viewParty) return null;
-    // Cumulative so a party's ledger also continues across months.
-    const entries = computeLedger(cdata, viewParty, period);
+    const entries = computeLedger(data, viewParty, period);
     let run = 0;
     // Accumulate chronologically, then reverse so the newest row is on top.
     const rows = entries
@@ -151,10 +146,10 @@ export function CashBook() {
         return { entry: e, running: run };
       })
       .reverse();
-    const trade = partyTradeTotals(cdata, viewParty, period);
+    const trade = partyTradeTotals(data, viewParty, period);
     const name = data.parties.find((p) => p.id === viewParty)?.name ?? '';
     return { rows, trade, name, balance: run };
-  }, [viewParty, cdata, data, period]);
+  }, [viewParty, data, period]);
 
   const typeClass = (t: TxnBookType) =>
     t === 'Sale' || t === 'Receivable' || t === 'Income' ? 'pos'

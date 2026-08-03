@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Icon } from '@/components/ui/Icon';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { Combo, type ComboHandle } from '@/components/ui/Combo';
-import { computeReceivables, computePayables, cumulativeDataset } from '@/lib/accounting';
+import { computeReceivables, computePayables } from '@/lib/accounting';
 import { previewCashEntry } from '@/lib/cashSafeguard';
 import { exportReportPdf } from '@/lib/reportBuilder';
 import { formatMoney, formatDate, defaultDateForPeriod, cx } from '@/lib/utils';
@@ -17,8 +17,7 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
   const t = useT();
   const store = useData();
   const { period, dataset, settings } = store;
-  // Continue across months (all prior + current), same formulas.
-  const data = useMemo(() => cumulativeDataset(dataset(), period), [dataset, period]);
+  const data = dataset();
   const cur = settings.currency;
   const isRec = kind === 'receivable';
 
