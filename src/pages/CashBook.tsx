@@ -65,6 +65,7 @@ export function CashBook() {
   const [cashModal, setCashModal] = useState<CashDirection | null>(null);
   const [selParty, setSelParty] = useState('');   // person selector for the 4 buttons
   const [viewParty, setViewParty] = useState(params.get('party') ?? ''); // view ONE party's ledger
+  const [ledgerYearView, setLedgerYearView] = useState(false); // full-year grouped ledger
   const [filter, setFilter] = useState<TxnBookType | 'all'>('all');
   // Edit / delete a single transaction row.
   const [editCashId, setEditCashId] = useState<string | null>(null);
@@ -149,6 +150,36 @@ export function CashBook() {
     const trade = partyTradeTotals(data, viewParty, period);
     const name = data.parties.find((p) => p.id === viewParty)?.name ?? '';
     return { rows, trade, name, balance: run };
+  }, [viewParty, data, period]);
+
+  // FULL-YEAR ledger for the selected party: every month that has activity,
+  // grouped under a month heading (newest month first), each month's rows in
+  // date order with a running balance. Gives the complete yearly history for the
+  // account without losing prior months.
+  const partyYear = useMemo(() => {
+    if (!viewParty) return null;
+    // Which months (this year) actually have transactions for this party?
+    const forParty = (r: { partyId?: string; month: number; year: number }) =>
+      r.partyId === viewParty && r.year === period.year;
+    const monthsSet = new Set<number>();
+    data.purchases.filter(forParty).forEach((r) => monthsSet.add(r.month));
+    data.sales.filter(forParty).forEach((r) => monthsSet.add(r.month));
+    data.cash.filter(forParty).forEach((r) => monthsSet.add(r.month));
+    (data.partyAdjustments ?? []).filter(forParty).forEach((r) => monthsSet.add(r.month));
+    const months = [...monthsSet].sort((a, b) => a - b); // chronological for running balance
+    let run = 0;
+    const groups = months.map((m) => {
+      const p = { month: m, year: period.year };
+      // computeLedger includes an "Opening Balance" line; keep only the first
+      // month's opening (subsequent months continue the running balance).
+      const raw = computeLedger(data, viewParty, p).filter((e) => e.refType !== 'opening' || m === months[0]);
+      const rows = raw.map((e) => {
+        run += e.debit - e.credit;
+        return { entry: e, running: run };
+      });
+      return { month: m, rows: rows.reverse() };   // newest-first within the month
+    });
+    return { groups: groups.reverse(), name: data.parties.find((p) => p.id === viewParty)?.name ?? '', balance: run };
   }, [viewParty, data, period]);
 
   const typeClass = (t: TxnBookType) =>
@@ -278,6 +309,10 @@ export function CashBook() {
           </div>
           {partyLedger && (
             <div className="row no-print" style={{ gap: 6 }}>
+              <div className="segment" title="Show only the selected month, or the whole year grouped by month">
+                <button className={cx(!ledgerYearView && 'active')} onClick={() => setLedgerYearView(false)}>This Month</button>
+                <button className={cx(ledgerYearView && 'active')} onClick={() => setLedgerYearView(true)}>Full Year</button>
+              </div>
               <button className="btn btn-sm" title="Print this party's ledger" onClick={printPartyLedger}>
                 <Icon name="print" size={15} /> Print
               </button>
@@ -320,7 +355,45 @@ export function CashBook() {
                 </span>
               </div>
             </div>
-            {partyLedger.rows.length === 0 ? (
+            {ledgerYearView ? (
+              /* ---- Full-year ledger: grouped under month headings ---- */
+              !partyYear || partyYear.groups.length === 0 ? (
+                <div className="empty">No transactions for this party this year.</div>
+              ) : (
+                <div className="table-wrap">
+                  {partyYear.groups.map((g) => (
+                    <div key={g.month} style={{ marginBottom: 14 }}>
+                      <div className="section-title" style={{ marginBottom: 6 }}>
+                        <Icon name="calendar" size={15} /> {monthName(g.month)} {period.year} · {g.rows.length} entr{g.rows.length === 1 ? 'y' : 'ies'}
+                      </div>
+                      <table className="grid stmt-grid stack-sm">
+                        <thead>
+                          <tr>
+                            <th>Date</th><th>Details</th>
+                            <th className="num">Debit (+)</th><th className="num">Credit (−)</th><th className="num">Receivable / Payable</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {g.rows.map(({ entry: e, running }) => (
+                            <tr key={e.id}>
+                              <td data-label="Date">{formatDate(e.date)}</td>
+                              <td data-label="Details">
+                                {e.memo ? <>{e.description} — {formatMoney(e.memo, cur)} <span className="faint">(reference)</span></> : e.description}
+                              </td>
+                              <td data-label="Debit (+)" className="num mono">{e.debit ? formatMoney(e.debit, cur) : e.memo ? <span className="faint">ref</span> : '—'}</td>
+                              <td data-label="Credit (−)" className="num mono">{e.credit ? formatMoney(e.credit, cur) : e.memo ? <span className="faint">ref</span> : '—'}</td>
+                              <td data-label="Receivable / Payable" className={cx('num mono stmt-bal', running > 0 ? 'pos' : running < 0 ? 'neg' : '')}>
+                                {running === 0 ? formatMoney(0, cur) : running > 0 ? `+${formatMoney(running, cur)} Receivable` : `−${formatMoney(Math.abs(running), cur)} Payable`}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : partyLedger.rows.length === 0 ? (
               <div className="empty">No transactions for this party this month.</div>
             ) : (
               <div className="table-wrap">
