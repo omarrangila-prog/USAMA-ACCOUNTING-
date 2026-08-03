@@ -8,8 +8,8 @@ import {
 } from '@/lib/reportBuilder';
 import { PdfPreview } from '@/components/ui/PdfPreview';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
-import { computePartyBalances, partyTradeTotals, partyCashTotals } from '@/lib/accounting';
-import { formatMoney, monthName, cx } from '@/lib/utils';
+import { computePartyBalances, partyTradeTotals, partyCashTotals, computeProfitLoss } from '@/lib/accounting';
+import { formatMoney, monthName, cx, MONTHS, round2 } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
 import { toast } from '@/store/toast';
 import './reports.css';
@@ -56,6 +56,27 @@ export function Reports() {
     });
   }, [data, period]);
 
+  // Financial-year summary: each month's Sales, Purchases and Profit (same
+  // per-month engine functions), plus a year total. Months with no activity are
+  // hidden so the table stays clean. Lets the user see the whole year at a
+  // glance while each month keeps its own figures.
+  const yearSummary = useMemo(() => {
+    const rows = MONTHS.map((_, i) => {
+      const m = i + 1;
+      const p = { month: m, year: period.year };
+      const inP = (r: { month: number; year: number }) => r.month === m && r.year === period.year;
+      const sales = round2(data.sales.filter(inP).reduce((a, s) => a + s.amount, 0));
+      const purchases = round2(data.purchases.filter(inP).reduce((a, s) => a + s.amount, 0));
+      const profit = computeProfitLoss(data, p);
+      return { month: m, sales, purchases, profit };
+    }).filter((r) => r.sales !== 0 || r.purchases !== 0 || r.profit !== 0);
+    const total = rows.reduce(
+      (a, r) => ({ sales: a.sales + r.sales, purchases: a.purchases + r.purchases, profit: a.profit + r.profit }),
+      { sales: 0, purchases: 0, profit: 0 }
+    );
+    return { rows, total };
+  }, [data, period.year]);
+
   const generate = () => {
     setPreview({ which: 'all', title: `Monthly Report — ${monthName(period.month)} ${period.year}` });
   };
@@ -89,6 +110,44 @@ export function Reports() {
           </>
         }
       />
+
+      {/* Financial-Year Summary: every month with activity + a year total, so the
+          whole year is visible while each month keeps its own figures. */}
+      {yearSummary.rows.length > 0 && (
+        <div className="card" style={{ marginBottom: 18 }}>
+          <div className="section-title"><Icon name="calendar" size={16} /> Financial Year {period.year} · Month-by-Month</div>
+          <div className="table-wrap">
+            <table className="grid stack-sm">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th className="num">Sales</th>
+                  <th className="num">Purchases</th>
+                  <th className="num">Profit / (Loss)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {yearSummary.rows.map((r) => (
+                  <tr key={r.month}>
+                    <td data-label="Month"><strong>{monthName(r.month)} {period.year}</strong></td>
+                    <td data-label="Sales" className="num mono">{formatMoney(r.sales, cur)}</td>
+                    <td data-label="Purchases" className="num mono">{formatMoney(r.purchases, cur)}</td>
+                    <td data-label="Profit" className={cx('num mono', r.profit < 0 && 'neg')}>{formatMoney(r.profit, cur)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td><strong>Year Total</strong></td>
+                  <td className="num mono">{formatMoney(yearSummary.total.sales, cur)}</td>
+                  <td className="num mono">{formatMoney(yearSummary.total.purchases, cur)}</td>
+                  <td className={cx('num mono', yearSummary.total.profit < 0 && 'neg')}>{formatMoney(yearSummary.total.profit, cur)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: 18 }}>
         <div className="section-title"><Icon name="reports" size={16} /> Individual Reports (PDF)</div>
