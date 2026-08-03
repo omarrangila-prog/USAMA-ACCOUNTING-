@@ -72,7 +72,7 @@ export function summaryCards(data: DataSet, period: Period): PdfSummaryCard[] {
   const d = computeDashboard(data, period);
   // Average cost per bond currently in stock (value ÷ qty). Guarded for 0 qty.
   const avgCost = d.closingStockQty !== 0 ? round2(d.closingStockValue / d.closingStockQty) : 0;
-  return [
+  const cards: PdfSummaryCard[] = [
     { label: 'Total Purchase', value: money(d.totalPurchase), accent: C.blue },
     { label: 'Total Sale', value: money(d.totalSale), accent: C.green },
     { label: 'Profit / Loss', value: money(d.profitLoss), accent: d.profitLoss >= 0 ? C.green : C.red },
@@ -83,8 +83,10 @@ export function summaryCards(data: DataSet, period: Period): PdfSummaryCard[] {
     // how much stock (qty), its value, and the average cost per unit.
     { label: 'Stock on Hand (Qty)', value: formatNumber(d.closingStockQty), accent: C.blue },
     { label: 'Stock Value', value: money(d.closingStockValue), accent: C.purple },
-    { label: 'Avg Cost', value: money(avgCost), accent: C.blue },
   ];
+  // Only show Avg Cost when it's meaningful (non-zero) — hides 'Avg Cost: Rs 0'.
+  if (avgCost !== 0) cards.push({ label: 'Avg Cost', value: money(avgCost), accent: C.blue });
+  return cards;
 }
 
 /** All report sections for a period, keyed by report id. */
