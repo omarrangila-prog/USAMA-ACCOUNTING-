@@ -194,15 +194,18 @@ export function buildSections(
     sections.push({
       title: 'Business Summary',
       head: ['Account', 'Debit', 'Credit'],
-      // Cash in Hand always shows its value (even Rs 0) so it never appears blank
-      // in the report. Other zero rows stay empty to keep the table clean.
+      // Cash in Hand and Closing Stock ALWAYS show their value (even Rs 0) so the
+      // key position lines never appear blank/missing. Other zero rows stay empty.
       rows: tb.rows.map((r) => {
-        const alwaysShow = r.name === 'Cash in Hand';
+        const alwaysShow = r.name === 'Cash in Hand' || r.name === 'Closing Stock';
         const debit = r.debit || (alwaysShow && r.credit === 0) ? money(r.debit) : '';
-        const credit = r.credit ? money(r.credit) : '';
+        const credit = r.credit || (alwaysShow && r.debit === 0) ? money(r.credit) : '';
         return [r.name, debit, credit];
       }),
       foot: ['Net Position (Assets - Liabilities)', money(netPosition), ''],
+      // Do NOT zero-filter the Trial Balance — every position line (incl. a Rs 0
+      // Closing Stock / Cash) must always be visible. keepAllRows opts out.
+      keepAllRows: true,
       numericCols: [1, 2],
     });
 

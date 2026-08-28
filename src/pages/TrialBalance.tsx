@@ -5,7 +5,7 @@ import { CashInHandCard } from '@/components/ui/CashInHandCard';
 import { Icon } from '@/components/ui/Icon';
 import { PdfPreview } from '@/components/ui/PdfPreview';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
-import { computeBusinessSummary, computeProfitByBond } from '@/lib/accounting';
+import { computeBusinessSummary, computeProfitByBond, computeStock } from '@/lib/accounting';
 import { buildReportDoc, reportFileName, exportReportPdf } from '@/lib/reportBuilder';
 import { formatMoney, formatNumber, cx } from '@/lib/utils';
 import { toast } from '@/store/toast';
@@ -28,10 +28,16 @@ export function TrialBalance() {
   // Net party position: receivable − payable, shown as ONE figure. Positive =>
   // net money to receive; negative => net money to pay.
   const netParty = s.netReceivable - s.netPayable;
+  // Closing Stock (Stock on Hand) value — ALWAYS shown, carried from prior month.
+  const closingStockValue = useMemo(
+    () => computeStock(data, period).reduce((a, l) => a + l.closingValue, 0),
+    [data, period]
+  );
   const items: { label: string; value: string; accent?: 'pos' | 'neg' }[] = [
     { label: 'Total Profit / Loss', value: formatMoney(s.totalProfitLoss, cur), accent: s.totalProfitLoss >= 0 ? 'pos' : 'neg' },
     { label: 'Total Sale', value: formatMoney(s.totalSaleAmount, cur), accent: 'pos' },
     { label: 'Total Purchase', value: formatMoney(s.totalPurchaseAmount, cur), accent: undefined },
+    { label: 'Stock on Hand', value: formatMoney(closingStockValue, cur), accent: undefined },
     {
       label: netParty >= 0 ? 'Net Money to Receive' : 'Net Money to Pay',
       value: formatMoney(Math.abs(netParty), cur),
