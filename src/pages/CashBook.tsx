@@ -8,6 +8,7 @@ import { Combo } from '@/components/ui/Combo';
 import { TradeModal, CashModal } from '@/components/TransactionModals';
 import { EditTransactionModal } from '@/pages/EditTransactionModal';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
+import { useWhatsAppSend } from '@/components/ui/WhatsAppSend';
 import { buildPartyLedgerYearDoc } from '@/lib/reportBuilder';
 import type { CashDirection, Purchase, Sale } from '@/types';
 import {
@@ -73,6 +74,7 @@ export function CashBook() {
   const [editCashId, setEditCashId] = useState<string | null>(null);
   const [editRecord, setEditRecord] = useState<{ kind: 'purchase' | 'sale'; rec: Purchase | Sale | null } | null>(null);
   const printConfirm = usePrintConfirm();
+  const whatsapp = useWhatsAppSend();
   const [toDelete, setToDelete] = useState<Pick<TxnBookRow, 'collection' | 'refId'> | null>(null);
   // Tabbing on the Cash Book starts on the Purchase button, so Tab walks
   // Purchase → Sale → Cash Receivable → Cash Payable in order.
@@ -255,6 +257,22 @@ export function CashBook() {
     makeLedgerDoc().save(partyLedgerFile());
     toast.success('Ledger PDF downloaded');
   };
+  /**
+   * Send this party their own statement on WhatsApp. Their saved phone number
+   * is passed through, so on desktop the chat opens on THEM rather than making
+   * the user hunt for the contact.
+   */
+  const whatsappPartyLedger = () => {
+    if (!viewParty) return;
+    const party = data.parties.find((p) => p.id === viewParty);
+    whatsapp.send({
+      makeDoc: makeLedgerDoc,
+      fileName: partyLedgerFile(),
+      message: `${party?.name ?? 'Party'} — Ledger (FY ${period.year})\n${settings.businessName || 'USAMA RAZA'}`,
+      toName: party?.name,
+      toPhone: party?.phone,
+    });
+  };
 
   return (
     <div>
@@ -342,6 +360,9 @@ export function CashBook() {
               </button>
               <button className="btn btn-sm" title="Download this party's ledger PDF" onClick={downloadPartyLedger}>
                 <Icon name="pdf" size={15} /> PDF
+              </button>
+              <button className="btn btn-sm btn-wa" title="Send this party's ledger on WhatsApp" onClick={whatsappPartyLedger}>
+                <Icon name="whatsapp" size={15} /> WhatsApp
               </button>
             </div>
           )}
@@ -561,6 +582,7 @@ export function CashBook() {
         onCancel={() => setToDelete(null)}
       />
       {printConfirm.dialog}
+      {whatsapp.dialog}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
 } from '@/lib/reportBuilder';
 import { PdfPreview } from '@/components/ui/PdfPreview';
 import { usePrintConfirm } from '@/components/ui/PrintConfirm';
+import { useWhatsAppSend } from '@/components/ui/WhatsAppSend';
 import { computePartyBalances, partyTradeTotals, partyCashTotals, computeProfitLoss, yearDataset, YEAR_PERIOD } from '@/lib/accounting';
 import { formatMoney, monthName, cx, MONTHS, round2 } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
@@ -37,6 +38,7 @@ export function Reports() {
   const [preview, setPreview] = useState<{ which: 'all' | ReportId; title: string; year?: boolean } | null>(null);
   const [partyToDelete, setPartyToDelete] = useState<{ id: string; name: string } | null>(null);
   const printConfirm = usePrintConfirm();
+  const whatsapp = useWhatsAppSend();
 
   // Report scope selector: a specific month (1-12) or 'year' (whole year merged).
   // Independent of the top-bar; defaults to the top-bar's current month.
@@ -102,6 +104,15 @@ export function Reports() {
     printConfirm.print({
       makeDoc: () => isYear ? buildYearGroupedDoc(data, settings, period.year, which) : buildReportDoc(data, settings, rPeriod, which),
       fileName: isYear ? yearReportFileName(period.year, which) : reportFileName(rPeriod, which),
+    });
+  };
+
+  /** Send a report's PDF straight to someone on WhatsApp. */
+  const sendReport = (which: 'all' | ReportId, baseTitle: string) => {
+    whatsapp.send({
+      makeDoc: () => isYear ? buildYearGroupedDoc(data, settings, period.year, which) : buildReportDoc(data, settings, rPeriod, which),
+      fileName: isYear ? yearReportFileName(period.year, which) : reportFileName(rPeriod, which),
+      message: `${baseTitle} — ${scopeLabel}\n${settings.businessName || 'USAMA RAZA'}`,
     });
   };
 
@@ -214,6 +225,10 @@ export function Reports() {
                   onClick={() => { exportReportExcel(data, period); toast.success('Excel downloaded'); }}>
                   <Icon name="excel" size={15} />
                 </button>
+                <button className="btn btn-ghost btn-icon btn-sm rt-wa" title="Send on WhatsApp"
+                  onClick={() => sendReport(r.id, reportTitle(r.id))}>
+                  <Icon name="whatsapp" size={15} />
+                </button>
               </div>
             </div>
           ))}
@@ -323,6 +338,7 @@ export function Reports() {
         onClose={() => setPreview(null)}
       />
       {printConfirm.dialog}
+      {whatsapp.dialog}
     </div>
   );
 }

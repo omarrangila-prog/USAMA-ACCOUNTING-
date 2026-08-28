@@ -7,7 +7,7 @@ export type IconName =
   | 'pdf' | 'excel' | 'save' | 'refresh' | 'user' | 'plus' | 'trash'
   | 'close' | 'check' | 'lock' | 'chevron' | 'wifi-off' | 'sparkles'
   | 'arrow-up' | 'arrow-down' | 'logout' | 'calendar' | 'wallet' | 'scale'
-  | 'menu' | 'info' | 'warning' | 'more';
+  | 'menu' | 'info' | 'warning' | 'more' | 'whatsapp';
 
 const paths: Record<IconName, string> = {
   dashboard: 'M4 13h6V4H4v9zm0 7h6v-5H4v5zm10 0h6V11h-6v9zm0-16v5h6V4h-6z',
@@ -45,6 +45,9 @@ const paths: Record<IconName, string> = {
   info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
   warning: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
   more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+  // Speech bubble with a handset — reads as WhatsApp at the 1.8px stroke
+  // weight the rest of the set uses, without pulling in a brand icon dep.
+  whatsapp: 'M12 3a9 9 0 0 0-7.7 13.7L3 21l4.4-1.2A9 9 0 1 0 12 3zM9.2 8.4c.2-.5.4-.5.6-.5h.5c.2 0 .4 0 .6.5l.7 1.6c.1.3 0 .5-.1.6l-.4.5c-.1.2-.2.3 0 .6a6 6 0 0 0 2.7 2.3c.3.1.4 0 .6-.1l.5-.6c.2-.2.3-.2.6-.1l1.5.8c.3.1.4.3.4.5 0 .8-.6 1.5-1.4 1.6-.6.1-1.3.1-4-1.5a8 8 0 0 1-3-3.4c-.5-1.1-.4-2.2.2-2.8z',
 };
 
 interface Props {

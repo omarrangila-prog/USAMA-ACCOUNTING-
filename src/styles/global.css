@@ -140,6 +140,18 @@ button { font-family: inherit; }
   color: #fff;
   box-shadow: 0 6px 16px rgba(16, 185, 129, 0.32);
 }
+/* WhatsApp send — brand green so the action is recognisable at a glance. */
+.btn-wa {
+  background: linear-gradient(180deg, #37d268, #25d366);
+  border-color: #1da851;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(37, 211, 102, 0.3);
+}
+.btn-wa:hover { background: linear-gradient(180deg, #45db73, #2ade6f); }
+/* Ghost icon button variant used in the report tiles. */
+.btn-ghost.rt-wa { color: #1da851; }
+.btn-ghost.rt-wa:hover { background: rgba(37, 211, 102, 0.12); }
+
 .btn-danger {
   background: linear-gradient(180deg, #ff6b6b, var(--red));
   border-color: #e23b3b;

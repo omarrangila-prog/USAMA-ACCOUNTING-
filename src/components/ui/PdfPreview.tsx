@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type jsPDF from 'jspdf';
 import { Icon } from './Icon';
 import { usePrintConfirm } from './PrintConfirm';
+import { useWhatsAppSend } from './WhatsAppSend';
 import './pdfpreview.css';
 
 interface Props {
@@ -27,6 +28,7 @@ export function PdfPreview({ makeDoc, title, fileName, onClose }: Props) {
   const docRef = useRef<jsPDF | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const printConfirm = usePrintConfirm();
+  const whatsapp = useWhatsAppSend();
 
   useEffect(() => {
     if (!makeDoc) { setUrl(null); return; }
@@ -85,6 +87,12 @@ export function PdfPreview({ makeDoc, title, fileName, onClose }: Props) {
     printConfirm.print({ makeDoc, fileName });
   };
 
+  /** Send this exact PDF to someone on WhatsApp (share sheet where available). */
+  const sendWhatsApp = () => {
+    if (!makeDoc) return;
+    whatsapp.send({ makeDoc, fileName, message: title });
+  };
+
   return (
     <div className="pdfpv-backdrop no-print" onMouseDown={onClose}>
       <div className="pdfpv glass" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-modal>
@@ -106,6 +114,9 @@ export function PdfPreview({ makeDoc, title, fileName, onClose }: Props) {
                 )}
               </div>
             )}
+            <button className="btn btn-sm btn-wa" onClick={sendWhatsApp} title="Send on WhatsApp">
+              <Icon name="whatsapp" size={15} /> WhatsApp
+            </button>
             <button className="btn btn-sm" onClick={print} title="Print">
               <Icon name="print" size={15} /> Print
             </button>
@@ -132,6 +143,9 @@ export function PdfPreview({ makeDoc, title, fileName, onClose }: Props) {
               <button className="btn btn-primary" onClick={openInTab}>
                 <Icon name="search" size={16} /> Open PDF
               </button>
+              <button className="btn btn-wa" onClick={sendWhatsApp}>
+                <Icon name="whatsapp" size={16} /> Send on WhatsApp
+              </button>
               <button className="btn" onClick={download}>
                 <Icon name="pdf" size={16} /> Download PDF
               </button>
@@ -148,6 +162,7 @@ export function PdfPreview({ makeDoc, title, fileName, onClose }: Props) {
         </div>
       </div>
       {printConfirm.dialog}
+      {whatsapp.dialog}
     </div>
   );
 }
