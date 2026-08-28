@@ -56,4 +56,9 @@
   .pdfpv-zoom { display: none; }
   /* Give the action buttons room to tap (44px min target). */
   .pdfpv-head .btn { min-height: 40px; }
+  /* The mobile panel below offers Send on WhatsApp and Download as full-width
+     tap targets — don't repeat them in the cramped header too. Print stays,
+     since the panel has no equivalent. */
+  .pdfpv-head .btn-wa,
+  .pdfpv-head .btn-primary { display: none; }
 }
