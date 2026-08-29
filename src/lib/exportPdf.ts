@@ -159,6 +159,7 @@ export function buildReportPdf(opts: {
       : section.rows;
 
     // --- Pass 1: header + real data (+ totals row right after the data) ---
+    let drawnRowH = 0;   // filled in by didDrawCell below
     const dataRows = meaningfulRows.map((r) => pad(r.map(String)));
     const totalRowIdx = section.foot ? dataRows.length : -1;
     if (section.foot) dataRows.push(pad(section.foot.map(String)));
@@ -179,13 +180,27 @@ export function buildReportPdf(opts: {
           d.cell.styles.fillColor = HEAD;
         }
       },
+      // The height autoTable actually drew a body row at. Needed because the
+      // arithmetic below cannot recover it once the table spans pages.
+      didDrawCell: (d) => {
+        if (d.section === 'body' && d.row.height > drawnRowH) drawnRowH = d.row.height;
+      },
       theme: 'grid',
     });
     // @ts-expect-error plugin sets lastAutoTable
     const lat = doc.lastAutoTable;
-    // Measured per-row height from the real table (header + rows) → precise fill.
-    const rowH = (lat.finalY - y) / (dataRows.length + 1);
     let afterY = lat.finalY;
+    // Per-row height. Prefer the height autoTable reported while drawing.
+    //
+    // It USED to be derived as (finalY - startY) / rowCount, which silently
+    // breaks the moment a table runs onto a second page: finalY is then on the
+    // LAST page while startY was on the first, so the division collapses to a
+    // near-zero (or negative) figure. The blank fill below divides by it, asks
+    // for hundreds of filler rows, and those spill across page after page —
+    // that is what turned a long Cash Receivable into an 18-page print. The
+    // (finalY - y) form is kept only as a fallback for a single-page table
+    // with no body rows to measure.
+    const rowH = drawnRowH > 0 ? drawnRowH : (lat.finalY - y) / (dataRows.length + 1);
 
     // --- Pass 2: fill the REMAINING page height with equal empty grid rows,
     //     using the MEASURED row height so it fills exactly to the bottom with
@@ -196,7 +211,12 @@ export function buildReportPdf(opts: {
     // the bottom yet NEVER spills onto a second page. Hard-cap by the max rows
     // that can physically fit so autoTable can't paginate the blank table.
     const blankH = rowH + 1.5;
-    const blanks = blankH > 0 ? Math.max(0, Math.floor((remaining - 2) / blankH)) : 0;
+    // Leave a full row of slack so rounding can never tip the blank table over
+    // the page edge — pageBreak:'avoid' would then push the WHOLE fill onto a
+    // fresh page, which is an extra blank sheet in the print.
+    const blanks = blankH > 0 && remaining > blankH
+      ? Math.max(0, Math.floor((remaining - blankH) / blankH))
+      : 0;
     if (blanks > 0) {
       autoTable(doc, {
         startY: afterY,
