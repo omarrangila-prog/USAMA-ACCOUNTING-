@@ -33,8 +33,10 @@ import {
   computeFinancials,
   avgCostFor,
   computeProfitLoss,
+  profitClosingOffset,
+  computeExpenseNet,
 } from '@/lib/accounting';
-import { uid, now, periodOf, todayISO, round2, monthName, normalizeDenomination, normalizeName, shiftDateToPeriod } from '@/lib/utils';
+import { uid, now, periodOf, todayISO, round2, monthName, normalizeDenomination, normalizeName, shiftDateToPeriod, lastDateOfPeriod } from '@/lib/utils';
 import { toast } from './toast';
 
 const DEFAULT_SETTINGS: Settings = {
@@ -63,6 +65,7 @@ interface DataStore {
   partyAdjustments: PartyAdjustment[];
   profitClosings: ProfitClosing[];
   netBalanceClosings: ProfitClosing[];
+  expenseClosings: ProfitClosing[];
   opening: OpeningBalances | null;
   settings: Settings;
 
@@ -117,6 +120,15 @@ interface DataStore {
   closeMonth: (p: Period, closedBy: string) => Promise<MonthlyClosing | null>;
   /** If the given month was closed, silently refresh its snapshot after an edit. */
   resyncClosing: (p: Period) => Promise<void>;
+  /**
+   * Set this month's reported Profit and/or Total Expense to 0 by writing a
+   * dated closing offset. Nothing is deleted — sales, purchases and expense
+   * rows all stay exactly as they are, and Cash in Hand is untouched. Undo with
+   * clearMonthZero.
+   */
+  zeroMonthFigures: (p: Period, which: { profit?: boolean; expense?: boolean }) => Promise<void>;
+  /** Remove this month's closing offsets, restoring the calculated figures. */
+  clearMonthZero: (p: Period, which: { profit?: boolean; expense?: boolean }) => Promise<void>;
 
   /** Count records in a period (for the Move Month preview). */
   countInPeriod: (p: Period) => { purchases: number; sales: number; cash: number; expenses: number; total: number };
@@ -248,6 +260,7 @@ export const useData = create<DataStore>((set, get) => ({
   partyAdjustments: [],
   profitClosings: [],
   netBalanceClosings: [],
+  expenseClosings: [],
   opening: null,
   settings: DEFAULT_SETTINGS,
 
@@ -290,6 +303,7 @@ export const useData = create<DataStore>((set, get) => ({
       sub<PartyAdjustment>('partyAdjustments', 'partyAdjustments'),
       sub<ProfitClosing>('profitClosings', 'profitClosings'),
       sub<ProfitClosing>('netBalanceClosings', 'netBalanceClosings'),
+      sub<ProfitClosing>('expenseClosings', 'expenseClosings'),
       subscribeCollection<Settings & { id: string }>(userUid, 'settings', (rows) => {
         const s = rows.find((r) => r.id === 'app');
         if (s) set({ settings: { ...DEFAULT_SETTINGS, ...s } });
@@ -328,6 +342,7 @@ export const useData = create<DataStore>((set, get) => ({
       partyAdjustments: s.partyAdjustments,
       profitClosings: s.profitClosings,
       netBalanceClosings: s.netBalanceClosings,
+      expenseClosings: s.expenseClosings,
     };
   },
 
@@ -839,6 +854,76 @@ export const useData = create<DataStore>((set, get) => ({
         : `${monthName(p.month)} ${p.year} closed. Balances carried forward.`
     );
     return closing;
+  },
+
+  zeroMonthFigures: async (p, which) => {
+    const u = get().uidRef;
+    if (!u) { toast.error('Not ready yet.'); return; }
+    const data = get().dataset();
+    // Date the closing on the LAST day of its own month, so it always falls
+    // inside the period it zeroes no matter when the button is pressed.
+    const date = lastDateOfPeriod(p);
+    const label = `${monthName(p.month)} ${p.year}`;
+    const done: string[] = [];
+
+    if (which.profit) {
+      // Offset = whatever Profit currently reads, so the figure lands on 0.
+      // Re-zeroing an already-closed month must not double up, so any existing
+      // closing for the month is replaced rather than added to.
+      const current = computeProfitLoss(data, p);
+      await Promise.all(
+        get().profitClosings.filter((c) => c.month === p.month && c.year === p.year)
+          .map((c) => removeDoc(u, 'profitClosings', c.id))
+      );
+      const gross = round2(current + profitClosingOffset(data, p));
+      if (gross !== 0) {
+        const rec: ProfitClosing = {
+          id: uid(), date, month: p.month, year: p.year, amount: gross,
+          note: `Profit closed to 0 for ${label}`, createdAt: now(), updatedAt: now(),
+        };
+        await upsertDoc(u, 'profitClosings', rec);
+      }
+      done.push('Profit');
+    }
+
+    if (which.expense) {
+      // Same shape: offset the month's GROSS expense total (before any existing
+      // closing), replacing rather than stacking.
+      const gross = round2(
+        (data.expenses ?? [])
+          .filter((e) => e.month === p.month && e.year === p.year && e.kind === 'expense')
+          .reduce((a, e) => a + e.amount, 0)
+      );
+      await Promise.all(
+        get().expenseClosings.filter((c) => c.month === p.month && c.year === p.year)
+          .map((c) => removeDoc(u, 'expenseClosings', c.id))
+      );
+      if (gross !== 0) {
+        const rec: ProfitClosing = {
+          id: uid(), date, month: p.month, year: p.year, amount: gross,
+          note: `Expenses closed to 0 for ${label}`, createdAt: now(), updatedAt: now(),
+        };
+        await upsertDoc(u, 'expenseClosings', rec);
+      }
+      done.push('Expense');
+    }
+
+    await get().resyncClosing(p);
+    toast.success(`${done.join(' & ')} set to 0 for ${label}`);
+  },
+
+  clearMonthZero: async (p, which) => {
+    const u = get().uidRef;
+    if (!u) { toast.error('Not ready yet.'); return; }
+    const inP = (c: ProfitClosing) => c.month === p.month && c.year === p.year;
+    if (which.profit) {
+      await Promise.all(get().profitClosings.filter(inP).map((c) => removeDoc(u, 'profitClosings', c.id)));
+    }
+    if (which.expense) {
+      await Promise.all(get().expenseClosings.filter(inP).map((c) => removeDoc(u, 'expenseClosings', c.id)));
+    }
+    await get().resyncClosing(p);
+    toast.info(`Restored the calculated figures for ${monthName(p.month)} ${p.year}`);
   },
 
   resyncClosing: async (p) => {

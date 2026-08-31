@@ -31,10 +31,11 @@ const REPORTS: { id: ReportId; icon: IconName; desc: string; accent: string }[] 
 
 export function Reports() {
   const t = useT();
-  const { period, dataset, settings, isMonthClosed, closeMonth, deleteParty } = useData();
+  const { period, dataset, settings, isMonthClosed, closeMonth, deleteParty, zeroMonthFigures, clearMonthZero } = useData();
   const data = dataset();
   const cur = settings.currency;
   const [confirmClose, setConfirmClose] = useState(false);
+  const [confirmZero, setConfirmZero] = useState(false);
   const [preview, setPreview] = useState<{ which: 'all' | ReportId; title: string; year?: boolean } | null>(null);
   const [partyToDelete, setPartyToDelete] = useState<{ id: string; name: string } | null>(null);
   const printConfirm = usePrintConfirm();
@@ -49,6 +50,17 @@ export function Reports() {
   const scopeLabel = isYear ? `Full Year ${period.year}` : `${monthName(rPeriod.month)} ${period.year}`;
 
   const closed = isMonthClosed();
+
+  // Whether this month's Profit / Total Expense are currently held at 0 by a
+  // closing offset. The underlying records are untouched either way.
+  const zeroed = useMemo(() => {
+    const inP = (c: { month: number; year: number }) => c.month === period.month && c.year === period.year;
+    return {
+      profit: (data.profitClosings ?? []).some(inP),
+      expense: (data.expenseClosings ?? []).some(inP),
+    };
+  }, [data, period]);
+  const anyZeroed = zeroed.profit || zeroed.expense;
 
   // Scoped dataset/period the on-page tables use: the whole year aggregated when
   // 'All Year' is picked, otherwise the selected month.
@@ -114,6 +126,14 @@ export function Reports() {
       fileName: isYear ? yearReportFileName(period.year, which) : reportFileName(rPeriod, which),
       message: `${baseTitle} — ${scopeLabel}\n${settings.businessName || 'USAMA RAZA'}`,
     });
+  };
+
+  /** Hold this month's Profit & Total Expense at 0 — or release them again. */
+  const doZero = async () => {
+    setConfirmZero(false);
+    const which = { profit: true, expense: true };
+    if (anyZeroed) await clearMonthZero(period, which);
+    else await zeroMonthFigures(period, which);
   };
 
   const doClose = async () => {
@@ -292,6 +312,12 @@ export function Reports() {
                   Stock & party balances are carried forward. You can still edit any entry — the
                   summary updates automatically. Click Refresh to re-save the snapshot.
                 </div>
+                {anyZeroed && (
+                  <div className="faint" style={{ fontSize: 13, marginTop: 4 }}>
+                    Profit &amp; Total Expense are held at <strong>0</strong> for this month by a
+                    closing entry. Every sale, purchase and expense record is still intact.
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -303,11 +329,36 @@ export function Reports() {
               </>
             )}
           </div>
-          <button className="btn btn-primary" onClick={() => setConfirmClose(true)}>
-            <Icon name={closed ? 'refresh' : 'check'} size={16} /> {closed ? 'Refresh Summary' : 'Close Month'}
-          </button>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <button
+              className="btn"
+              onClick={() => setConfirmZero(true)}
+              title={anyZeroed
+                ? 'Show the calculated Profit and Total Expense again'
+                : "Hold this month's Profit and Total Expense at 0 without deleting anything"}
+            >
+              <Icon name={anyZeroed ? 'refresh' : 'wallet'} size={16} />
+              {anyZeroed ? ' Restore Profit & Expense' : ' Set Profit & Expense to 0'}
+            </button>
+            <button className="btn btn-primary" onClick={() => setConfirmClose(true)}>
+              <Icon name={closed ? 'refresh' : 'check'} size={16} /> {closed ? 'Refresh Summary' : 'Close Month'}
+            </button>
+          </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmZero}
+        title={anyZeroed
+          ? `Restore ${monthName(period.month)} ${period.year} figures?`
+          : `Set ${monthName(period.month)} ${period.year} Profit & Expense to 0?`}
+        message={anyZeroed
+          ? 'Removes the closing entries, so Profit and Total Expense show their calculated figures again. Nothing else changes.'
+          : "Writes a dated closing that brings this month's Profit and Total Expense to 0. No sale, purchase or expense record is changed or deleted, and Cash in Hand is not affected. You can undo this at any time."}
+        confirmLabel={anyZeroed ? 'Restore' : 'Set to 0'}
+        onConfirm={doZero}
+        onCancel={() => setConfirmZero(false)}
+      />
 
       <ConfirmDialog
         open={confirmClose}

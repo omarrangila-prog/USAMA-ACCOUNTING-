@@ -54,6 +54,14 @@ export interface DataSet {
    * receivable / payable are never modified — only the net-worth display line.
    */
   netBalanceClosings?: ProfitClosing[];
+  /**
+   * One-time Expense Closing baselines. Each dated record's `amount` is
+   * SUBTRACTED from the month's expense total, so a closing brings the reported
+   * Total Expense to 0 for that month and later expenses accumulate from 0
+   * again. The expense records themselves are never modified or deleted, and
+   * Cash in Hand is untouched (expenses don't move cash in this book).
+   */
+  expenseClosings?: ProfitClosing[];
 }
 
 export interface ProfitClosing {
@@ -70,7 +78,11 @@ export interface ProfitClosing {
 /** Net effect of expenses/income in a period: income - expense. */
 export function computeExpenseNet(data: DataSet, period: Period): { expense: number; income: number; net: number } {
   const rows = (data.expenses ?? []).filter((e) => e.month === period.month && e.year === period.year);
-  const expense = round2(rows.filter((e) => e.kind === 'expense').reduce((a, e) => a + e.amount, 0));
+  const gross = round2(rows.filter((e) => e.kind === 'expense').reduce((a, e) => a + e.amount, 0));
+  // Minus any one-time Expense Closing dated in this month. Applied HERE so the
+  // Dashboard, Business Summary and every report agree on one figure — the same
+  // arrangement computeProfitLoss uses for profit closings.
+  const expense = round2(gross - expenseClosingOffset(data, period));
   const income = round2(rows.filter((e) => e.kind === 'income').reduce((a, e) => a + e.amount, 0));
   return { expense, income, net: round2(income - expense) };
 }
@@ -142,6 +154,7 @@ export function yearDataset(data: DataSet, year: number): DataSet {
     // Stamp closings' profit-closing offsets into the year period so the year
     // Net Profit reflects them too.
     profitClosings: (data.profitClosings ?? []).filter((c) => c.year === year).map((c) => ({ ...c, month: p.month, year })),
+    expenseClosings: (data.expenseClosings ?? []).filter((c) => c.year === year).map((c) => ({ ...c, month: p.month, year })),
   };
 }
 
@@ -1063,6 +1076,15 @@ export function profitClosingOffset(data: DataSet, period: Period, cumulative = 
   return round2(
     (data.profitClosings ?? [])
       .filter(within)
+      .reduce((a, c) => a + c.amount, 0)
+  );
+}
+
+/** Sum of Expense closings dated IN `period` (per-month, like profit). */
+export function expenseClosingOffset(data: DataSet, period: Period): number {
+  return round2(
+    (data.expenseClosings ?? [])
+      .filter((c) => inPeriod(c, period))
       .reduce((a, c) => a + c.amount, 0)
   );
 }

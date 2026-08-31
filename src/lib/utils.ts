@@ -32,6 +32,16 @@ export function defaultDateForPeriod(p: Period): ISODate {
   return `${p.year}-${String(p.month).padStart(2, '0')}-01`;
 }
 
+/**
+ * Last calendar day of a period — "2026-08-31" for August 2026. Used to date a
+ * month-closing record so it always falls inside the month it closes, whenever
+ * the button is actually pressed.
+ */
+export function lastDateOfPeriod(p: Period): ISODate {
+  const day = new Date(Date.UTC(p.year, p.month, 0)).getUTCDate();
+  return `${p.year}-${String(p.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 export function periodKey(p: Period): string {
   return `${p.year}-${String(p.month).padStart(2, '0')}`;
 }
