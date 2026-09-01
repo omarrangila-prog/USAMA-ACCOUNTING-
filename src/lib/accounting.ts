@@ -62,6 +62,12 @@ export interface DataSet {
    * Cash in Hand is untouched (expenses don't move cash in this book).
    */
   expenseClosings?: ProfitClosing[];
+  /**
+   * One-time Cash in Hand closings. Each dated record's `amount` is SUBTRACTED
+   * from the reported Cash in Hand, bringing it to 0 at that point while every
+   * sale, purchase and cash entry stays exactly as recorded.
+   */
+  cashClosings?: ProfitClosing[];
 }
 
 export interface ProfitClosing {
@@ -176,6 +182,7 @@ export function yearDataset(data: DataSet, year: number): DataSet {
     // Net Profit reflects them too.
     profitClosings: (data.profitClosings ?? []).filter((c) => c.year <= year).map((c) => ({ ...c, month: p.month, year })),
     expenseClosings: (data.expenseClosings ?? []).filter((c) => c.year <= year).map((c) => ({ ...c, month: p.month, year })),
+    cashClosings: (data.cashClosings ?? []).filter((c) => c.year <= year).map((c) => ({ ...c, month: p.month, year })),
   };
 }
 
@@ -814,8 +821,13 @@ export function computeCashBookSummary(data: DataSet, period: Period, cumulative
     totalReceived,
     totalPaid,
     // Client formula: (Sales − Purchases) + (Received − Paid). Expenses are NOT
-    // part of Cash in Hand — they only reduce Profit.
-    cashInHand: round2((totalSales - totalPurchases) + (totalReceived - totalPaid)),
+    // part of Cash in Hand — they only reduce Profit. Minus any one-time Cash
+    // closing, which offsets the DISPLAYED figure without touching a single
+    // record. (computeCashInHand, the cash-transactions-only figure the
+    // financial engine uses internally, is deliberately left unoffset.)
+    cashInHand: round2(
+      (totalSales - totalPurchases) + (totalReceived - totalPaid) - cashClosingOffset(data, period)
+    ),
     receivable: fin.netReceivable,
     payable: fin.netPayable,
     // Net Profit = trading − expenses (same single source of truth everywhere).
@@ -1083,6 +1095,20 @@ export function profitClosingOffset(data: DataSet, period: Period, cumulative = 
  */
 export function profitClosingAmountFor(data: DataSet, period: Period): number {
   return round2(computeProfitLoss(data, period) + profitClosingOffset(data, period));
+}
+
+/** Sum of Cash in Hand closings applying to `period`. */
+export function cashClosingOffset(data: DataSet, period: Period): number {
+  return round2(
+    (data.cashClosings ?? [])
+      .filter((c) => inPeriod(c, period))
+      .reduce((a, c) => a + c.amount, 0)
+  );
+}
+
+/** The closing amount that brings reported Cash in Hand to 0 as at `period`. */
+export function cashClosingAmountFor(data: DataSet, period: Period): number {
+  return round2(computeCashBookSummary(data, period).cashInHand + cashClosingOffset(data, period));
 }
 
 /** The closing amount that brings reported Total Expense to 0 as at `period`. */

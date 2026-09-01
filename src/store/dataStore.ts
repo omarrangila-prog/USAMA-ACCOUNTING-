@@ -35,6 +35,7 @@ import {
   computeProfitLoss,
   profitClosingAmountFor,
   expenseClosingAmountFor,
+  cashClosingAmountFor,
   computeExpenseNet,
 } from '@/lib/accounting';
 import { uid, now, periodOf, todayISO, round2, monthName, normalizeDenomination, normalizeName, shiftDateToPeriod, lastDateOfPeriod } from '@/lib/utils';
@@ -67,6 +68,7 @@ interface DataStore {
   profitClosings: ProfitClosing[];
   netBalanceClosings: ProfitClosing[];
   expenseClosings: ProfitClosing[];
+  cashClosings: ProfitClosing[];
   opening: OpeningBalances | null;
   settings: Settings;
 
@@ -127,9 +129,9 @@ interface DataStore {
    * rows all stay exactly as they are, and Cash in Hand is untouched. Undo with
    * clearMonthZero.
    */
-  zeroMonthFigures: (p: Period, which: { profit?: boolean; expense?: boolean }) => Promise<void>;
+  zeroMonthFigures: (p: Period, which: { profit?: boolean; expense?: boolean; cash?: boolean }) => Promise<void>;
   /** Remove this month's closing offsets, restoring the calculated figures. */
-  clearMonthZero: (p: Period, which: { profit?: boolean; expense?: boolean }) => Promise<void>;
+  clearMonthZero: (p: Period, which: { profit?: boolean; expense?: boolean; cash?: boolean }) => Promise<void>;
 
   /** Count records in a period (for the Move Month preview). */
   countInPeriod: (p: Period) => { purchases: number; sales: number; cash: number; expenses: number; total: number };
@@ -262,6 +264,7 @@ export const useData = create<DataStore>((set, get) => ({
   profitClosings: [],
   netBalanceClosings: [],
   expenseClosings: [],
+  cashClosings: [],
   opening: null,
   settings: DEFAULT_SETTINGS,
 
@@ -305,6 +308,7 @@ export const useData = create<DataStore>((set, get) => ({
       sub<ProfitClosing>('profitClosings', 'profitClosings'),
       sub<ProfitClosing>('netBalanceClosings', 'netBalanceClosings'),
       sub<ProfitClosing>('expenseClosings', 'expenseClosings'),
+      sub<ProfitClosing>('cashClosings', 'cashClosings'),
       subscribeCollection<Settings & { id: string }>(userUid, 'settings', (rows) => {
         const s = rows.find((r) => r.id === 'app');
         if (s) set({ settings: { ...DEFAULT_SETTINGS, ...s } });
@@ -344,6 +348,7 @@ export const useData = create<DataStore>((set, get) => ({
       profitClosings: s.profitClosings,
       netBalanceClosings: s.netBalanceClosings,
       expenseClosings: s.expenseClosings,
+      cashClosings: s.cashClosings,
     };
   },
 
@@ -906,6 +911,22 @@ export const useData = create<DataStore>((set, get) => ({
       done.push('Expense');
     }
 
+    if (which.cash) {
+      const gross = cashClosingAmountFor(data, p);
+      await Promise.all(
+        get().cashClosings.filter((c) => c.month === p.month && c.year === p.year)
+          .map((c) => removeDoc(u, 'cashClosings', c.id))
+      );
+      if (gross !== 0) {
+        const rec: ProfitClosing = {
+          id: uid(), date, month: p.month, year: p.year, amount: gross,
+          note: `Cash in Hand closed to 0 for ${label}`, createdAt: now(), updatedAt: now(),
+        };
+        await upsertDoc(u, 'cashClosings', rec);
+      }
+      done.push('Cash in Hand');
+    }
+
     await get().resyncClosing(p);
     toast.success(`${done.join(' & ')} set to 0 for ${label}`);
   },
@@ -919,6 +940,9 @@ export const useData = create<DataStore>((set, get) => ({
     }
     if (which.expense) {
       await Promise.all(get().expenseClosings.filter(inP).map((c) => removeDoc(u, 'expenseClosings', c.id)));
+    }
+    if (which.cash) {
+      await Promise.all(get().cashClosings.filter(inP).map((c) => removeDoc(u, 'cashClosings', c.id)));
     }
     await get().resyncClosing(p);
     toast.info(`Restored the calculated figures for ${monthName(p.month)} ${p.year}`);

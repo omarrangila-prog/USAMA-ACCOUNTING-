@@ -36,6 +36,7 @@ export function Reports() {
   const cur = settings.currency;
   const [confirmClose, setConfirmClose] = useState(false);
   const [confirmZero, setConfirmZero] = useState(false);
+  const [confirmZeroCash, setConfirmZeroCash] = useState(false);
   const [preview, setPreview] = useState<{ which: 'all' | ReportId; title: string; year?: boolean } | null>(null);
   const [partyToDelete, setPartyToDelete] = useState<{ id: string; name: string } | null>(null);
   const printConfirm = usePrintConfirm();
@@ -58,6 +59,7 @@ export function Reports() {
     return {
       profit: (data.profitClosings ?? []).some(inP),
       expense: (data.expenseClosings ?? []).some(inP),
+      cash: (data.cashClosings ?? []).some(inP),
     };
   }, [data, period]);
   const anyZeroed = zeroed.profit || zeroed.expense;
@@ -138,6 +140,13 @@ export function Reports() {
     const which = { profit: true, expense: true };
     if (anyZeroed) await clearMonthZero(period, which);
     else await zeroMonthFigures(period, which);
+  };
+
+  /** Cash in Hand is held separately — it's a physical figure, not a result. */
+  const doZeroCash = async () => {
+    setConfirmZeroCash(false);
+    if (zeroed.cash) await clearMonthZero(period, { cash: true });
+    else await zeroMonthFigures(period, { cash: true });
   };
 
   const doClose = async () => {
@@ -316,6 +325,12 @@ export function Reports() {
                   Stock & party balances are carried forward. You can still edit any entry — the
                   summary updates automatically. Click Refresh to re-save the snapshot.
                 </div>
+                {zeroed.cash && (
+                  <div className="faint" style={{ fontSize: 13, marginTop: 4 }}>
+                    Cash in Hand is held at <strong>0</strong> for this month. Every sale,
+                    purchase and cash entry is unchanged.
+                  </div>
+                )}
                 {anyZeroed && (
                   <div className="faint" style={{ fontSize: 13, marginTop: 4 }}>
                     Profit &amp; Total Expense are held at <strong>0</strong> for this month by a
@@ -344,12 +359,35 @@ export function Reports() {
               <Icon name={anyZeroed ? 'refresh' : 'wallet'} size={16} />
               {anyZeroed ? ' Restore Profit & Expense' : ' Set Profit & Expense to 0'}
             </button>
+            <button
+              className="btn"
+              onClick={() => setConfirmZeroCash(true)}
+              title={zeroed.cash
+                ? 'Show the calculated Cash in Hand again'
+                : "Hold Cash in Hand at 0 without changing any sale, purchase or cash entry"}
+            >
+              <Icon name={zeroed.cash ? 'refresh' : 'wallet'} size={16} />
+              {zeroed.cash ? ' Restore Cash in Hand' : ' Set Cash in Hand to 0'}
+            </button>
             <button className="btn btn-primary" onClick={() => setConfirmClose(true)}>
               <Icon name={closed ? 'refresh' : 'check'} size={16} /> {closed ? 'Refresh Summary' : 'Close Month'}
             </button>
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmZeroCash}
+        title={zeroed.cash
+          ? `Restore ${monthName(period.month)} ${period.year} Cash in Hand?`
+          : `Set ${monthName(period.month)} ${period.year} Cash in Hand to 0?`}
+        message={zeroed.cash
+          ? 'Removes the closing entry so Cash in Hand shows its calculated figure again.'
+          : "Writes a dated closing that brings Cash in Hand to 0. No sale, purchase or cash entry is changed or deleted — only the reported figure moves. You can undo this at any time."}
+        confirmLabel={zeroed.cash ? 'Restore' : 'Set to 0'}
+        onConfirm={doZeroCash}
+        onCancel={() => setConfirmZeroCash(false)}
+      />
 
       <ConfirmDialog
         open={confirmZero}
