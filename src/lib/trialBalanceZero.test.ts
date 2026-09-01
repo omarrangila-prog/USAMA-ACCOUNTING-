@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   computeTrialBalance, computeExpenseNet, expenseClosingAmountFor,
   netPositionClosingAmountFor, computeCashBookSummary, computeStock,
-  computePartyBalances, type DataSet, type ProfitClosing,
+  computePartyBalances, yearDataset, YEAR_PERIOD, type DataSet, type ProfitClosing,
 } from './accounting';
 import { buildSections } from './reportBuilder';
 import type { Purchase, Sale, CashTransaction, Expense, Party } from '@/types';
@@ -77,6 +77,15 @@ describe('Net Position', () => {
     expect(computePartyBalances(zeroed, AUG)).toEqual(computePartyBalances(data, AUG));
     expect(zeroed.sales).toEqual(data.sales);
     expect(zeroed.purchases).toEqual(data.purchases);
+  });
+
+  it('survives the All Year view — the offset is not dropped', () => {
+    const zeroed = { ...data, netBalanceClosings: [closing(netPositionClosingAmountFor(data, AUG))] };
+    const yData = yearDataset(zeroed, 2026);
+    // Every closing must be stamped into the year period, or the year report
+    // silently shows the un-offset figure again.
+    expect(yData.netBalanceClosings).toHaveLength(1);
+    expect(yData.netBalanceClosings![0].month).toBe(YEAR_PERIOD(2026).month);
   });
 
   it('does not reach into another month', () => {

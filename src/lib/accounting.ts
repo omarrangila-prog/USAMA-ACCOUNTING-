@@ -162,6 +162,7 @@ export function yearDataset(data: DataSet, year: number): DataSet {
     profitClosings: (data.profitClosings ?? []).filter((c) => c.year === year).map((c) => ({ ...c, month: p.month, year })),
     expenseClosings: (data.expenseClosings ?? []).filter((c) => c.year === year).map((c) => ({ ...c, month: p.month, year })),
     cashClosings: (data.cashClosings ?? []).filter((c) => c.year === year).map((c) => ({ ...c, month: p.month, year })),
+    netBalanceClosings: (data.netBalanceClosings ?? []).filter((c) => c.year === year).map((c) => ({ ...c, month: p.month, year })),
   };
 }
 
