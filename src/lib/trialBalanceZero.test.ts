@@ -58,11 +58,15 @@ describe('Net Position', () => {
     expect(computeTrialBalance(zeroed, AUG).netPosition).toBe(0);
   });
 
-  it('the report foot shows 0 as well — one figure everywhere', () => {
-    const zeroed = { ...data, netBalanceClosings: [closing(netPositionClosingAmountFor(data, AUG))] };
-    const section = buildSections(zeroed, AUG, 'trial').find((s) => s.title === 'Business Summary')!;
-    expect(section.foot![0]).toContain('Net Position');
-    expect(section.foot![1]).toBe('Rs 0');
+  it('the Business Summary report has no Net Position line at all', () => {
+    // Removed per the owner: a position summary isn't a balanced ledger, so the
+    // subtraction meant little and only prompted "why isn't this zero?".
+    const section = buildSections(data, AUG, 'trial').find((s) => s.title === 'Business Summary')!;
+    expect(section.foot).toBeUndefined();
+    expect(section.rows.some((r) => String(r[0]).includes('Net Position'))).toBe(false);
+    // The rows that matter are still all there.
+    ['Cash in Hand', 'Closing Stock', 'Accounts Payable', 'Accounts Receivable']
+      .forEach((n) => expect(section.rows.some((r) => r[0] === n)).toBe(true));
   });
 
   it('every row above it keeps its own value', () => {

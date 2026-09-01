@@ -187,10 +187,13 @@ export function buildSections(
     // Business Summary of positions (assets vs liabilities). Since we do NOT
     // synthesise an opening-capital plug, this is a position summary rather than
     // a self-tying double-entry trial balance — so we don't flag it as
-    // "(Out of Balance)", which would look like an error to the owner. A neutral
-    // "Net Position" foot shows assets − liabilities.
+    // "(Out of Balance)", which would look like an error to the owner.
+    //
+    // There is deliberately NO "Net Position (Assets − Liabilities)" foot. Being
+    // a position summary rather than a balanced ledger, that subtraction had no
+    // meaning on its own and only invited the question of why it wasn't zero.
+    // The rows above carry the figures that matter.
     const tb = computeTrialBalance(data, period);
-    const netPosition = tb.netPosition;
     sections.push({
       title: 'Business Summary',
       head: ['Account', 'Debit', 'Credit'],
@@ -202,7 +205,6 @@ export function buildSections(
         const credit = r.credit || (alwaysShow && r.debit === 0) ? money(r.credit) : '';
         return [r.name, debit, credit];
       }),
-      foot: ['Net Position (Assets - Liabilities)', money(netPosition), ''],
       // Do NOT zero-filter the Trial Balance — every position line (incl. a Rs 0
       // Closing Stock / Cash) must always be visible. keepAllRows opts out.
       keepAllRows: true,
