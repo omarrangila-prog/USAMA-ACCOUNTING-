@@ -8,7 +8,6 @@ interface NavItem { to: string; tkey: string; icon: IconName; shortcut?: string;
 
 const items: NavItem[] = [
   { to: '/', tkey: 'nav.cashbook', icon: 'wallet' },
-  { to: '/expenses', tkey: 'nav.expenses', icon: 'wallet' },
   { to: '/masters', tkey: 'nav.masters', icon: 'user' },
   { to: '/reports', tkey: 'nav.reports', icon: 'reports', shortcut: 'F7' },
 ];

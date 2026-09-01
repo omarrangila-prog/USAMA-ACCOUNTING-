@@ -14,7 +14,6 @@ import { Stock } from '@/pages/Stock';
 import { Balances } from '@/pages/Balances';
 import { TrialBalance } from '@/pages/TrialBalance';
 import { Reports } from '@/pages/Reports';
-import { Expenses } from '@/pages/Expenses';
 import { Masters } from '@/pages/Masters';
 
 function Splash() {
@@ -67,7 +66,6 @@ export default function App() {
           <Route path="/" element={<CashBook />} />
           <Route path="/cashbook" element={<CashBook />} />
           <Route path="/reports" element={<Reports />} />
-          <Route path="/expenses" element={<Expenses />} />
           {/* Kept reachable by URL (used by entry forms / deep-links), not in sidebar. */}
           <Route path="/purchase" element={<Purchase />} />
           <Route path="/sale" element={<Sale />} />
