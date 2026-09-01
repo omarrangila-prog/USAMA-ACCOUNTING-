@@ -36,6 +36,7 @@ import {
   profitClosingAmountFor,
   expenseClosingAmountFor,
   cashClosingAmountFor,
+  netPositionClosingAmountFor,
   computeExpenseNet,
 } from '@/lib/accounting';
 import { uid, now, periodOf, todayISO, round2, monthName, normalizeDenomination, normalizeName, shiftDateToPeriod, lastDateOfPeriod } from '@/lib/utils';
@@ -129,9 +130,9 @@ interface DataStore {
    * rows all stay exactly as they are, and Cash in Hand is untouched. Undo with
    * clearMonthZero.
    */
-  zeroMonthFigures: (p: Period, which: { profit?: boolean; expense?: boolean; cash?: boolean }) => Promise<void>;
+  zeroMonthFigures: (p: Period, which: { profit?: boolean; expense?: boolean; cash?: boolean; netPosition?: boolean }) => Promise<void>;
   /** Remove this month's closing offsets, restoring the calculated figures. */
-  clearMonthZero: (p: Period, which: { profit?: boolean; expense?: boolean; cash?: boolean }) => Promise<void>;
+  clearMonthZero: (p: Period, which: { profit?: boolean; expense?: boolean; cash?: boolean; netPosition?: boolean }) => Promise<void>;
 
   /** Count records in a period (for the Move Month preview). */
   countInPeriod: (p: Period) => { purchases: number; sales: number; cash: number; expenses: number; total: number };
@@ -933,6 +934,22 @@ export const useData = create<DataStore>((set, get) => ({
       done.push('Cash in Hand');
     }
 
+    if (which.netPosition) {
+      // Last, so it sees the figures the closings above have already moved.
+      const gross = netPositionClosingAmountFor(working, p);
+      await Promise.all(
+        get().netBalanceClosings.filter((c) => c.month === p.month && c.year === p.year)
+          .map((c) => removeDoc(u, 'netBalanceClosings', c.id))
+      );
+      const rec: ProfitClosing | null = gross === 0 ? null : {
+        id: uid(), date, month: p.month, year: p.year, amount: gross,
+        note: `Net Position closed to 0 for ${label}`, createdAt: now(), updatedAt: now(),
+      };
+      if (rec) await upsertDoc(u, 'netBalanceClosings', rec);
+      working = { ...working, netBalanceClosings: replaceIn(working.netBalanceClosings, rec) };
+      done.push('Net Position');
+    }
+
     await get().resyncClosing(p);
     toast.success(`${done.join(' & ')} set to 0 for ${label}`);
   },
@@ -949,6 +966,9 @@ export const useData = create<DataStore>((set, get) => ({
     }
     if (which.cash) {
       await Promise.all(get().cashClosings.filter(inP).map((c) => removeDoc(u, 'cashClosings', c.id)));
+    }
+    if (which.netPosition) {
+      await Promise.all(get().netBalanceClosings.filter(inP).map((c) => removeDoc(u, 'netBalanceClosings', c.id)));
     }
     await get().resyncClosing(p);
     toast.info(`Restored the calculated figures for ${monthName(p.month)} ${p.year}`);

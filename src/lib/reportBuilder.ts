@@ -190,7 +190,7 @@ export function buildSections(
     // "(Out of Balance)", which would look like an error to the owner. A neutral
     // "Net Position" foot shows assets − liabilities.
     const tb = computeTrialBalance(data, period);
-    const netPosition = round2(tb.totalDebit - tb.totalCredit);
+    const netPosition = tb.netPosition;
     sections.push({
       title: 'Business Summary',
       head: ['Account', 'Debit', 'Credit'],

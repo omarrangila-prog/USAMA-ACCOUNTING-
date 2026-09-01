@@ -37,6 +37,7 @@ export function Reports() {
   const [confirmClose, setConfirmClose] = useState(false);
   const [confirmZero, setConfirmZero] = useState(false);
   const [confirmZeroCash, setConfirmZeroCash] = useState(false);
+  const [confirmZeroNet, setConfirmZeroNet] = useState(false);
   const [preview, setPreview] = useState<{ which: 'all' | ReportId; title: string; year?: boolean } | null>(null);
   const [partyToDelete, setPartyToDelete] = useState<{ id: string; name: string } | null>(null);
   const printConfirm = usePrintConfirm();
@@ -60,6 +61,7 @@ export function Reports() {
       profit: (data.profitClosings ?? []).some(inP),
       expense: (data.expenseClosings ?? []).some(inP),
       cash: (data.cashClosings ?? []).some(inP),
+      netPosition: (data.netBalanceClosings ?? []).some(inP),
     };
   }, [data, period]);
   const anyZeroed = zeroed.profit || zeroed.expense;
@@ -136,6 +138,13 @@ export function Reports() {
     const which = { profit: true, expense: true };
     if (anyZeroed) await clearMonthZero(period, which);
     else await zeroMonthFigures(period, which);
+  };
+
+  /** Trial Balance Net Position (assets − liabilities). */
+  const doZeroNet = async () => {
+    setConfirmZeroNet(false);
+    if (zeroed.netPosition) await clearMonthZero(period, { netPosition: true });
+    else await zeroMonthFigures(period, { netPosition: true });
   };
 
   /** Cash in Hand is held separately — it's a physical figure, not a result. */
@@ -365,12 +374,35 @@ export function Reports() {
               <Icon name={zeroed.cash ? 'refresh' : 'wallet'} size={16} />
               {zeroed.cash ? ' Restore Cash in Hand' : ' Set Cash in Hand to 0'}
             </button>
+            <button
+              className="btn"
+              onClick={() => setConfirmZeroNet(true)}
+              title={zeroed.netPosition
+                ? 'Show the calculated Net Position again'
+                : "Hold the Trial Balance's Net Position at 0"}
+            >
+              <Icon name={zeroed.netPosition ? 'refresh' : 'scale'} size={16} />
+              {zeroed.netPosition ? ' Restore Net Position' : ' Set Net Position to 0'}
+            </button>
             <button className="btn btn-primary" onClick={() => setConfirmClose(true)}>
               <Icon name={closed ? 'refresh' : 'check'} size={16} /> {closed ? 'Refresh Summary' : 'Close Month'}
             </button>
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmZeroNet}
+        title={zeroed.netPosition
+          ? `Restore ${monthName(period.month)} ${period.year} Net Position?`
+          : `Set ${monthName(period.month)} ${period.year} Net Position to 0?`}
+        message={zeroed.netPosition
+          ? 'Removes the closing entry so the Trial Balance shows its calculated Net Position again.'
+          : "Writes a dated closing that brings the Trial Balance's Net Position (Assets − Liabilities) to 0. Every row above it keeps its own value, and no cash, stock, receivable or payable record is changed. You can undo this at any time."}
+        confirmLabel={zeroed.netPosition ? 'Restore' : 'Set to 0'}
+        onConfirm={doZeroNet}
+        onCancel={() => setConfirmZeroNet(false)}
+      />
 
       <ConfirmDialog
         open={confirmZeroCash}

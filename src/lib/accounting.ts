@@ -1122,6 +1122,8 @@ export interface TrialBalance {
   rows: TrialBalanceRow[];
   totalDebit: number;
   totalCredit: number;
+  /** Assets − liabilities, after any one-time Net Position closing. */
+  netPosition: number;
   balanced: boolean;
 }
 
@@ -1178,8 +1180,18 @@ export function computeTrialBalance(data: DataSet, period: Period): TrialBalance
     rows,
     totalDebit,
     totalCredit,
+    // Assets − liabilities, less any one-time Net Position closing dated in this
+    // month. The closing moves ONLY this line: every row above keeps its own
+    // value, and no cash, stock, receivable or payable record is touched.
+    netPosition: round2(totalDebit - totalCredit - netBalanceClosingOffset(data, period)),
     balanced: Math.abs(totalDebit - totalCredit) < 1,
   };
+}
+
+/** The closing amount that brings the Trial Balance's Net Position to 0. */
+export function netPositionClosingAmountFor(data: DataSet, period: Period): number {
+  const tb = computeTrialBalance(data, period);
+  return round2(tb.netPosition + netBalanceClosingOffset(data, period));
 }
 
 /**
