@@ -1073,6 +1073,23 @@ export function profitClosingOffset(data: DataSet, period: Period, cumulative = 
   );
 }
 
+/**
+ * The closing amount that brings reported Profit to 0 as at `period`.
+ *
+ * Works for a LOSS as well as a gain: the amount is simply the figure on show
+ * (a loss gives a negative closing), and profit = trading − offset then lands
+ * on 0 either way. Adding any existing closing back first means re-zeroing a
+ * month replaces its closing rather than stacking a second one on top.
+ */
+export function profitClosingAmountFor(data: DataSet, period: Period): number {
+  return round2(computeProfitLoss(data, period) + profitClosingOffset(data, period));
+}
+
+/** The closing amount that brings reported Total Expense to 0 as at `period`. */
+export function expenseClosingAmountFor(data: DataSet, period: Period): number {
+  return round2(computeExpenseNet(data, period).expense + expenseClosingOffset(data, period));
+}
+
 /** Sum of Expense closings dated IN `period` (per-month, like profit). */
 export function expenseClosingOffset(data: DataSet, period: Period): number {
   return round2(

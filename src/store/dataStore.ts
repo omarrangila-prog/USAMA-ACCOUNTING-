@@ -33,8 +33,8 @@ import {
   computeFinancials,
   avgCostFor,
   computeProfitLoss,
-  profitClosingOffset,
-  expenseClosingOffset,
+  profitClosingAmountFor,
+  expenseClosingAmountFor,
   computeExpenseNet,
 } from '@/lib/accounting';
 import { uid, now, periodOf, todayISO, round2, monthName, normalizeDenomination, normalizeName, shiftDateToPeriod, lastDateOfPeriod } from '@/lib/utils';
@@ -871,12 +871,11 @@ export const useData = create<DataStore>((set, get) => ({
       // Offset = whatever Profit currently reads, so the figure lands on 0.
       // Re-zeroing an already-closed month must not double up, so any existing
       // closing for the month is replaced rather than added to.
-      const current = computeProfitLoss(data, p);
+      const gross = profitClosingAmountFor(data, p);
       await Promise.all(
         get().profitClosings.filter((c) => c.month === p.month && c.year === p.year)
           .map((c) => removeDoc(u, 'profitClosings', c.id))
       );
-      const gross = round2(current + profitClosingOffset(data, p));
       if (gross !== 0) {
         const rec: ProfitClosing = {
           id: uid(), date, month: p.month, year: p.year, amount: gross,
@@ -892,9 +891,7 @@ export const useData = create<DataStore>((set, get) => ({
       // (before any existing closing), replacing rather than stacking. Totals
       // are continuous, so a per-month sum here would leave everything recorded
       // before this month still showing.
-      const gross = round2(
-        computeExpenseNet(data, p).expense + expenseClosingOffset(data, p)
-      );
+      const gross = expenseClosingAmountFor(data, p);
       await Promise.all(
         get().expenseClosings.filter((c) => c.month === p.month && c.year === p.year)
           .map((c) => removeDoc(u, 'expenseClosings', c.id))
