@@ -71,7 +71,7 @@ export function Stock() {
     // (same source as Purchase Qty, just the amount). Presentation only.
     const purchaseValueOf = (id: string) =>
       data.purchases
-        .filter((p) => p.bondTypeId === id && p.month === period.month && p.year === period.year)
+        .filter((p) => p.bondTypeId === id && p.year * 12 + p.month <= period.year * 12 + period.month)
         .reduce((a, p) => a + p.amount, 0);
     const rows = movementRaw.map((m) => ({
       ...m,
@@ -93,7 +93,7 @@ export function Stock() {
   }, [movementRaw, data, period, sort]);
 
   const bondName = (id: string) => bondTypes.find((b) => b.id === id)?.name ?? '—';
-  const inPeriod = (r: { month: number; year: number }) => r.month === period.month && r.year === period.year;
+  const inPeriod = (r: { month: number; year: number }) => r.year * 12 + r.month <= period.year * 12 + period.month;
 
   // Flatten every stock-affecting record into dated rows, OLDEST → NEWEST, with
   // a running Remaining Stock (all denominations combined, per the spec columns).

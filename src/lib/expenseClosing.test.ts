@@ -6,10 +6,15 @@ import {
 import type { Expense } from '@/types';
 
 /**
- * One-time Expense Closing: a dated closing is subtracted from the month's
- * expense total, bringing reported Total Expense to 0 for that month. The
- * expense RECORDS are never touched, Cash in Hand is unaffected (expenses don't
- * move cash in this book), and the closing does not bleed into other months.
+ * One-time Expense Closing: a dated closing is subtracted from the running
+ * expense total, bringing reported Total Expense to 0 as at that month. The
+ * expense RECORDS are never touched and Cash in Hand is unaffected (expenses
+ * don't move cash in this book).
+ *
+ * Totals are continuous, so the August figure includes July's expenses too, and
+ * the offset must keep applying in later months — otherwise the expenses it
+ * cancelled would reappear in September's running total a month later. It does
+ * NOT reach backwards into a month before it.
  */
 const now = Date.now();
 const meta = (m: number) => ({ month: m, year: 2026, createdAt: now, updatedAt: now });
@@ -27,50 +32,61 @@ const AUG = { month: 8, year: 2026 };
 const JUL = { month: 7, year: 2026 };
 
 describe('Expense Closing adjustment', () => {
-  it('without a closing, the month shows its full expense total', () => {
-    expect(computeExpenseNet(base, AUG).expense).toBe(42000);
+  it('without a closing, August shows July + August expenses', () => {
+    expect(computeExpenseNet(base, AUG).expense).toBe(51000);   // 30000 + 12000 + 9000
+    expect(computeExpenseNet(base, JUL).expense).toBe(9000);
   });
 
-  it('a closing equal to the total brings reported Total Expense to 0', () => {
-    const data = { ...base, expenseClosings: [closing(8, 42000)] };
+  it('a closing equal to the running total brings Total Expense to 0', () => {
+    const data = { ...base, expenseClosings: [closing(8, 51000)] };
     expect(computeExpenseNet(data, AUG).expense).toBe(0);
     expect(computeDashboard(data, AUG).totalExpense).toBe(0);
   });
 
   it('income is NOT touched by an expense closing', () => {
-    const data = { ...base, expenseClosings: [closing(8, 42000)] };
+    const data = { ...base, expenseClosings: [closing(8, 51000)] };
     expect(computeExpenseNet(data, AUG).income).toBe(5000);
     expect(computeExpenseNet(data, AUG).net).toBe(5000);
   });
 
   it('the expense records themselves survive — nothing is deleted', () => {
-    const data = { ...base, expenseClosings: [closing(8, 42000)] };
+    const data = { ...base, expenseClosings: [closing(8, 51000)] };
     expect(data.expenses!.filter((e) => e.month === 8 && e.kind === 'expense')).toHaveLength(2);
   });
 
-  it('is PER-MONTH: an August closing does not zero July', () => {
-    const data = { ...base, expenseClosings: [closing(8, 42000)] };
+  it('does not reach backwards: an August closing leaves July alone', () => {
+    const data = { ...base, expenseClosings: [closing(8, 51000)] };
     expect(computeExpenseNet(data, JUL).expense).toBe(9000);
     expect(expenseClosingOffset(data, JUL)).toBe(0);
+  });
+
+  it('keeps applying in later months, so the zeroed expenses stay zeroed', () => {
+    const data = {
+      ...base,
+      expenses: [...base.expenses!, expense('e9', 9, 4000)],
+      expenseClosings: [closing(8, 51000)],
+    };
+    // September shows only September's own 4,000 — August's 51,000 stays cancelled.
+    expect(computeExpenseNet(data, { month: 9, year: 2026 }).expense).toBe(4000);
   });
 
   it('expenses added AFTER the closing accumulate from 0 again', () => {
     const data = {
       ...base,
       expenses: [...base.expenses!, expense('e4', 8, 7500)],
-      expenseClosings: [closing(8, 42000)],
+      expenseClosings: [closing(8, 51000)],
     };
     expect(computeExpenseNet(data, AUG).expense).toBe(7500);
   });
 
   it('Cash in Hand is unaffected by an expense closing', () => {
     const noClosing = computeCashBookSummary(base, AUG).cashInHand;
-    const withClosing = computeCashBookSummary({ ...base, expenseClosings: [closing(8, 42000)] }, AUG).cashInHand;
+    const withClosing = computeCashBookSummary({ ...base, expenseClosings: [closing(8, 51000)] }, AUG).cashInHand;
     expect(withClosing).toBe(noClosing);
   });
 
-  it('no closings at all behaves exactly as before (offset is 0)', () => {
+  it('no closings at all leaves the running total untouched', () => {
     expect(expenseClosingOffset(base, AUG)).toBe(0);
-    expect(computeExpenseNet(base, AUG).expense).toBe(42000);
+    expect(computeExpenseNet(base, AUG).expense).toBe(51000);
   });
 });

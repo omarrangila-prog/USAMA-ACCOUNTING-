@@ -84,24 +84,28 @@ export function Reports() {
     });
   }, [rData, rp]);
 
-  // Financial-year summary: each month's Sales, Purchases and Profit (same
-  // per-month engine functions), plus a year total. Months with no activity are
-  // hidden so the table stays clean. Lets the user see the whole year at a
-  // glance while each month keeps its own figures.
+  // Running position as at the end of each month: Sales, Purchases and Profit
+  // are continuous totals, so each row is everything up to that month rather
+  // than the month in isolation. Months that add nothing are hidden.
+  //
+  // The bottom row is therefore the LAST row's figures, not a sum — adding
+  // running totals together would count every month once per later month.
   const yearSummary = useMemo(() => {
-    const rows = MONTHS.map((_, i) => {
+    const upTo = (r: { month: number; year: number }, m: number) =>
+      r.year * 12 + r.month <= period.year * 12 + m;
+    const all = MONTHS.map((_, i) => {
       const m = i + 1;
-      const p = { month: m, year: period.year };
-      const inP = (r: { month: number; year: number }) => r.month === m && r.year === period.year;
-      const sales = round2(data.sales.filter(inP).reduce((a, s) => a + s.amount, 0));
-      const purchases = round2(data.purchases.filter(inP).reduce((a, s) => a + s.amount, 0));
-      const profit = computeProfitLoss(data, p);
+      const sales = round2(data.sales.filter((r) => upTo(r, m)).reduce((a, s) => a + s.amount, 0));
+      const purchases = round2(data.purchases.filter((r) => upTo(r, m)).reduce((a, s) => a + s.amount, 0));
+      const profit = computeProfitLoss(data, { month: m, year: period.year });
       return { month: m, sales, purchases, profit };
-    }).filter((r) => r.sales !== 0 || r.purchases !== 0 || r.profit !== 0);
-    const total = rows.reduce(
-      (a, r) => ({ sales: a.sales + r.sales, purchases: a.purchases + r.purchases, profit: a.profit + r.profit }),
-      { sales: 0, purchases: 0, profit: 0 }
-    );
+    });
+    // Keep a month only when it moved the running figure (or is the first with data).
+    const rows = all.filter((r, i) => {
+      const prev = i > 0 ? all[i - 1] : { sales: 0, purchases: 0, profit: 0 };
+      return r.sales !== prev.sales || r.purchases !== prev.purchases || r.profit !== prev.profit;
+    });
+    const total = rows.length ? rows[rows.length - 1] : { sales: 0, purchases: 0, profit: 0 };
     return { rows, total };
   }, [data, period.year]);
 
@@ -175,7 +179,7 @@ export function Reports() {
           whole year is visible while each month keeps its own figures. */}
       {yearSummary.rows.length > 0 && (
         <div className="card" style={{ marginBottom: 18 }}>
-          <div className="section-title"><Icon name="calendar" size={16} /> Financial Year {period.year} · Month-by-Month</div>
+          <div className="section-title"><Icon name="calendar" size={16} /> Financial Year {period.year} · Running Position by Month</div>
           <div className="table-wrap">
             <table className="grid stack-sm">
               <thead>
@@ -198,7 +202,7 @@ export function Reports() {
               </tbody>
               <tfoot>
                 <tr>
-                  <td><strong>Year Total</strong></td>
+                  <td><strong>Current Total</strong></td>
                   <td className="num mono">{formatMoney(yearSummary.total.sales, cur)}</td>
                   <td className="num mono">{formatMoney(yearSummary.total.purchases, cur)}</td>
                   <td className={cx('num mono', yearSummary.total.profit < 0 && 'neg')}>{formatMoney(yearSummary.total.profit, cur)}</td>

@@ -77,7 +77,7 @@ export interface ProfitClosing {
 
 /** Net effect of expenses/income in a period: income - expense. */
 export function computeExpenseNet(data: DataSet, period: Period): { expense: number; income: number; net: number } {
-  const rows = (data.expenses ?? []).filter((e) => e.month === period.month && e.year === period.year);
+  const rows = (data.expenses ?? []).filter((e) => inPeriod(e, period));
   const gross = round2(rows.filter((e) => e.kind === 'expense').reduce((a, e) => a + e.amount, 0));
   // Minus any one-time Expense Closing dated in this month. Applied HERE so the
   // Dashboard, Business Summary and every report agree on one figure — the same
@@ -95,7 +95,24 @@ function isOpeningPeriod(opening: OpeningBalances | null | undefined, p: Period)
   return b === a;
 }
 
-const inPeriod = (r: { month: number; year: number }, p: Period) =>
+/**
+ * CONTINUOUS TOTALS — the model this book runs on.
+ *
+ * Figures never reset at a month or a year boundary: every total is everything
+ * recorded up to and including the selected period, so `period` means "as at
+ * this month" rather than "during this month". Sales, purchases, expenses,
+ * cash, party balances and stock all keep running.
+ *
+ * The consequence to keep in mind when reading the rest of this file: because
+ * the window already covers all prior history, opening balances must NOT also
+ * carry the previous month's closing — that would count every earlier month
+ * twice. The only opening that survives is the imported migration opening,
+ * which represents stock and balances predating the system.
+ */
+const inPeriod = (r: { month: number; year: number }, p: Period) => upToPeriod(r, p);
+
+/** Strictly within one month — for the few places that genuinely need it. */
+export const inSingleMonth = (r: { month: number; year: number }, p: Period) =>
   r.month === p.month && r.year === p.year;
 
 /** True when a record's period is on or before `p` (cumulative "up to & including"). */
@@ -141,8 +158,12 @@ export const YEAR_PERIOD = (year: number): Period => ({ month: 12, year });
  */
 export function yearDataset(data: DataSet, year: number): DataSet {
   const p = YEAR_PERIOD(year);
+  // Totals are continuous, so "the year view" means AS AT the end of that year —
+  // everything up to and including December. Filtering to `r.year === year`
+  // alone would drop the carried position from earlier years and contradict
+  // every other screen.
   const keep = <T extends { month: number; year: number }>(rows: T[] | undefined): T[] =>
-    (rows ?? []).filter((r) => r.year === year).map((r) => ({ ...r, month: p.month, year }));
+    (rows ?? []).filter((r) => r.year <= year).map((r) => ({ ...r, month: p.month, year }));
   return {
     ...data,
     purchases: keep(data.purchases),
@@ -153,8 +174,8 @@ export function yearDataset(data: DataSet, year: number): DataSet {
     partyAdjustments: keep(data.partyAdjustments),
     // Stamp closings' profit-closing offsets into the year period so the year
     // Net Profit reflects them too.
-    profitClosings: (data.profitClosings ?? []).filter((c) => c.year === year).map((c) => ({ ...c, month: p.month, year })),
-    expenseClosings: (data.expenseClosings ?? []).filter((c) => c.year === year).map((c) => ({ ...c, month: p.month, year })),
+    profitClosings: (data.profitClosings ?? []).filter((c) => c.year <= year).map((c) => ({ ...c, month: p.month, year })),
+    expenseClosings: (data.expenseClosings ?? []).filter((c) => c.year <= year).map((c) => ({ ...c, month: p.month, year })),
   };
 }
 
@@ -172,120 +193,40 @@ function openingStockFor(
   bondTypeId: string,
   period: Period,
   data: DataSet
-): { qty: number; avgCost: number } {
-  // Find the closing for the immediately preceding period, if any.
-  const prev = prevPeriod(period);
-  const closing = data.closings.find(
-    (c) => c.month === prev.month && c.year === prev.year
-  );
-  if (closing) {
-    const line = closing.stockSnapshot.find((s) => s.bondTypeId === bondTypeId);
-    return { qty: line?.closingQty ?? 0, avgCost: line?.avgCost ?? 0 };
-  }
-  const migrated = migratedOpeningStock(bondTypeId, period, data.opening);
-  if (migrated) return migrated;
-  if (!hasHistoryBefore(data, prev)) return NO_CARRY;
-  // No snapshot for last month. Stock is a physical fact — the bonds are on the
-  // shelf whether or not anyone pressed "Close Month" — so derive the carry from
-  // the transactions themselves instead of reporting 0. (Reporting 0 here is
-  // what made a month with real stock open empty.)
-  return derivedOpeningStock(bondTypeId, prev, data);
+): Carry {
+  // Continuous totals: every purchase and sale ever recorded is already inside
+  // the period window, so the ONLY opening is stock that predates the system —
+  // the imported migration opening. Carrying a previous month's closing here as
+  // well would double-count every earlier month.
+  return migratedOpeningStock(bondTypeId, period, data.opening) ?? NO_CARRY;
 }
 
-/**
- * Opening stock for EVERY bond, rebuilt from every purchase / sale / adjustment
- * up to and including `upTo` and seeded by an imported opening where one
- * applies. Weighted average over the whole history — the same costing the
- * month-by-month walk produces, since sales don't move the average.
- *
- * Built for all bonds in ONE pass: computeStock needs each bond's opening, and
- * scanning the whole history separately per bond turns a report into O(bonds x
- * records).
- */
 type Carry = { qty: number; avgCost: number };
-
-function derivedOpeningStockAll(upTo: Period, data: DataSet): Map<string, Carry> {
-  const within = (r: { month: number; year: number }) => upToPeriod(r, upTo);
-  const acc = new Map<string, { inQty: number; inValue: number; outQty: number }>();
-  const at = (id: string) => {
-    let e = acc.get(id);
-    if (!e) { e = { inQty: 0, inValue: 0, outQty: 0 }; acc.set(id, e); }
-    return e;
-  };
-
-  const op = data.opening;
-  if (op && op.asOf.year * 12 + op.asOf.month <= upTo.year * 12 + upTo.month) {
-    op.stock.forEach((l) => { const e = at(l.bondTypeId); e.inQty += l.qty; e.inValue += l.qty * l.avgCost; });
-  }
-  data.purchases.forEach((r) => {
-    if (!within(r)) return;
-    const e = at(r.bondTypeId); e.inQty += r.quantity; e.inValue += r.amount;
-  });
-  data.sales.forEach((r) => { if (within(r)) at(r.bondTypeId).outQty += r.quantity; });
-  (data.stockAdjustments ?? []).forEach((r) => {
-    if (!within(r)) return;
-    const e = at(r.bondTypeId);
-    if (r.quantity > 0) { e.inQty += r.quantity; e.inValue += r.quantity * r.unitCost; }
-    else e.outQty += Math.abs(r.quantity);
-  });
-
-  const out = new Map<string, Carry>();
-  acc.forEach((e, id) => out.set(id, {
-    qty: round2(e.inQty - e.outQty),
-    avgCost: round2(e.inQty > 0 ? e.inValue / e.inQty : 0),
-  }));
-  return out;
-}
 
 const NO_CARRY: Carry = { qty: 0, avgCost: 0 };
 
-/**
- * Is there anything at all to carry from on/before `upTo`? Short-circuits on
- * the first hit, so the common case costs almost nothing — and when a workspace
- * has no earlier history (a single active month) it skips building the carry
- * maps entirely rather than walking every collection to produce an empty
- * result.
- */
-function hasHistoryBefore(data: DataSet, upTo: Period): boolean {
-  const key = upTo.year * 12 + upTo.month;
-  const any = (rows: { month: number; year: number }[] | undefined) =>
-    (rows ?? []).some((r) => r.year * 12 + r.month <= key);
-  if (data.opening && data.opening.asOf.year * 12 + data.opening.asOf.month <= key) return true;
-  return any(data.purchases) || any(data.sales) || any(data.cash)
-    || any(data.stockAdjustments) || any(data.partyAdjustments);
-}
-
-function derivedOpeningStock(bondTypeId: string, upTo: Period, data: DataSet): Carry {
-  return derivedOpeningStockAll(upTo, data).get(bondTypeId) ?? NO_CARRY;
-}
-
-/** Imported opening stock for a bond, applied only in the migration period. */
+/** Imported opening stock for a bond, from its migration month onwards. */
 function migratedOpeningStock(
   bondTypeId: string,
   period: Period,
   opening: OpeningBalances | null | undefined
 ): { qty: number; avgCost: number } | null {
-  if (!isOpeningPeriod(opening, period)) return null;
-  const line = opening!.stock.find((s) => s.bondTypeId === bondTypeId);
+  // Applies from the migration month ONWARDS: pre-system stock is part of the
+  // opening for every later period too, since totals never reset.
+  if (!opening) return null;
+  if (opening.asOf.year * 12 + opening.asOf.month > period.year * 12 + period.month) return null;
+  const line = opening.stock.find((s) => s.bondTypeId === bondTypeId);
   return line ? { qty: line.qty, avgCost: line.avgCost } : { qty: 0, avgCost: 0 };
 }
 
 /**
- * Build the stock report for a period using weighted-average costing.
- * Opening carried from previous month's closing snapshot.
+ * Build the stock report AS AT a period using weighted-average costing.
+ * Purchases/sales cover everything up to and including it; the only opening is
+ * pre-system stock from a migration.
  */
 export function computeStock(data: DataSet, period: Period): StockLine[] {
-  // When last month has no closing snapshot the opening is derived from the
-  // whole history — build that ONCE for every bond rather than per bond.
-  const prev = prevPeriod(period);
-  const hasClosing = data.closings.some((c) => c.month === prev.month && c.year === prev.year);
-  const migrating = isOpeningPeriod(data.opening, period);
-  const carried = !hasClosing && !migrating && hasHistoryBefore(data, prev)
-    ? derivedOpeningStockAll(prev, data)
-    : null;
-
   return data.bondTypes.map((bt) => {
-    const opening = carried ? carried.get(bt.id) ?? NO_CARRY : openingStockFor(bt.id, period, data);
+    const opening = openingStockFor(bt.id, period, data);
     const purchases = data.purchases.filter(
       (p) => p.bondTypeId === bt.id && inPeriod(p, period)
     );
@@ -466,59 +407,6 @@ export function computeBusinessSummary(data: DataSet, period: Period): BusinessS
  * there is no migration, in the party's first-ever period via openingBalance).
  * This prevents the imported opening from being re-counted every month.
  */
-function openingPartyBalance(
-  party: Party,
-  period: Period,
-  data: DataSet
-): number {
-  const prev = prevPeriod(period);
-  const closing = data.closings.find(
-    (c) => c.month === prev.month && c.year === prev.year
-  );
-  if (closing) {
-    const found = closing.partyBalances.find((b) => b.partyId === party.id);
-    return found?.balance ?? 0;
-  }
-  const opening = data.opening;
-  // The migration period itself takes the imported opening as-is.
-  if (opening && isOpeningPeriod(opening, period)) {
-    // The opening snapshot's per-party balances are the source of truth (the
-    // Opening Wizard writes them here); fall back to the party record's field.
-    const snap = opening.parties?.find((p) => p.partyId === party.id);
-    return snap ? snap.balance : party.openingBalance ?? 0;
-  }
-  // No snapshot for last month: what a party owes doesn't disappear because a
-  // month wasn't closed, so rebuild it from their movements up to last month.
-  return derivedPartyBalance(party, prev, data);
-}
-
-/**
- * Every party's balance rebuilt from their cash movements / adjustments up to
- * `upTo`. One pass for all parties — see derivedOpeningStockAll for why.
- */
-function derivedPartyBalanceAll(upTo: Period, data: DataSet): Map<string, number> {
-  const within = (r: { month: number; year: number }) => upToPeriod(r, upTo);
-  const bal = new Map<string, number>();
-  data.parties.forEach((party) => {
-    const snap = data.opening?.parties?.find((p) => p.partyId === party.id);
-    bal.set(party.id, snap ? snap.balance : party.openingBalance ?? 0);
-  });
-  data.cash.forEach((c) => {
-    if (!within(c) || !bal.has(c.partyId)) return;
-    bal.set(c.partyId, bal.get(c.partyId)! + (c.direction === 'received' ? c.amount : -c.amount));
-  });
-  (data.partyAdjustments ?? []).forEach((a) => {
-    if (!within(a) || !bal.has(a.partyId)) return;
-    bal.set(a.partyId, bal.get(a.partyId)! + a.amount);
-  });
-  bal.forEach((v, k) => bal.set(k, round2(v)));
-  return bal;
-}
-
-function derivedPartyBalance(party: Party, upTo: Period, data: DataSet): number {
-  return derivedPartyBalanceAll(upTo, data).get(party.id) ?? round2(party.openingBalance ?? 0);
-}
-
 export interface PartyBalance {
   partyId: string;
   name: string;
@@ -561,28 +449,15 @@ export function partyCashTotals(data: DataSet, partyId: string, period: Period):
  * Sales & Purchases do NOT affect Receivable/Payable — they belong to the Total
  * Sales / Purchases figures only.
  */
-export function computePartyBalances(data: DataSet, period: Period, cumulative = false): PartyBalance[] {
-  // Same hoist as computeStock: derive every party's carried opening once.
-  const prev = prevPeriod(period);
-  const hasClosing = data.closings.some((c) => c.month === prev.month && c.year === prev.year);
-  const migrating = isOpeningPeriod(data.opening, period);
-  const carried = !cumulative && !hasClosing && !migrating && hasHistoryBefore(data, prev)
-    ? derivedPartyBalanceAll(prev, data)
-    : null;
-
+export function computePartyBalances(data: DataSet, period: Period, _cumulative = false): PartyBalance[] {
   return data.parties.map((party) => {
-    // Selected-month mode carries the prior closing as an opening snapshot.
-    // Cumulative mode starts from the party's base opening balance and applies
-    // EVERY cash/adjustment up to & including the period — a true running total
-    // that continues across months (used by the Cash Book). Both agree in a
-    // single-month workspace.
-    const within = (r: { month: number; year: number }) =>
-      cumulative ? upToPeriod(r, period) : inPeriod(r, period);
-    const opening = cumulative
-      ? (party.openingBalance ?? 0)
-      : carried
-        ? carried.get(party.id) ?? round2(party.openingBalance ?? 0)
-        : openingPartyBalance(party, period, data);
+    // Continuous totals: every cash movement and adjustment up to & including
+    // the period counts, so the opening is the party's pre-system balance only
+    // (the migration snapshot where one exists, else the party record's field).
+    // Carrying a prior closing on top would count earlier months twice.
+    const within = (r: { month: number; year: number }) => inPeriod(r, period);
+    const snap = data.opening?.parties?.find((o) => o.partyId === party.id);
+    const opening = round2(snap ? snap.balance : party.openingBalance ?? 0);
     let balance = opening;
 
     // Cash Receivable (received) => +receivable; Cash Payable (paid) => -payable.
@@ -1005,7 +880,9 @@ export function computeLedger(
   const entries: LedgerEntry[] = [];
   if (!party) return entries;
 
-  const opening = openingPartyBalance(party, period, data);
+  // Pre-system opening only — the entries below already span all history.
+  const snap = data.opening?.parties?.find((o) => o.partyId === party.id);
+  const opening = round2(snap ? snap.balance : party.openingBalance ?? 0);
   entries.push({
     id: 'opening',
     partyId,

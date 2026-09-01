@@ -34,6 +34,7 @@ import {
   avgCostFor,
   computeProfitLoss,
   profitClosingOffset,
+  expenseClosingOffset,
   computeExpenseNet,
 } from '@/lib/accounting';
 import { uid, now, periodOf, todayISO, round2, monthName, normalizeDenomination, normalizeName, shiftDateToPeriod, lastDateOfPeriod } from '@/lib/utils';
@@ -887,12 +888,12 @@ export const useData = create<DataStore>((set, get) => ({
     }
 
     if (which.expense) {
-      // Same shape: offset the month's GROSS expense total (before any existing
-      // closing), replacing rather than stacking.
+      // Same shape: offset the RUNNING gross expense total as at this month
+      // (before any existing closing), replacing rather than stacking. Totals
+      // are continuous, so a per-month sum here would leave everything recorded
+      // before this month still showing.
       const gross = round2(
-        (data.expenses ?? [])
-          .filter((e) => e.month === p.month && e.year === p.year && e.kind === 'expense')
-          .reduce((a, e) => a + e.amount, 0)
+        computeExpenseNet(data, p).expense + expenseClosingOffset(data, p)
       );
       await Promise.all(
         get().expenseClosings.filter((c) => c.month === p.month && c.year === p.year)

@@ -70,11 +70,12 @@ describe('Cash Book — unified transaction view', () => {
     expect(rows.find((r) => r.type === 'Adjustment')!.cashDelta).toBe(0);
   });
 
-  it('only includes the selected period', () => {
-    const other = { ...purchase('old', 500, 'cash'), month: 6 };
-    const data = dataset({ purchases: [other, purchase('p', 100, 'cash')] });
+  it('includes everything up to the period, and nothing after it', () => {
+    const earlier = { ...purchase('old', 500, 'cash'), month: 6 };
+    const later = { ...purchase('future', 900, 'cash'), month: 8 };
+    const data = dataset({ purchases: [earlier, later, purchase('p', 100, 'cash')] });
     const rows = computeTransactionBook(data, P);
-    expect(rows).toHaveLength(1);
-    expect(rows[0].refId).toBe('p');
+    // Totals are continuous: June carries into July, August has not happened yet.
+    expect(rows.map((r) => r.refId).sort()).toEqual(['old', 'p']);
   });
 });
