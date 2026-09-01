@@ -2,7 +2,9 @@
  * Settle a party's outstanding balance to ZERO.
  *
  * Writes ONE partyAdjustment marked `settlement: true` — exactly what the app's
- * Balances → Receive/Pay button writes. It clears the party balance and does
+ * Balances → Receive/Pay button writes — and then refreshes any monthly closing
+ * snapshot from that month onwards, which the app would otherwise keep reading
+ * as the next month's opening balance. It clears the party balance and does
  * NOT touch Cash in Hand (the cash was already counted when the original entry
  * was made). Reversible: delete that one document.
  *
@@ -100,9 +102,34 @@ if (!apply) { console.log('\nDRY RUN. Re-run with --apply to write it.'); proces
 
 await setDoc(doc(db, 'users', WORKSPACE, 'partyAdjustments', rec.id), rec);
 const after = await read('partyAdjustments');
-const newBalance = (party.openingBalance ?? 0)
-  + cash.filter((c) => c.partyId === party.id).reduce((a, c) => a + (c.direction === 'received' ? c.amount : -c.amount), 0)
-  + after.filter((a) => a.partyId === party.id).reduce((a, x) => a + x.amount, 0);
-console.log(`\nWRITTEN. Balance now ${newBalance.toFixed(2)}`);
-console.log(`Undo: delete users/${WORKSPACE}/partyAdjustments/${rec.id}`);
+const balanceAt = (upToKey) => (party.openingBalance ?? 0)
+  + cash.filter((c) => c.partyId === party.id && c.year * 12 + c.month <= upToKey)
+      .reduce((a, c) => a + (c.direction === 'received' ? c.amount : -c.amount), 0)
+  + after.filter((a) => a.partyId === party.id && a.year * 12 + a.month <= upToKey)
+      .reduce((a, x) => a + x.amount, 0);
+console.log(`\nWRITTEN. Balance now ${balanceAt(9e9).toFixed(2)}`);
+
+// A closed month stores a snapshot of every party balance, and the NEXT month's
+// opening is read from it. Writing an adjustment from outside the app doesn't
+// re-run its resync, so any snapshot from this month onwards would still show
+// the OLD balance and the app would keep displaying it. Patch them.
+const closings = await read('monthlyClosings');
+const settleKey = rec.year * 12 + rec.month;
+const stale = closings.filter((c) => c.year * 12 + c.month >= settleKey);
+if (stale.length) {
+  for (const c of stale) {
+    const k = c.year * 12 + c.month;
+    const fresh = balanceAt(k);
+    const rows = (c.partyBalances ?? []).map((b) =>
+      b.partyId === party.id ? { ...b, balance: fresh } : b);
+    if (!rows.some((b) => b.partyId === party.id)) rows.push({ partyId: party.id, balance: fresh });
+    await setDoc(doc(db, 'users', WORKSPACE, 'monthlyClosings', c.id), { ...c, partyBalances: rows });
+    console.log(`  refreshed closing ${c.id}: "${party.name}" -> ${fresh.toFixed(2)}`);
+  }
+} else {
+  console.log('  no closed months from this date onwards — nothing to refresh.');
+}
+
+console.log(`\nUndo: delete users/${WORKSPACE}/partyAdjustments/${rec.id}`);
+console.log('      then Reports -> that month -> Refresh Summary');
 process.exit(0);
