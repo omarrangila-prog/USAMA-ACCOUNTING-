@@ -51,16 +51,16 @@ describe('Profit independence from Receivable / Payable / Cash', () => {
     expect(computeBusinessSummary(withProfit, P).totalProfitLoss).toBe(300000);
   });
 
-  it('expense affects neither cash nor profit (trading-only profit)', () => {
-    // Cash sale 700k with 200k cost → trading 500k. Expense 50k changes nothing.
+  it('expense comes off profit but never off cash', () => {
+    // Cash sale 700k with 200k cost → trading 500k. Expense 50k → profit 450k.
     const data = dataset({
       sales: [cashSale('s', 700000, 200000)],
       purchases: [cashPurchase('cp', 200000)],
       expenses: [expense('e', 50000)],
     });
-    // Physical cash = +700k sale − 200k purchase = 500k.
+    // Physical cash = +700k sale − 200k purchase = 500k, untouched by the expense.
     expect(computeCashInHand(data, P)).toBe(500000);
-    // Profit = trading only = 700k − 200k = 500k (expense excluded).
-    expect(computeProfitLoss(data, P)).toBe(500000);
+    // Profit = trading 500k − expense 50k. An expense is spent money, not a payable.
+    expect(computeProfitLoss(data, P)).toBe(450000);
   });
 });

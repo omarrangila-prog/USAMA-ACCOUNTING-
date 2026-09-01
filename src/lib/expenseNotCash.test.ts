@@ -19,26 +19,27 @@ const dataset = (over: Partial<DataSet>): DataSet => ({
 } as DataSet);
 
 describe('Expense treatment', () => {
-  it('example: expense 2,000 → neither physical cash NOR profit affected', () => {
+  it('example: expense 2,000 → cash untouched, profit reduced by 2,000', () => {
     const data = dataset({ expenses: [expense('e', 2000)] });
-    // Expense/Income feature removed from UI; profit is trading-only, so an
-    // expense record affects neither cash nor profit.
+    // An expense is money spent, not money owed: it never moves physical cash
+    // and never becomes a payable — it comes off Profit.
     expect(computeCashInHand(data, P)).toBe(0);
     expect(computeFinancials(data, P).cashInHand).toBe(0);
-    expect(computeProfitLoss(data, P)).toBe(0);
+    expect(computeProfitLoss(data, P)).toBe(-2000);
   });
 
-  it('expense affects neither PROFIT nor physical cash (trading-only profit)', () => {
-    // Cash sale 700k (cost 0 → trading 700k). Expense 100k leaves both at 700k.
+  it('expense comes off PROFIT but never off physical cash', () => {
+    // Cash sale 700k (cost 0 → trading 700k). Expense 100k → profit 600k,
+    // while physical cash stays at the full 700k.
     const data = dataset({ sales: [cashSale('s', 700000)], expenses: [expense('e', 100000)] });
     expect(computeCashInHand(data, P)).toBe(700000);
-    expect(computeProfitLoss(data, P)).toBe(700000);       // trading only
+    expect(computeProfitLoss(data, P)).toBe(600000);
   });
 
-  it('income does NOT affect profit', () => {
+  it('other income adds to profit, and still never to cash', () => {
     const data = dataset({ expenses: [income('i', 50000)] });
     expect(computeCashInHand(data, P)).toBe(0);
-    expect(computeProfitLoss(data, P)).toBe(0);
+    expect(computeProfitLoss(data, P)).toBe(50000);
   });
 
   it('Trial Balance shows an Expenses account (not inside Cash in Hand)', () => {

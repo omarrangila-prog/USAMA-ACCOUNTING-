@@ -218,7 +218,7 @@ describe('Test 24 — Crash / offline recovery', () => {
 });
 
 describe('Test 25 — 12-month simulation with monthly closing & carry-forward', () => {
-  it('balances accumulate month on month and stay correct all year', () => {
+  it('opening = prior closing for every month; balances stay correct all year', () => {
     const parties = [party('A', 'Ali'), party('B', 'Bilal')];
     // A grows as a receivable, B as a payable, cumulatively across the year —
     // via monthly manual adjustments (built below).
@@ -242,12 +242,11 @@ describe('Test 25 — 12-month simulation with monthly closing & carry-forward',
       const a = bals.find((b) => b.partyId === 'A')!;
       const b = bals.find((x) => x.partyId === 'B')!;
 
-      // Totals are continuous, so `opening` is the PRE-SYSTEM balance (zero
-      // here) for every month — the accumulation lives in `balance`.
-      expect(a.opening).toBe(0);
-      expect(b.opening).toBe(0);
+      // Opening this month = closing of prior month.
+      expect(a.opening).toBe(prevAClose);
+      expect(b.opening).toBe(prevBClose);
 
-      // Balance still equals last month's close plus this month's movement.
+      // Closing balance = opening + this month's movement.
       expect(a.balance).toBe(round(prevAClose + 100000)); // +100k receivable/month
       expect(b.balance).toBe(round(prevBClose - 50000));  // -50k payable/month
 

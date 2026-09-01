@@ -21,7 +21,7 @@ export function Purchase() {
 
   const rows = useMemo(
     () => data.purchases
-      .filter((p) => p.year * 12 + p.month <= period.year * 12 + period.month)
+      .filter((p) => p.month === period.month && p.year === period.year)
       .sort((a, b) => (a.date < b.date ? 1 : -1)),
     [data.purchases, period]
   );

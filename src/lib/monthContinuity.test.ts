@@ -30,13 +30,11 @@ const JUL = { month: 7, year: 2026 };
 const AUG = { month: 8, year: 2026 };
 
 describe('Month continuity (cumulative Cash Book)', () => {
-  it('every view continues across months — nothing resets at a month boundary', () => {
-    // July: only July exists yet.
+  it('reports (single-month) show only their own month', () => {
     expect(computeTransactionBook(data, JUL).length).toBe(2);      // jul sale + jul cash
+    expect(computeTransactionBook(data, AUG).length).toBe(2);      // aug sale + aug cash
     expect(computeCashInHand(data, JUL)).toBe(6000);               // 5000 + 1000
-    // August: July's entries are still counted, and cash keeps running.
-    expect(computeTransactionBook(data, AUG).length).toBe(4);      // jul + aug
-    expect(computeCashInHand(data, AUG)).toBe(15000);              // 6000 + 9000
+    expect(computeCashInHand(data, AUG)).toBe(9000);               // 7000 + 2000 (month only)
   });
 
   it('Cash Book (cumulative) continues across months — nothing resets', () => {

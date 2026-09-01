@@ -107,8 +107,8 @@ describe('Test 9 — Dashboard vs Reports: Cash in Hand identical everywhere', (
   });
 });
 
-describe('Test 10 — June balances continue into July without a closing', () => {
-  it("June's balance continues into July; editing stays allowed by design", () => {
+describe('Test 10 — Monthly closing carries June balances into July opening', () => {
+  it("July opening = June closing; editing stays allowed by design", () => {
     // June: Ali becomes receivable 300000 via a manual receivable.
     const juneData = dataset({ parties: [party('A', 'Ali')], partyAdjustments: [adjustment('js', 'A', 300000, 6)] });
     const juneBalances = computePartyBalances(juneData, JUNE);
@@ -124,20 +124,14 @@ describe('Test 10 — June balances continue into July without a closing', () =>
 
     // July with June's closing present, no new July activity.
     const julyData = dataset({ parties: [party('A', 'Ali')], closings: [juneClosing] });
-    // A closing snapshot is no longer a source of truth: julyData carries June's
-    // snapshot but NOT June's records, and reads 0. The records are what count.
-    const july = computePartyBalances(julyData, P).find((b) => b.partyId === 'A')!;
-    expect(july.opening).toBe(0);
-    expect(july.balance).toBe(0);
+    const julyOpening = computePartyBalances(julyData, P).find((b) => b.partyId === 'A')!;
+    expect(julyOpening.opening).toBe(300000); // carried forward
+    expect(julyOpening.balance).toBe(300000);
 
-    // With June's records present the 300,000 carries into July on its own —
-    // no closing snapshot needed, because totals are continuous.
-    const carried = dataset({ parties: [party('A', 'Ali')], partyAdjustments: [adjustment('js', 'A', 300000, 6)] });
-    expect(computePartyBalances(carried, P).find((b) => b.partyId === 'A')!.balance).toBe(300000);
-
-    // The July ledger carries June's entry as a real line, not an opening row.
-    const led = computeLedger(carried, 'A', P);
-    expect(led.some((e) => e.debit === 300000 || e.credit === 300000)).toBe(true);
+    // The July ledger's opening row reflects it too.
+    const led = computeLedger(julyData, 'A', P);
+    expect(led[0].refType).toBe('opening');
+    expect(led[0].debit).toBe(300000);
   });
 });
 

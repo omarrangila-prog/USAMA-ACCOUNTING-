@@ -22,7 +22,7 @@ export function Sale() {
 
   const rows = useMemo(
     () => data.sales
-      .filter((s) => s.year * 12 + s.month <= period.year * 12 + period.month)
+      .filter((s) => s.month === period.month && s.year === period.year)
       .sort((a, b) => (a.date < b.date ? 1 : -1)),
     [data.sales, period]
   );

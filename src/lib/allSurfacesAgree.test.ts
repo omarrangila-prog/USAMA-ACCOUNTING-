@@ -14,9 +14,11 @@ import type { Purchase, Sale, CashTransaction, Expense, Party } from '@/types';
  * are all supposed to read from one engine, so a disagreement here is a real
  * reporting bug.
  *
- * SEPTEMBER is the interesting month: it has no purchases of its own. Under
- * continuous totals its average cost must still be the weighted average of
- * everything bought earlier — showing 0 there was the original defect.
+ * SEPTEMBER is the interesting month: it has no activity of its own. Its month
+ * figures (sales, purchases, cash, profit, expenses) reset to 0, while the
+ * stock position and party balances carry — and its average cost must still be
+ * the weighted average of everything bought earlier rather than 0, which was
+ * the original defect.
  */
 const now = Date.now();
 const meta = (m: number) => ({ month: m, year: 2026, createdAt: now, updatedAt: now });
@@ -63,10 +65,24 @@ describe('September — a month with no activity of its own', () => {
     expect(b1.closingValue).toBe(192000);       // 160 x 1200
   });
 
-  it('September equals August when September adds nothing', () => {
-    expect(computeStock(data, SEP)).toEqual(computeStock(data, AUG));
-    expect(computeDashboard(data, SEP).totalSale).toBe(computeDashboard(data, AUG).totalSale);
-    expect(computeCashBookSummary(data, SEP).cashInHand).toBe(computeCashBookSummary(data, AUG).cashInHand);
+  it('the month figures reset while the stock POSITION carries', () => {
+    // Month-wise: September starts fresh on sales, purchases, cash and profit.
+    expect(computeDashboard(data, SEP).totalSale).toBe(0);
+    expect(computeDashboard(data, SEP).totalPurchase).toBe(0);
+    expect(computeCashBookSummary(data, SEP).cashInHand).toBe(0);
+    expect(computeProfitLoss(data, SEP)).toBe(0);
+    expect(computeExpenseNet(data, SEP).expense).toBe(0);
+
+    // ...but the bonds on the shelf and what parties owe do NOT reset.
+    const aug = computeStock(data, AUG).find((s) => s.bondTypeId === 'b1')!;
+    const sep = computeStock(data, SEP).find((s) => s.bondTypeId === 'b1')!;
+    expect(sep.openingQty).toBe(aug.closingQty);
+    expect(sep.closingQty).toBe(aug.closingQty);
+    // Compare the BALANCES: `opening` legitimately differs (August's movements
+    // are August's opening-plus-activity; September carries them as its opening).
+    const bal = (p: typeof AUG) =>
+      computePartyBalances(data, p).map((b) => ({ partyId: b.partyId, balance: b.balance }));
+    expect(bal(SEP)).toEqual(bal(AUG));
   });
 
   it('every bond has a real average cost, none zero', () => {
@@ -151,8 +167,14 @@ describe('Zeroing one figure never disturbs another', () => {
   });
 
   it('all three at once still leaves the records intact', () => {
-    const all: DataSet = { ...data,
-      cashClosings: zeroCash.cashClosings, profitClosings: zeroProfit.profitClosings, expenseClosings: zeroExp.expenseClosings };
+    // Expense first, then profit sized against the already-zeroed expenses —
+    // the order zeroMonthFigures uses, because expenses come off Profit.
+    const step1: DataSet = { ...data, expenseClosings: zeroExp.expenseClosings };
+    const all: DataSet = {
+      ...step1,
+      cashClosings: zeroCash.cashClosings,
+      profitClosings: [{ id: 'pc', date: '2026-08-31', month: 8, year: 2026, amount: profitClosingAmountFor(step1, AUG), createdAt: now, updatedAt: now } as ProfitClosing],
+    };
     expect(computeCashBookSummary(all, AUG).cashInHand).toBe(0);
     expect(computeProfitLoss(all, AUG)).toBe(0);
     expect(computeExpenseNet(all, AUG).expense).toBe(0);

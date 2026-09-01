@@ -55,7 +55,7 @@ export function Balances({ kind }: { kind: 'receivable' | 'payable' }) {
       .filter((a) =>
         !a.settlement &&                       // genuine manual entries only
         partyExists(a.partyId) &&
-        a.year * 12 + a.month <= period.year * 12 + period.month &&
+        a.month === period.month && a.year === period.year &&
         (isRec ? a.amount > 0 : a.amount < 0))  // receivable=+, payable=-
       .sort((a, b) => (a.date < b.date ? 1 : -1)),
     [data.partyAdjustments, data.parties, period, isRec]

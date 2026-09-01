@@ -25,13 +25,6 @@ import { exportWorkbook, type Sheet } from './exportExcel';
 import { formatDate, formatNumber, monthName, round2 } from './utils';
 
 /**
- * Continuous totals: a report shows everything up to and including its period,
- * matching the engine's period rule. Reports never reset at a month boundary.
- */
-const upTo = (r: { month: number; year: number }, p: Period) =>
-  r.year * 12 + r.month <= p.year * 12 + p.month;
-
-/**
  * Strict alphabetical (A→Z) sort by party name, case-insensitive so "ali" and
  * "Ali" sort together. THE single sort used by every Balance Sheet output
  * (preview / PDF / print / Excel) plus the receivable, payable & ledger
@@ -117,14 +110,14 @@ export function buildSections(
     const totalProfit = round2(stock.reduce((a, s) => a + profitOf(s.bondTypeId), 0));
     sections.push({
       title: 'Stock Report',
-      head: ['Bond', 'Opening', 'Purchased', 'Sold', 'Closing', 'Avg Cost', 'Value', 'Profit'],
+      head: ['Bond', 'Opening', 'Purchased', 'Sold', 'Closing', 'Avg Cost (Month)', 'Value', 'Profit'],
       rows: stock.map((s) => [
         s.bondTypeName,
         formatNumber(s.openingQty),
         formatNumber(s.purchasedQty),
         formatNumber(s.soldQty),
         formatNumber(s.closingQty),
-        formatNumber(s.avgCost),
+        formatNumber(s.monthAvgCost),
         money(s.closingValue),
         money(profitOf(s.bondTypeId)),
       ]),
@@ -139,7 +132,7 @@ export function buildSections(
   }
 
   if (want('purchase')) {
-    const rows = oldestFirst(data.purchases.filter((p) => upTo(p, period)));
+    const rows = oldestFirst(data.purchases.filter((p) => p.month === period.month && p.year === period.year));
     sections.push({
       title: 'Purchase Report',
       head: ['Date', 'Party', 'Bond', 'Qty', 'Rate', 'Amount', 'Description'],
@@ -153,7 +146,7 @@ export function buildSections(
   }
 
   if (want('sale')) {
-    const rows = oldestFirst(data.sales.filter((s) => upTo(s, period)));
+    const rows = oldestFirst(data.sales.filter((s) => s.month === period.month && s.year === period.year));
     sections.push({
       title: 'Sale Report',
       head: ['Date', 'Party', 'Bond', 'Qty', 'Rate', 'Amount', 'Profit', 'Description'],
@@ -236,8 +229,8 @@ export function buildSections(
       numericCols: [1],
     });
 
-    const totalSale = data.sales.filter((s) => upTo(s, period)).reduce((a, s) => a + s.amount, 0);
-    const totalPurchase = data.purchases.filter((p) => upTo(p, period)).reduce((a, p) => a + p.amount, 0);
+    const totalSale = data.sales.filter((s) => s.month === period.month && s.year === period.year).reduce((a, s) => a + s.amount, 0);
+    const totalPurchase = data.purchases.filter((p) => p.month === period.month && p.year === period.year).reduce((a, p) => a + p.amount, 0);
     sections.push({
       title: 'Sale & Purchase',
       head: ['Type', 'Amount'],
@@ -350,7 +343,7 @@ export function buildSections(
   }
 
   if (want('expenses')) {
-    const rows = oldestFirst((data.expenses ?? []).filter((e) => upTo(e, period)));
+    const rows = oldestFirst((data.expenses ?? []).filter((e) => e.month === period.month && e.year === period.year));
     if (rows.length) {
       const totalExp = rows.filter((e) => e.kind === 'expense').reduce((a, e) => a + e.amount, 0);
       const totalInc = rows.filter((e) => e.kind === 'income').reduce((a, e) => a + e.amount, 0);
@@ -526,8 +519,8 @@ export function exportReportExcel(data: DataSet, period: Period): void {
   sheets.push({
     name: 'Stock',
     rows: [
-      ['Bond', 'Opening', 'Purchased', 'Sold', 'Closing', 'Avg Cost', 'Value', 'Profit'],
-      ...stock.map((s) => [s.bondTypeName, s.openingQty, s.purchasedQty, s.soldQty, s.closingQty, s.avgCost, s.closingValue, profitOf(s.bondTypeId)]),
+      ['Bond', 'Opening', 'Purchased', 'Sold', 'Closing', 'Avg Cost (Month)', 'Value', 'Profit'],
+      ...stock.map((s) => [s.bondTypeName, s.openingQty, s.purchasedQty, s.soldQty, s.closingQty, s.monthAvgCost, s.closingValue, profitOf(s.bondTypeId)]),
       ['Total', '', '', '', stock.reduce((a, s) => a + s.closingQty, 0), '', stock.reduce((a, s) => a + s.closingValue, 0), round2(stock.reduce((a, s) => a + profitOf(s.bondTypeId), 0))],
     ],
   });
@@ -535,7 +528,7 @@ export function exportReportExcel(data: DataSet, period: Period): void {
     name: 'Purchases',
     rows: [
       ['Date', 'Party', 'Bond', 'Qty', 'Rate', 'Amount', 'Mode', 'Description'],
-      ...oldestFirst(data.purchases.filter((p) => upTo(p, period)))
+      ...oldestFirst(data.purchases.filter((p) => p.month === period.month && p.year === period.year))
         .map((p) => [p.date, partyName(data, p.partyId), bondName(data, p.bondTypeId), p.quantity, p.rate, p.amount, p.payment, describePurchase(data, p)]),
     ],
   });
@@ -543,7 +536,7 @@ export function exportReportExcel(data: DataSet, period: Period): void {
     name: 'Sales',
     rows: [
       ['Date', 'Party', 'Bond', 'Qty', 'Rate', 'Amount', 'Profit', 'Mode', 'Description'],
-      ...oldestFirst(data.sales.filter((s) => upTo(s, period)))
+      ...oldestFirst(data.sales.filter((s) => s.month === period.month && s.year === period.year))
         .map((s) => [s.date, partyName(data, s.partyId), bondName(data, s.bondTypeId), s.quantity, s.rate, s.amount, saleProfitLive(data, s, period), s.receipt, describeSale(data, s)]),
     ],
   });
@@ -551,7 +544,7 @@ export function exportReportExcel(data: DataSet, period: Period): void {
     name: 'Cash',
     rows: [
       ['Date', 'Party', 'Direction', 'Amount', 'Description'],
-      ...newestFirst(data.cash.filter((c) => upTo(c, period)))
+      ...newestFirst(data.cash.filter((c) => c.month === period.month && c.year === period.year))
         .map((c) => [c.date, partyName(data, c.partyId), c.direction, c.amount, describeCash(data, c)]),
     ],
   });
@@ -559,7 +552,7 @@ export function exportReportExcel(data: DataSet, period: Period): void {
     name: 'ExpensesIncome',
     rows: [
       ['Date', 'Type', 'Category', 'Note', 'Amount'],
-      ...(data.expenses ?? []).filter((e) => upTo(e, period))
+      ...(data.expenses ?? []).filter((e) => e.month === period.month && e.year === period.year)
         .map((e) => [e.date, e.kind, e.category, e.description ?? '', e.amount]),
     ],
   });

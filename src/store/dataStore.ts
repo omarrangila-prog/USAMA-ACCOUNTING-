@@ -872,47 +872,53 @@ export const useData = create<DataStore>((set, get) => ({
     const label = `${monthName(p.month)} ${p.year}`;
     const done: string[] = [];
 
-    if (which.profit) {
-      // Offset = whatever Profit currently reads, so the figure lands on 0.
-      // Re-zeroing an already-closed month must not double up, so any existing
-      // closing for the month is replaced rather than added to.
-      const gross = profitClosingAmountFor(data, p);
-      await Promise.all(
-        get().profitClosings.filter((c) => c.month === p.month && c.year === p.year)
-          .map((c) => removeDoc(u, 'profitClosings', c.id))
-      );
-      if (gross !== 0) {
-        const rec: ProfitClosing = {
-          id: uid(), date, month: p.month, year: p.year, amount: gross,
-          note: `Profit closed to 0 for ${label}`, createdAt: now(), updatedAt: now(),
-        };
-        await upsertDoc(u, 'profitClosings', rec);
-      }
-      done.push('Profit');
-    }
+    // EXPENSE FIRST, then profit. Expenses are deducted from Profit, so zeroing
+    // them raises the profit figure. Computing the profit offset from the
+    // ORIGINAL data would leave Profit sitting at +expenses instead of 0.
+    // `working` threads each new closing through so the next amount is computed
+    // against what the user will actually see.
+    let working = data;
+    const replaceIn = (rows: ProfitClosing[] | undefined, rec: ProfitClosing | null) => [
+      ...(rows ?? []).filter((c) => !(c.month === p.month && c.year === p.year)),
+      ...(rec ? [rec] : []),
+    ];
 
     if (which.expense) {
-      // Same shape: offset the RUNNING gross expense total as at this month
-      // (before any existing closing), replacing rather than stacking. Totals
-      // are continuous, so a per-month sum here would leave everything recorded
-      // before this month still showing.
-      const gross = expenseClosingAmountFor(data, p);
+      // Offset the month's gross expense total, before any existing closing, so
+      // re-zeroing replaces rather than stacks a second offset.
+      const gross = expenseClosingAmountFor(working, p);
       await Promise.all(
         get().expenseClosings.filter((c) => c.month === p.month && c.year === p.year)
           .map((c) => removeDoc(u, 'expenseClosings', c.id))
       );
-      if (gross !== 0) {
-        const rec: ProfitClosing = {
-          id: uid(), date, month: p.month, year: p.year, amount: gross,
-          note: `Expenses closed to 0 for ${label}`, createdAt: now(), updatedAt: now(),
-        };
-        await upsertDoc(u, 'expenseClosings', rec);
-      }
+      const rec: ProfitClosing | null = gross === 0 ? null : {
+        id: uid(), date, month: p.month, year: p.year, amount: gross,
+        note: `Expenses closed to 0 for ${label}`, createdAt: now(), updatedAt: now(),
+      };
+      if (rec) await upsertDoc(u, 'expenseClosings', rec);
+      working = { ...working, expenseClosings: replaceIn(working.expenseClosings, rec) };
       done.push('Expense');
     }
 
+    if (which.profit) {
+      // Offset = whatever Profit reads once the expense closing above applies,
+      // so the figure lands on 0. Works for a loss too (a negative offset).
+      const gross = profitClosingAmountFor(working, p);
+      await Promise.all(
+        get().profitClosings.filter((c) => c.month === p.month && c.year === p.year)
+          .map((c) => removeDoc(u, 'profitClosings', c.id))
+      );
+      const rec: ProfitClosing | null = gross === 0 ? null : {
+        id: uid(), date, month: p.month, year: p.year, amount: gross,
+        note: `Profit closed to 0 for ${label}`, createdAt: now(), updatedAt: now(),
+      };
+      if (rec) await upsertDoc(u, 'profitClosings', rec);
+      working = { ...working, profitClosings: replaceIn(working.profitClosings, rec) };
+      done.push('Profit');
+    }
+
     if (which.cash) {
-      const gross = cashClosingAmountFor(data, p);
+      const gross = cashClosingAmountFor(working, p);
       await Promise.all(
         get().cashClosings.filter((c) => c.month === p.month && c.year === p.year)
           .map((c) => removeDoc(u, 'cashClosings', c.id))

@@ -42,10 +42,17 @@ const SEP = { month: 9, year: 2026 };
 const closingFor = (id: string, amount: number): ProfitClosing =>
   ({ id, date: '2026-08-31', month: 8, year: 2026, amount, createdAt: now, updatedAt: now });
 
-const zeroed: DataSet = {
+// Order matters: expenses are deducted from Profit, so the expense closing is
+// applied FIRST and the profit closing is then sized against what Profit reads
+// once expenses are already zeroed. Sizing both against `plain` would leave
+// Profit sitting at +expenses instead of 0. This mirrors zeroMonthFigures.
+const withExpenseZeroed: DataSet = {
   ...plain,
-  profitClosings: [closingFor('pc', computeProfitLoss(plain, AUG))],
   expenseClosings: [closingFor('ec', computeExpenseNet(plain, AUG).expense)],
+};
+const zeroed: DataSet = {
+  ...withExpenseZeroed,
+  profitClosings: [closingFor('pc', computeProfitLoss(withExpenseZeroed, AUG))],
 };
 
 /** The August snapshot resyncClosing writes — the thing September reads from. */
@@ -69,8 +76,9 @@ describe('Zeroing August Profit & Expense — everything else carries on unchang
   it('August itself reports 0 for both figures', () => {
     expect(computeProfitLoss(zeroed, AUG)).toBe(0);
     expect(computeExpenseNet(zeroed, AUG).expense).toBe(0);
-    // ...while the un-zeroed dataset still shows the real numbers.
-    expect(computeProfitLoss(plain, AUG)).toBe(8000);
+    // ...while the un-zeroed dataset still shows the real numbers. Profit is
+    // trading 8,000 LESS the 42,000 of expenses — a 34,000 loss.
+    expect(computeProfitLoss(plain, AUG)).toBe(-34000);
     expect(computeExpenseNet(plain, AUG).expense).toBe(42000);
   });
 
@@ -79,12 +87,12 @@ describe('Zeroing August Profit & Expense — everything else carries on unchang
     expect(augustClosing(zeroed).partyBalances).toEqual(augustClosing(plain).partyBalances);
   });
 
-  it('September stock is unchanged by the zeroing', () => {
+  it('September opening stock carries the same qty and value', () => {
     const sepPlain = computeStock({ ...plain, closings: [augustClosing(plain)] }, SEP);
     const sepZeroed = computeStock({ ...zeroed, closings: [augustClosing(zeroed)] }, SEP);
     expect(sepZeroed).toEqual(sepPlain);
     // and it really did carry something — 100 bought, 40 sold.
-    expect(sepPlain[0].closingQty).toBe(60);
+    expect(sepPlain[0].openingQty).toBe(60);
   });
 
   it('September party balances / receivable / payable carry the same', () => {
@@ -107,10 +115,7 @@ describe('Zeroing August Profit & Expense — everything else carries on unchang
     expect(b.cashPayable).toBe(a.cashPayable);
   });
 
-  it('September shows only what September added, on top of the zeroed August', () => {
-    // Totals are continuous, so August's closing offset must keep applying —
-    // otherwise August's 42,000 of expenses would reappear inside September's
-    // running total, undoing the zeroing a month later.
+  it('September profit & expenses are NOT zeroed by August closings', () => {
     const sepData: DataSet = {
       ...zeroed,
       sales: [...zeroed.sales, { ...sale, id: 'sa2', date: '2026-09-04', ...meta(9) }],
@@ -118,7 +123,6 @@ describe('Zeroing August Profit & Expense — everything else carries on unchang
       closings: [augustClosing(zeroed)],
     };
     expect(computeExpenseNet(sepData, SEP).expense).toBe(5000);
-    // September's own sale still produces profit — the closing didn't freeze it.
-    expect(computeProfitLoss(sepData, SEP)).toBeGreaterThan(0);
+    expect(computeProfitLoss(sepData, SEP)).not.toBe(0);
   });
 });

@@ -135,8 +135,18 @@ export interface StockLine {
   purchasedQty: number;
   soldQty: number;
   closingQty: number;
-  /** Weighted average cost per unit. */
+  /**
+   * Weighted average cost per unit, carrying the opening stock's cost. This is
+   * the VALUATION basis — closingValue and cost-of-goods both use it.
+   */
   avgCost: number;
+  /**
+   * Average cost of what was bought THIS MONTH only, ignoring carried stock.
+   * Resets to 0 in a month with no purchases. Shown in the Stock Report so the
+   * month's own buying rate is visible; never used to value stock or compute
+   * profit, which would zero the stock value of carried bonds.
+   */
+  monthAvgCost: number;
   closingValue: number;
 }
 
