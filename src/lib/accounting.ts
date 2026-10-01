@@ -201,47 +201,28 @@ function openingStockFor(
 }
 
 /**
- * Opening stock for EVERY bond, rebuilt from every purchase / sale / adjustment
- * up to and including `upTo` and seeded by an imported opening where one
- * applies. Weighted average over the whole history — the same costing the
- * month-by-month walk produces, since sales don't move the average.
+ * Every bond's closing position at the end of `upTo`, produced by the SAME
+ * month-by-month weighted-average walk computeStock performs — i.e. exactly
+ * what a closing snapshot for that month would have stored.
  *
- * Built for all bonds in ONE pass: computeStock needs each bond's opening, and
- * scanning the whole history separately per bond turns a report into O(bonds x
- * records).
+ * Used when a month has no closing snapshot to carry from. It must NOT be a
+ * single weighted average across the whole history. The walk weights an older
+ * purchase only by the quantity still on hand when the next month opens, while
+ * a whole-history average weights it by everything ever bought. Whenever bonds
+ * are sold between purchases at different prices the two disagree — which is
+ * how October came to open 277,310 above September's close with not one
+ * October entry recorded.
+ *
+ * Recursion ends at the first month that has a snapshot, a migration opening,
+ * or nothing before it, so the depth is only the run of unclosed months.
  */
 type Carry = { qty: number; avgCost: number };
 
-function derivedOpeningStockAll(upTo: Period, data: DataSet): Map<string, Carry> {
-  const within = (r: { month: number; year: number }) => upToPeriod(r, upTo);
-  const acc = new Map<string, { inQty: number; inValue: number; outQty: number }>();
-  const at = (id: string) => {
-    let e = acc.get(id);
-    if (!e) { e = { inQty: 0, inValue: 0, outQty: 0 }; acc.set(id, e); }
-    return e;
-  };
-
-  const op = data.opening;
-  if (op && op.asOf.year * 12 + op.asOf.month <= upTo.year * 12 + upTo.month) {
-    op.stock.forEach((l) => { const e = at(l.bondTypeId); e.inQty += l.qty; e.inValue += l.qty * l.avgCost; });
-  }
-  data.purchases.forEach((r) => {
-    if (!within(r)) return;
-    const e = at(r.bondTypeId); e.inQty += r.quantity; e.inValue += r.amount;
-  });
-  data.sales.forEach((r) => { if (within(r)) at(r.bondTypeId).outQty += r.quantity; });
-  (data.stockAdjustments ?? []).forEach((r) => {
-    if (!within(r)) return;
-    const e = at(r.bondTypeId);
-    if (r.quantity > 0) { e.inQty += r.quantity; e.inValue += r.quantity * r.unitCost; }
-    else e.outQty += Math.abs(r.quantity);
-  });
-
+function walkedClosingAll(upTo: Period, data: DataSet): Map<string, Carry> {
   const out = new Map<string, Carry>();
-  acc.forEach((e, id) => out.set(id, {
-    qty: round2(e.inQty - e.outQty),
-    avgCost: round2(e.inQty > 0 ? e.inValue / e.inQty : 0),
-  }));
+  for (const line of computeStock(data, upTo)) {
+    out.set(line.bondTypeId, { qty: line.closingQty, avgCost: line.avgCost });
+  }
   return out;
 }
 
@@ -264,7 +245,19 @@ function hasHistoryBefore(data: DataSet, upTo: Period): boolean {
 }
 
 function derivedOpeningStock(bondTypeId: string, upTo: Period, data: DataSet): Carry {
-  return derivedOpeningStockAll(upTo, data).get(bondTypeId) ?? NO_CARRY;
+  return walkedClosingAll(upTo, data).get(bondTypeId) ?? NO_CARRY;
+}
+
+/**
+ * Openings for every bond at once when the previous month has no snapshot and
+ * must be walked; null when the cheap per-bond path (snapshot / migration /
+ * nothing before) applies. Lets per-bond callers walk once instead of per bond.
+ */
+function walkedOpenings(period: Period, data: DataSet): Map<string, Carry> | null {
+  const prev = prevPeriod(period);
+  const hasClosing = data.closings.some((c) => c.month === prev.month && c.year === prev.year);
+  const migrating = isOpeningPeriod(data.opening, period);
+  return !hasClosing && !migrating && hasHistoryBefore(data, prev) ? walkedClosingAll(prev, data) : null;
 }
 
 /** Imported opening stock for a bond, applied only in the migration period. */
@@ -289,7 +282,7 @@ export function computeStock(data: DataSet, period: Period): StockLine[] {
   const hasClosing = data.closings.some((c) => c.month === prev.month && c.year === prev.year);
   const migrating = isOpeningPeriod(data.opening, period);
   const carried = !hasClosing && !migrating && hasHistoryBefore(data, prev)
-    ? derivedOpeningStockAll(prev, data)
+    ? walkedClosingAll(prev, data)
     : null;
 
   return data.bondTypes.map((bt) => {
@@ -404,10 +397,11 @@ export function computeProfitByBond(data: DataSet, period: Period): { bondTypeId
 }
 
 export function computeBondMovement(data: DataSet, period: Period): BondMovement[] {
+  const walked = walkedOpenings(period, data);
   return data.bondTypes.map((bt) => {
     const purchases = data.purchases.filter((p) => p.bondTypeId === bt.id && inPeriod(p, period));
     const sales = data.sales.filter((s) => s.bondTypeId === bt.id && inPeriod(s, period));
-    const opening = openingStockFor(bt.id, period, data);
+    const opening = walked ? walked.get(bt.id) ?? NO_CARRY : openingStockFor(bt.id, period, data);
     const purchasedQty = purchases.reduce((a, p) => a + p.quantity, 0);
     const soldQty = sales.reduce((a, s) => a + s.quantity, 0);
     const pVal = purchases.reduce((a, p) => a + p.amount, 0);
@@ -508,7 +502,8 @@ function openingPartyBalance(
 
 /**
  * Every party's balance rebuilt from their cash movements / adjustments up to
- * `upTo`. One pass for all parties — see derivedOpeningStockAll for why.
+ * `upTo`, in one pass for all parties. (Balances are plain sums, so unlike
+ * stock costing a whole-history total IS the correct carry here.)
  */
 function derivedPartyBalanceAll(upTo: Period, data: DataSet): Map<string, number> {
   const within = (r: { month: number; year: number }) => upToPeriod(r, upTo);
