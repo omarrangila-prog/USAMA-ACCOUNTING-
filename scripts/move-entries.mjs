@@ -7,6 +7,11 @@
  *
  *   node scripts/move-entries.mjs --from 2026-10 --to 2026-09-30
  *   node scripts/move-entries.mjs --from 2026-10 --to 2026-09-30 --apply
+ *   node scripts/move-entries.mjs --from 2026-10 --to 2026-11-01 --typed-on 2026-11-01
+ *
+ * --typed-on YYYY-MM-DD limits the move to records actually typed in on that day
+ * (Pakistan time). Use it when the top bar was left on an old month and a day's
+ * entries were pre-filled with that month's 1st.
  *
  * Refuses to touch a record marked `locked`. Prints every record before and
  * after, and re-reads to confirm. To undo, run it the other way with the
@@ -29,6 +34,7 @@ const argOf = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : 
 const from = argOf('--from');          // YYYY-MM  (source month)
 const to = argOf('--to');              // YYYY-MM-DD (target date)
 const apply = args.includes('--apply');
+const typedOn = argOf('--typed-on');   // YYYY-MM-DD, Pakistan time
 
 if (!/^\d{4}-\d{2}$/.test(from ?? '') || !/^\d{4}-\d{2}-\d{2}$/.test(to ?? '')) {
   console.error('Usage: node scripts/move-entries.mjs --from YYYY-MM --to YYYY-MM-DD [--apply]');
@@ -47,12 +53,14 @@ const nameOf = (id) => parties.find((p) => p.id === id)?.name ?? '(no party)';
 const found = [];
 for (const name of COLLECTIONS) {
   for (const r of await read(name)) {
-    if (r.month === fm && r.year === fy) found.push({ ...r, coll: name });
+    const typedDay = new Date((r.createdAt ?? 0) + 5 * 3600e3).toISOString().slice(0, 10);
+    if (r.month === fm && r.year === fy && (!typedOn || typedDay === typedOn)) found.push({ ...r, coll: name });
   }
 }
 
 console.log(`Workspace : ${WORKSPACE}`);
 console.log(`Move      : ${from}  ->  ${to}  (month ${tm}, year ${ty})`);
+if (typedOn) console.log(`Only      : records typed on ${typedOn} (PKT)`);
 console.log(`Found     : ${found.length} record(s)\n`);
 
 const locked = found.filter((r) => r.locked);
