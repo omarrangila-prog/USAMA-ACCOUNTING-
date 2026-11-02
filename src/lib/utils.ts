@@ -10,8 +10,14 @@ export function now(): number {
   return Date.now();
 }
 
+/**
+ * Today's date in the business's own time zone (local clock), not UTC.
+ * toISOString() is UTC, which in Pakistan is still "yesterday" until 5 am — an
+ * entry made just after midnight on the 1st landed in the previous month.
+ */
 export function todayISO(): ISODate {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function periodOf(dateISO: ISODate): Period {
@@ -25,11 +31,15 @@ export function periodOf(dateISO: ISODate): Period {
  * month the user is viewing without touching the date field.
  */
 export function defaultDateForPeriod(p: Period): ISODate {
-  const today = new Date();
-  if (p.year === today.getFullYear() && p.month === today.getMonth() + 1) {
-    return today.toISOString().slice(0, 10);
-  }
-  return `${p.year}-${String(p.month).padStart(2, '0')}-01`;
+  const today = todayISO();
+  const cur = Number(today.slice(0, 4)) * 12 + Number(today.slice(5, 7));
+  const sel = p.year * 12 + p.month;
+  // Selected month is the current one → today.
+  if (sel === cur) return today;
+  // A PAST month (e.g. still finishing October in early November) → its LAST
+  // day, so late entries sit at the end of that month rather than all piling
+  // onto the 1st. A future month → its 1st.
+  return sel < cur ? lastDateOfPeriod(p) : `${p.year}-${String(p.month).padStart(2, '0')}-01`;
 }
 
 /**
